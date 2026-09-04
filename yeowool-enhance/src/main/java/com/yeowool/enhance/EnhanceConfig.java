@@ -97,6 +97,11 @@ public final class EnhanceConfig {
         return maxLevel;
     }
 
+    /** Sorted ascending by threshold level — index position drives {@link EnhanceItemData}'s tooltip style escalation. */
+    public List<EnhanceTier> tiers() {
+        return List.copyOf(tiers);
+    }
+
     /** The highest tier whose level threshold is {@code <=} the given level. */
     public EnhanceTier tierFor(int level) {
         EnhanceTier current = tiers.get(0);

@@ -4,6 +4,27 @@
 
 ## 2026-09-04
 
+### 강화 장비 tooltip_style 적용 + spigot.yml 크래시 자동 재시작 복구 + plugin.yml 버그 수정
+세 가지가 한 번에 얽힌 작업:
+
+**1. 마인크래프트 1.21.2+ 바닐라 `minecraft:tooltip_style` 적용 (Ultimate Tooltips 리소스팩)**
+구매한 "Ultimate Tooltips (Animated)" 팩의 `assets/minecraft/textures/gui/sprites/tooltip/<등급>_{background,frame}.png`(9-slice + 애니메이션 mcmeta)를 신규 ItemsAdder 콘텐츠팩 `yeowool_tooltips`(세 서버 공통, `resourcepack/assets/minecraft/...`로 바닐라 minecraft 네임스페이스를 직접 덮어씀 — 기존 `cosmetics` 팩의 `assets/minecraft/atlases`/`models/item` 오버라이드와 동일한 방식)로 병합. `/iareload`+`/iazip`은 비동기라 즉시 zip을 열어보면 반영 전일 수 있음 — 몇 초 폴링 후 재확인 필요(이번에 실제로 그래서 처음엔 "안 들어간 줄" 착각했었음).
+
+강화(`/강화`) 장비에 실제로 적용: `EnhanceItemData.applyLevel()`이 레벨 변경마다 `item.setData(DataComponentTypes.TOOLTIP_STYLE, ...)`로 현재 등급(`EnhanceConfig.tierFor`)에 맞는 스타일을 심음 — 일반→common, 희귀→rare, 에픽→epic, (향후 4·5번째 등급 추가 시) legendary→artifact 순으로 자동 승격(`EnhanceConfig.tiers()`에서 해당 등급의 서수 위치로 스타일 배열 인덱싱). +0강(미강화)이면 `unsetData`로 바닐라 기본 툴팁으로 되돌림.
+
+**2. spigot.yml `restart-on-crash` 복구**: 로비/타운/야생/큐 4개 서버 전부 `restart-on-crash: true`는 켜져 있었지만 `restart-script: ./start.sh`가 이 윈도우 환경에 존재하지 않는 경로라 크래시/행 감지 시 재시작이 실질적으로 무의미했음 — `start.bat`으로 수정. 크래시-재시작 시 새로 뜨는 cmd 창이 `pause`에 멈춰 좀비로 남는 것도 방지하려고 각 `start.bat`의 마지막 `pause` 줄 제거. (참고: 이 기능은 워치독이 감지하는 행/크래시에만 반응하고, `/서버재부팅설정`의 정상적인 `/stop` 종료는 트리거하지 않음 — 둘은 서로 다른 안전망으로 공존.)
+
+**3. yeowool-admin `plugin.yml` YAML 문법 버그**: `서버재부팅설정` 명령어 설명에 콜론+공백(`예: /...`)이 따옴표 없이 들어가 YAML 파싱이 깨짐 — YeowoolAdmin 전체가 조용히 로드 실패(콘솔에 에러도 안 뜸, YeowoolDiscord처럼 그걸 의존하는 플러그인이 있어야만 `UnknownDependencyException`으로 간접 발각됨). 세 서버 다 `/여울관리`·`/경고`·`/추방`·`/쿠폰` 등 관리 명령어 전체가 먹통이었던 상태 — description을 큰따옴표로 감싸서 수정.
+
+### 예약 자동 재부팅 시스템 (yeowool-admin)
+운영진이 지정한 시각에 서버가 자동으로 재부팅되도록 요청받아 신규 `restart` 패키지 추가:
+- `/서버재부팅설정 <HH:mm[,HH:mm...]|해제>` — 이 서버(`restart.this-server-id`, 로비/타운/야생 배포본마다 다르게 설정)의 자동 재부팅 시각을 인게임에서 즉시 설정/해제(`yw_server_restart_schedule` DB 테이블에 저장, 재시작 없이 바로 반영). 인자 없이 실행하면 현재 예약 조회. 여러 시각을 콤마로 지정 가능(예: 하루 2번).
+- `ScheduledRestartTask`가 1초마다 다음 예약 시각까지 남은 시간을 확인해 10분/5분/1분 전 채팅 경고(`MessageService.broadcast`)를 보내고, 1분 전에는 `YeowoolCoreAPI.playerData().saveAll()`을 백그라운드로 한 번 더 트리거해 재부팅으로 인한 "백섭"(저장 안 된 최근 데이터가 롤백되는 현상)을 방지 — 재부팅 자체는 `Bukkit.shutdown()`으로 정상 종료시켜, YeowoolCore의 `onDisable`에 이미 있던 `saveAll().join()` 안전망도 그대로 한 번 더 걸림.
+- **한계**: Paper 플러그인은 자기 자신의 JVM을 재실행할 수 없어서, 이 기능은 "경고 후 안전하게 종료"까지만 담당함. 종료된 프로세스를 실제로 다시 띄우는 건 서버 밖의 워치독/작업 스케줄러가 따로 필요함(아직 미구현 — 필요시 추가 요청).
+
+### 출석체크 보상 기본값 채우기 (yeowool-community)
+출석 보상(일일/주간/월간)이 비어있어서 신규 1회성 명령어 `/출석보상초기화` 추가: 일일 1,500온 + 자동줍기권/자동심기권 각 50회, 주간 15,000온 + 각 500회, 월간 100,000온 + 각 1,000회로 채움. 이미 아이템이 있는 티어는 건너뛰어 재실행해도 안전. 자동줍기권/자동심기권 아이템은 yeowool-life의 `AutoFarmVoucherItem`이 쓰는 것과 동일한 PDC 키(`yeowoollife:autofarm_voucher_type`/`_charges`)를 직접 만들어 사용 — yeowool-community가 yeowool-life에 의존하지 않고도(그 모듈은 로비에 안 깔림) 완전히 호환되는 아이템을 만들기 위함.
+
 ### 강화 파괴 보호권 아이콘 교체 + /강화설정 GUI화
 "파괴 보호권"(강화 실패로 하락/파괴될 때 대신 소모되는 보호 아이템, `enhance.protection-item`)을 기존 바닐라 네더라이트 주괴에서 `moafarm_items:easypoint`(이미 리소스팩에 있던 미사용 아이콘, PAPER 베이스)로 교체. 아이템 자체의 표시 이름도 "Easypoint" → "파괴 보호권"으로 변경(`moafarm_items.yml`) — 다른 시스템에서 이 아이템을 참조하는 곳이 없어서 안전하게 재활용.
 

@@ -24,6 +24,13 @@ moderation:
     # 0 이하면 비활성화. 기본값 5분.
     auto-ban-review-interval-ticks: 6000
 
+restart:
+  # 이 서버의 ID (멀티서버 환경에서 서버마다 재부팅 일정을 따로 관리하기 위함) — 로비/타운/야생 배포본마다 다르게 설정.
+  this-server-id: lobby
+  # 기본 자동 재부팅 시각(HH:mm, 24시간제, 콤마로 여러 개 지정 가능). 비워두면 비활성화.
+  # /서버재부팅설정으로 인게임에서 바꾸면 그 값이 DB에 저장되어 이 기본값 대신 쓰입니다.
+  default-times: ""
+
 backup:
   # 자동 백업 주기 (틱). 0 이하로 설정하면 비활성화. 기본값 6시간.
   auto-interval-ticks: 432000

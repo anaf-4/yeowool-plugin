@@ -188,6 +188,18 @@ npctag:
   remove-success: "<green>태그를 제거했습니다.</green>"
   create-dispatched: "<green><name> 이름으로 태그가 붙은 ModeledNPC 생성 명령어를 실행했습니다.</green>"
 
+restart:
+  warning-10: "<yellow>⚠ 서버가 <white>10분</white> 후 자동으로 재부팅됩니다.</yellow>"
+  warning-5: "<yellow>⚠ 서버가 <white>5분</white> 후 자동으로 재부팅됩니다.</yellow>"
+  warning-1: "<red>⚠ 서버가 <white>1분</white> 후 재부팅됩니다! 안전한 곳에서 대기해주세요.</red>"
+  saving: "<gray>서버 데이터를 저장하는 중입니다...</gray>"
+  now: "<red><bold>서버가 지금 재부팅됩니다.</bold></red>"
+  set: "<green>이 서버의 자동 재부팅 시각을 <white><times></white>(으)로 설정했습니다.</green>"
+  cleared: "<green>이 서버의 자동 재부팅을 껐습니다.</green>"
+  invalid-time: "<red>시간 형식이 올바르지 않습니다. 예: /서버재부팅설정 06:00,18:00</red>"
+  status: "<gray>현재 자동 재부팅 예약: <white><times></white></gray>"
+  status-none: "<gray>현재 예약된 자동 재부팅이 없습니다.</gray>"
+
 raffle:
   usage: "<red>사용법: /추첨 <당첨 인원 수> (손에 든 아이템이 상품)</red>"
   hand-empty: "<red>추첨할 상품 아이템을 손에 들고 사용하세요.</red>"

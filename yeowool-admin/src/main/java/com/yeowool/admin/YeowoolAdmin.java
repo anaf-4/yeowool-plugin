@@ -47,6 +47,11 @@ import com.yeowool.admin.moderation.UnmuteCommand;
 import com.yeowool.admin.moderation.WarnAutoBanReviewTask;
 import com.yeowool.admin.moderation.WarnCommand;
 import com.yeowool.admin.report.ReportCommand;
+import com.yeowool.admin.restart.RestartScheduleCommand;
+import com.yeowool.admin.restart.RestartScheduleRepository;
+import com.yeowool.admin.restart.RestartScheduleSchemaInitializer;
+import com.yeowool.admin.restart.RestartScheduleStore;
+import com.yeowool.admin.restart.ScheduledRestartTask;
 import com.yeowool.admin.starterkit.StarterKitJoinListener;
 import com.yeowool.admin.starterkit.StarterKitRepository;
 import com.yeowool.admin.starterkit.StarterKitSchemaInitializer;
@@ -252,6 +257,26 @@ public final class YeowoolAdmin extends JavaPlugin {
             getLogger().severe("추첨 이력 로드 실패: " + e.getMessage());
         }
         bindCommand("추첨", new RaffleCommand(this, core, messages, raffleManager));
+
+        // 예약 자동 재부팅 (운영진이 /서버재부팅설정으로 시각 지정, 10/5/1분 전 채팅 안내 후 재부팅 직전 데이터 저장)
+        try {
+            RestartScheduleSchemaInitializer.initialize(core.dataSource());
+        } catch (Exception e) {
+            getLogger().severe("자동 재부팅 데이터베이스 초기화 실패: " + e.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        RestartScheduleRepository restartScheduleRepository = new RestartScheduleRepository(core.dataSource());
+        String restartServerId = getConfig().getString("restart.this-server-id", "lobby");
+        String restartDefaultTimes = getConfig().getString("restart.default-times", "");
+        RestartScheduleStore restartScheduleStore = new RestartScheduleStore(this, restartScheduleRepository, executor, restartServerId, restartDefaultTimes);
+        try {
+            restartScheduleStore.loadIntoCache();
+        } catch (Exception e) {
+            getLogger().severe("자동 재부팅 일정 로드 실패: " + e.getMessage());
+        }
+        bindCommand("서버재부팅설정", new RestartScheduleCommand(restartScheduleStore, messages));
+        new ScheduledRestartTask(this, core, messages, restartScheduleStore).runTaskTimer(this, 20L, 20L);
 
         long autoBackupIntervalTicks = getConfig().getLong("backup.auto-interval-ticks", 20L * 60 * 60 * 6);
         if (autoBackupIntervalTicks > 0) {
