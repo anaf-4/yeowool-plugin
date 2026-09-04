@@ -1,0 +1,84 @@
+# YeowoolTeleport 설정
+
+teleport:
+  # 순간이동 전 대기 시간 (초). 0이면 즉시 이동.
+  delay-seconds: 3
+  # 대기 중 이동하면 취소할지 여부 (전투 도주 방지)
+  cancel-on-move: true
+  # 순간이동 성공 후 다시 이동하기까지의 쿨다운 (초)
+  cooldown-seconds: 5
+  # 플레이어 한 명이 등록할 수 있는 홈 개수
+  max-homes: 3
+  # 플레이어 한 명이 등록할 수 있는 "플레이어 워프"(공개, 다른 사람도 방문 가능) 개수
+  max-player-warps: 1
+
+# /플레이어워프 GUI 배경. "PlayerWarps GUI" 팩(namespace: playerwarps_gui)을 사용함 -
+# contents/playerwarps_gui 폴더를 서버 ItemsAdder에 넣고 /iazip 해야 실제로 보임.
+# 없으면 자동으로 평범한 GUI 제목 + 나침반 아이콘으로 대체됨. 배경이 어긋나 보이면
+# 이 값을 조절하세요(음수가 클수록 왼쪽으로 이동) — /도감·/거래소와 같은 방식입니다.
+player-warp-gui:
+  gui-background-offset: -8
+
+# /플레이어워프 요금·제한·카테고리. 요금은 실제 "PlayerWarps" 플러그인 기본값을 그대로 옮겨온 것 —
+# 0으로 두면 그 요금은 비활성화됩니다. 카테고리 아이콘은 "PlayerWarps GUI" 팩(playerwarps_gui)에
+# 이미 들어있는 걸 그대로 사용했고, 새 카테고리를 추가하려면 icon에 원하는 아이템 ID를 넣으세요.
+player-warp:
+  create-fee: 5000
+  rename-fee: 500
+  relocate-fee: 1000
+  transfer-ownership-fee: 0
+  set-price-fee: 0
+  set-category-fee: 0
+  set-preview-item-fee: 0
+  set-description-fee: 0
+  set-display-name-fee: 200
+  set-accessibility-fee: 0
+  delete-refund: 2000
+  max-admission: 100000
+  name-max-length: 24
+  display-name-max-length: 32
+  description-max-length: 50
+  # 이동 직전 목적지가 용암/불/낙사(공허)로 위험하면 자동으로 근처 안전한 곳을 찾아 그곳으로 이동시킵니다
+  # (12칸 범위 안에서 못 찾으면 이동을 취소하고 안내 메시지를 보냄). false로 끄면 항상 저장된 좌표 그대로 이동.
+  check-safe-teleport: true
+  banned-preview-items:
+    - DEBUG_STICK
+    - BARRIER
+    - STRUCTURE_VOID
+  categories:
+    - id: farm
+      name: "농장"
+      icon: "playerwarps_gui:farm_warpicon"
+    - id: building
+      name: "건축"
+      icon: "playerwarps_gui:building_warpicon"
+    - id: events
+      name: "이벤트"
+      icon: "playerwarps_gui:events_warpicon"
+
+# /워프 GUI 꾸미기. size는 9의 배수로 자동 보정됨 (9~54).
+# decoration: 빈 슬롯을 채울 장식 아이템 ("도트" 텍스처 리소스팩용 custom-model-data 지정 가능, -1이면 바닐라 텍스처 그대로)
+# icon: 워프 아이콘 자체의 기본 모양 (custom-model-data로 도트 텍스처 지정 가능)
+warp-gui:
+  size: 27
+  decoration:
+    material: GRAY_STAINED_GLASS_PANE
+    custom-model-data: -1
+  icon:
+    material: COMPASS
+    custom-model-data: -1
+
+# /rtp (무작위 순간이동). 현재 월드 스폰을 중심으로 min-radius~radius 범위에서
+# 무작위 좌표를 뽑고, 안전한 곳(용암/낙사 아님)을 찾아 이동시킵니다.
+# cooldown-seconds는 teleport.cooldown-seconds(일반 이동 쿨다운)와 별개로,
+# RTP 전용의 더 긴 쿨다운입니다.
+# enabled: 이 서버에서 /rtp 자체를 쓸 수 있는지 (로비처럼 야생 월드가 없는 서버는 false로)
+rtp:
+  enabled: true
+  cooldown-seconds: 300
+  min-radius: 100
+  radius:
+    overworld: 5000
+    nether: 1000
+    end: 2000
+  gui-background-offset: -8

@@ -1,0 +1,118 @@
+# 강화 시스템 — 무기(검/도끼/활/석궁/삼지창)와 방어구(투구/흉갑/각반/신발)만 강화 가능합니다.
+# 9강까지는 "일반" 등급, 10강 성공 시 "희귀", 15강 성공 시 "에픽"으로 등급이 자동으로 올라갑니다.
+# (이 목록에 항목을 추가하면 그 이상 등급도 계속 이어집니다 — level 오름차순으로 정렬되어 있어야 합니다)
+enhance:
+  # /강화 GUI 배경(yeowool_enhance:enhance_bg, AdvancedEnchantments UI 팩 기반)의 세로 위치 보정값 — 인게임에서 보면서 조정하세요.
+  gui-background-offset: -8
+  max-level: 30
+  tiers:
+    - level: 0
+      name: "일반"
+      color: WHITE
+      stat-multiplier: 1.0
+    - level: 10
+      name: "희귀"
+      color: AQUA
+      stat-multiplier: 1.3
+    - level: 15
+      name: "에픽"
+      color: LIGHT_PURPLE
+      stat-multiplier: 1.7
+    - level: 20
+      name: "전설"
+      color: GOLD
+      stat-multiplier: 2.2
+    - level: 25
+      name: "신화"
+      color: RED
+      stat-multiplier: 3.0
+
+  # 단계별 필요 온/재료는 여기(config.yml)가 아니라 DB에 저장되며, 서버 재시작 없이
+  # 인게임 명령어 /강화설정 <레벨> 온 <금액> / /강화설정 <레벨> 재료 <개수>(손에 든
+  # 아이템 기준)로 바로 조정할 수 있습니다. 처음 실행 시 자동으로 기본값이 채워지는데,
+  # 재료는 magic_ore_1 ~ magic_ore_6(moafarm_items)이 5레벨마다 순서대로 쓰이도록,
+  # 온은 완만하게 증가하도록 시드됩니다.
+
+  # 강화 성공 확률(%) — 시도하는 시점의 강화 수치를 기준으로 합니다. 목록에 없는 수치는 default 값이 적용됩니다.
+  success-rate:
+    default: 90.0
+    per-level:
+      9: 70.0
+      14: 50.0
+      19: 30.0
+      24: 15.0
+      25: 50.0
+      26: 45.0
+      27: 40.0
+      28: 35.0
+      29: 30.0
+
+  # 이 강화 수치 이상에서 실패하면 등급이 내려가거나(하락) 아이템이 파괴될 수 있습니다. 그 미만에서는 실패해도 그냥 수치가 그대로 유지됩니다.
+  fail-destroy-start-level: 15
+  fail-destroy-chance-percent: 15.0
+  fail-downgrade-chance-percent: 35.0
+  # 이 아이템을 인벤토리에 1개 이상 들고 있으면, 파괴/하락이 발생할 실패 시 그 아이템 1개를 대신 소모하고 수치를 그대로 지켜줍니다.
+  protection-item: NETHERITE_INGOT
+
+  # 능력치 보너스 — 무기는 공격력, 방어구는 방어력에 (강화 수치 * 아래 값 * 등급 배율)만큼 추가됩니다.
+  weapon-attack-damage-per-level: 0.4
+  armor-armor-per-level: 0.25
+
+# /인챈트강화 — /강화(+N강)와 완전히 별도인 시스템입니다. AdvancedEnchantments 원작 그대로
+# 엔챈터(우클릭으로 등급별 인챈트북 구매) → 틴커러(책을 넣으면 마법 가루+온으로 거래) →
+# 알케미스트(같은 등급 책 2개를 넣으면 상위 등급 1개로 조합) 구조입니다. 틴커러/알케미스트는
+# 직접 아이템을 드래그해서 넣는 방식(원작과 동일)입니다.
+# 구매한 책은 진짜 바닐라 인챈트북(모루에서 바로 무기/방어구에 조합 가능)이라 별도의
+# "적용" 화면이 필요 없습니다 — 원작도 우클릭으로 즉시 책을 받는 방식이라 이쪽이 더 정확합니다.
+inchant:
+  # /인챈트강화 GUI 배경(yeowool_enhance:enhance_bg/tinkerer_bg/alchemist_bg)의 세로 위치 보정값.
+  # -32는 AdvancedEnchantments 원본 설정(enchanter.yml 등)이 이 배경 이미지들에 실제로 쓰는 값입니다.
+  gui-background-offset: -32
+
+  # 틴커러에서 책 1개당, 그 등급 구매가의 이 비율(%)만큼 온으로 돌려받습니다(마법 가루와 별개).
+  dismantle-refund-percent: 30.0
+
+  # 책 구매 시 이 목록에서 무작위로 하나 골라 부여됩니다(등급별 레벨 범위는 tiers 참고).
+  # 어떤 장비에 실제로 조합 가능한지는 모루의 바닐라 규칙을 그대로 따릅니다
+  # (예: PROTECTION은 방어구에만, SHARPNESS는 무기에만 — 따로 무기/방어구 목록을 나눌 필요 없음).
+  enchant-pool: [sharpness, protection, knockback, fire_aspect, looting, unbreaking, mending, sweeping_edge, thorns, feather_falling, respiration, aqua_affinity, fortune, efficiency]
+
+  # 등급별 구매가(온) / 분해 시 마법 가루 획득량(min~max 랜덤) / 구매 시 인챈트 레벨(min~max 랜덤).
+  # 바닐라 최대 레벨을 넘어서는 값도 그대로 적용됩니다(등급이 높을수록 확실히 강해지도록).
+  tiers:
+    - name: simple
+      cost: 400
+      dust-min: 1
+      dust-max: 15
+      level-min: 1
+      level-max: 2
+    - name: unique
+      cost: 800
+      dust-min: 2
+      dust-max: 20
+      level-min: 2
+      level-max: 3
+    - name: elite
+      cost: 2500
+      dust-min: 3
+      dust-max: 25
+      level-min: 3
+      level-max: 4
+    - name: ultimate
+      cost: 5000
+      dust-min: 5
+      dust-max: 30
+      level-min: 4
+      level-max: 6
+    - name: legendary
+      cost: 25000
+      dust-min: 8
+      dust-max: 40
+      level-min: 5
+      level-max: 8
+    - name: fabled
+      cost: 40000
+      dust-min: 15
+      dust-max: 60
+      level-min: 6
+      level-max: 10

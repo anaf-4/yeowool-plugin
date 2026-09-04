@@ -1,0 +1,16 @@
+name: YeowoolEconomy
+version: '${version}'
+main: com.yeowool.economy.YeowoolEconomy
+api-version: '1.21'
+author: Yeowool
+description: 여울의 기본 화폐 "온" 관리 (지갑, 송금, 은행, 경제 로그)
+depend: [YeowoolCore]
+softdepend: [Vault]
+
+commands:
+  돈:
+    description: 지갑/송금 명령어
+  내캐시:
+    description: 보유한 캐시(유료 재화)를 확인합니다
+  은행:
+    description: 은행 입출금 명령어

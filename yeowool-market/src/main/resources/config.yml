@@ -1,0 +1,84 @@
+# YeowoolMarket 설정
+
+# NPC 상점 (기획서 7.1 - "관리진이 지정한 물품만 구매/판매").
+# "Spectra ShopGUI+" ItemsAdder 애드온(namespace: spectra_shopgui_plus)의
+# GUI를 그대로 사용함 - 그 애드온의 contents/spectra_shopgui_plus 폴더를 서버
+# ItemsAdder에 넣고 /iazip 해야 실제 배경 이미지가 보임. 없으면 자동으로
+# 평범한 제목 + 바닐라 아이템으로 대체됨.
+#
+# gui-background-offset: 배경 이미지가 왼쪽/오른쪽으로 살짝 어긋나 보이면 이
+# 값을 조절하세요. 음수가 클수록(예: -52) 이미지가 더 왼쪽으로, 0에 가까울수록
+# 더 오른쪽으로 이동합니다. 아이템 아이콘 위치는 항상 고정이라 이 값은 배경
+# 이미지 위치에만 영향을 줍니다.
+#
+# 클릭 방식이 예전과 다름:
+# 좌클릭 = 구매 수량 선택 GUI, 우클릭 = 판매 수량 선택 GUI, Shift+우클릭/휠클릭
+# = 보유한 만큼 즉시 전량 판매.
+#
+# default-open: /상점 을 인자 없이 입력했을 때 무엇을 열지 정합니다.
+#   "menu" (기본값) = 전체 상점 목록(메인 메뉴)을 먼저 보여줌
+#   상점 ID (예: "farm") = 메인 메뉴 없이 그 상점으로 바로 들어감
+# /상점 <ID> 는 이 설정과 무관하게 항상 그 상점으로 바로 들어갑니다.
+#
+# 상점을 원하는 만큼 만들 수 있습니다. /상점수정으로 config.yml에 정의된 상점도
+# 인게임에서 직접 수정할 수 있습니다 (처음 수정하는 순간부터는 그 상점의 내용이
+# DB에 저장되어 여기 config.yml 값보다 우선하게 됩니다 - config.yml 파일 자체는
+# 바뀌지 않음). 각 상점마다:
+#   - size: GUI 크기 (9~54, 9의 배수로 자동 보정됨). 54면 슬롯 4/45/53이
+#     자동으로 메인메뉴/이전페이지/다음페이지 버튼으로 예약되므로 그 자리에는
+#     아이템을 배치하지 마세요 (54 미만 크기는 45/53이 아예 없어 페이지 넘김이
+#     비활성화됨). ItemsAdder 배경 이미지는 항상 54칸 기준으로 그려져 있어서
+#     54보다 작게 하면 이미지가 상점 칸 아래로 넘쳐 보입니다 - ItemsAdder를
+#     안 쓰거나 이미지 없이 평범한 제목만 쓸 상점만 더 작게 만드세요.
+#   - mode: BUY_ONLY(구매만) / SELL_ONLY(판매만) / BOTH(둘 다)
+#   - decoration: 빈 슬롯을 채울 장식 아이템 ("도트" 텍스처 리소스팩용 custom-model-data 지정 가능).
+#     실제 아이템으로 슬롯을 채우는 방식이라 ItemsAdder 배경 이미지를 가려버리니,
+#     이미지 배경을 쓰는 상점에서는 생략하세요 (빈 슬롯은 그대로 두면 배경이 비쳐 보임).
+#   - items: slot을 생략하면 앞에서부터 자동 배치됨
+#            buy-price 생략/0 = 구매 불가, sell-price 생략/0 = 판매 불가
+#            material 대신 item-id를 쓰면 ItemsAdder 커스텀 아이템 (예: "yeowool:golden_wheat")
+#            material을 쓸 때만 custom-model-data로 리소스팩 텍스처 아이콘 지정 가능
+#            page: 생략 시 1 (1부터 시작) - 한 상점을 여러 페이지로 나눌 때 사용
+#
+# 상점 예시 (참고용 - shops: 밑에 이런 식으로 직접 추가하면 됩니다):
+#   farm:
+#     title: "농산물 상점"
+#     size: 54
+#     mode: BOTH
+#     items:
+#       - slot: 10
+#         material: WHEAT
+#         sell-price: 4
+#       - slot: 11
+#         material: CARROT
+#         sell-price: 4
+npc-shop:
+  gui-background-offset: -46
+  default-open: "menu"
+  shops: {}
+
+  # Citizens가 설치되어 있을 때만 사용됨: NPC ID -> 위에서 정의한 상점 ID.
+  # (Citizens에서 /npc create 로 NPC를 만든 뒤 /npc id 로 ID를 확인하세요).
+  citizens-npc-shops: {}
+
+  # /상점이동 이 텔레포트할 NPC의 Citizens ID. -1이면 "위치 미설정"으로 취급됨.
+  # 메인 상점 NPC를 만든 뒤 그 NPC의 ID를 여기에 넣으세요.
+  menu-teleport-npc-id: -1
+
+  # 상점 NPC가 실제로 있는 서버 이름(velocity.toml [servers]의 이름과 일치해야 함).
+  # /상점이동을 다른 서버에서 실행하면 이 서버로 먼저 보낸 뒤 도착하자마자 NPC 앞으로 이동시킴.
+  npc-server-id: lobby
+
+  # 지금 이 서버 자신의 이름(velocity.toml 기준) - 위 npc-server-id와 같으면 "내가 그 서버다"로 판단.
+  this-server-id: lobby
+
+# /경매 — 예전에는 즉시구매 전용 /거래소(플레이어 상점)와 입찰 전용 /경매가 따로 있었는데,
+# /경매 하나로 통합했습니다(등록할 때 즉시구매가를 0으로 두면 순수 입찰 경매, 값을 넣으면
+# 즉시구매도 가능한 경매가 됨). GUI/배경/아이콘은 "v0id AuctionHouse 2.0" 팩 기반입니다.
+auction:
+  # 낙찰/즉시구매 완료 시 소각되는 수수료
+  fee-percent: 5
+  # GUI 배경(yeowool_auction:auctionhouse_bg 등)의 좌우 위치 보정값 — 인게임에서 보면서 조정하세요.
+  gui-background-offset: -8
+  # 입찰 화면(bidding.png)의 +/- 버튼 3개가 얼마씩 조정하는지 (온 기준)
+  bid-increments: [1000, 10000, 100000]

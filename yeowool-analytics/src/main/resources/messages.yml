@@ -1,0 +1,35 @@
+prefix: "<gray>[<green>여울</green>]</gray> "
+
+general:
+  no-data: "<gray>표시할 데이터가 없습니다.</gray>"
+
+ranking:
+  usage: "<red>사용법: /랭킹 [온|은행|토지레벨|낚시도감]</red>"
+  collecting: "<gray>랭킹을 집계하는 중...</gray>"
+  header: "<gold>=== <category> 랭킹 TOP <top_n> ===</gold>"
+  entry: "<yellow><rank>위. </yellow><white><name></white><aqua> - <value><unit></aqua>"
+  load-failed: "<red>랭킹을 불러오지 못했습니다.</red>"
+
+stats:
+  collecting: "<gray>여울 서버 통계를 집계하는 중...</gray>"
+  header: "<green><bold>━━━ 여울 서버 통계 ━━━</bold></green>"
+  server-line: "<gray>[서버] </gray><white>TPS: </white><yellow><tps></yellow><gray> | 접속자: </gray><yellow><online>명</yellow>"
+  economy-line: "<gray>[경제] </gray><white>총 온: </white><yellow><total_on></yellow><gray> | 평균 보유: </gray><yellow><avg_on></yellow><gray> | 총 은행 잔액: </gray><yellow><total_bank></yellow><gray> | 플레이어: </gray><yellow><player_count>명</yellow>"
+  economy-error: "<gray>[경제] </gray><red>데이터를 불러올 수 없습니다.</red>"
+  land-line: "<gray>[토지] </gray><white>토지 수: </white><yellow><land_count></yellow><gray> | 총 청크: </gray><yellow><total_chunks></yellow><gray> | 평균 레벨: </gray><yellow><avg_level></yellow>"
+  land-error: "<gray>[토지] </gray><red>YeowoolLand가 설치되어 있지 않거나 데이터를 불러올 수 없습니다.</red>"
+  life-empty: "<gray>[생활] </gray><red>기록된 통계가 없습니다.</red>"
+  life-line: "<gray>[생활] </gray><white><label>: </white><yellow><value></yellow>"
+  life-error: "<gray>[생활] </gray><red>YeowoolLife가 설치되어 있지 않거나 데이터를 불러올 수 없습니다.</red>"
+
+season:
+  no-permission: "<red>권한이 없습니다.</red>"
+  ending: "<gray>시즌을 종료하고 보상을 지급합니다...</gray>"
+  collecting: "<gray>시즌 랭킹을 집계하는 중...</gray>"
+  header: "<gold>=== 이번 시즌 랭킹 TOP <top_n> ===</gold>"
+  entry: "<yellow><rank>위. </yellow><white><name></white><aqua> - <value></aqua>"
+  load-failed: "<red>시즌 랭킹을 불러오지 못했습니다.</red>"
+  reward-received: "<gold>이번 시즌 랭킹 <rank>위! <reward>온을 받았습니다.</gold>"
+  broadcast-empty: "<gray>이번 시즌은 랭킹 집계 결과가 없습니다.</gray>"
+  broadcast-header: "<gold>=== 이번 시즌 랭킹 결과 ===</gold>"
+  broadcast-entry: "<yellow><rank>위. <name> (<value>)</yellow>"

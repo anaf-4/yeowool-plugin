@@ -1,0 +1,30 @@
+general:
+  player-only: "<red>플레이어만 사용할 수 있습니다.</red>"
+
+enhance:
+  not-enhanceable: "<red>강화할 수 없는 아이템입니다. (무기/방어구만 강화 가능)</red>"
+  hand-empty: "<red>강화할 무기나 방어구를 손에 들고 사용하세요.</red>"
+  max-level: "<gold>이미 최대 강화 수치(+<max>)에 도달했습니다.</gold>"
+  insufficient-funds: "<red>온이 부족합니다. (필요: <cost>온)</red>"
+  insufficient-material: "<red><material>이(가) 부족합니다. (필요: <amount>개)</red>"
+  success: "<green>강화 성공! +<level>강 (<tier>) </green>"
+  success-tier-up: "<gold>강화 성공! +<level>강 — <tier> 등급으로 승급했습니다! ✦</gold>"
+  fail-safe: "<yellow>강화에 실패했습니다. (수치는 그대로 유지됩니다)</yellow>"
+  fail-protected: "<yellow>강화에 실패했지만, <protection>을(를) 사용해 아이템을 지켰습니다.</yellow>"
+  fail-downgrade: "<red>강화에 실패해 등급이 하락했습니다. (+<level>강)</red>"
+  fail-destroyed: "<dark_red>강화에 실패해 아이템이 파괴되었습니다...</dark_red>"
+  gui-title: "강화"
+  gui-item-name-suffix: " (강화 대상)"
+  settings-usage: "<red>사용법: /강화설정 (GUI) | /강화설정 <레벨> (해당 레벨 GUI로 바로 이동) | /강화설정 <레벨> 온 <금액> | /강화설정 <레벨> 재료 <개수>(손에 든 아이템 기준) | /강화설정 <레벨> 정보</red>"
+  settings-invalid-level: "<red>레벨은 0 ~ <max> 사이여야 합니다.</red>"
+  settings-currency-set: "<green>+<level>강 비용을 <amount>온으로 설정했습니다.</green>"
+  settings-material-set: "<green>+<level>강 재료를 <material> x<amount>개로 설정했습니다.</green>"
+  settings-info: "<gold>+<level>강 비용: <amount>온, <material> x<material-amount>개</gold>"
+
+inchant:
+  buy-success: "<green><tier> 인챈트북을 구매했습니다.</green>"
+  insufficient-funds: "<red>온이 부족합니다. (필요: <cost>온)</red>"
+  tinkerer-nothing-to-trade: "<red>인챈트북을 먼저 넣어주세요.</red>"
+  tinkerer-trade-success: "<green>거래가 성사되었습니다.</green>"
+  alchemist-invalid-pair: "<red>같은 등급의 인챈트북 2개를 넣어주세요.</red>"
+  fuse-success: "<green>인챈트북을 조합했습니다.</green>"

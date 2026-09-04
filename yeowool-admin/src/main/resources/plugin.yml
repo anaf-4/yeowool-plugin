@@ -1,0 +1,121 @@
+name: YeowoolAdmin
+version: '${version}'
+main: com.yeowool.admin.YeowoolAdmin
+api-version: '1.21'
+author: Yeowool
+description: 운영 및 관리 (통합 관리, 백업, 부정거래 탐지, 업데이트 공지, 기본템/아이템 도구)
+depend: [YeowoolCore]
+softdepend: [YeowoolEconomy, YeowoolLand, ItemsAdder, HQModeledNPC]
+
+commands:
+  여울관리:
+    description: 여울 통합 관리 명령어 (정보/지급/공지/백업/복구/기본템/로그/우편)
+    permission: yeowool.admin
+    default: op
+  신고:
+    description: 플레이어를 신고합니다
+  경고:
+    description: 플레이어에게 경고를 지급/회수/기록합니다 (누적 10회 시 자동 퇴장)
+    permission: yeowool.admin
+    default: op
+  추방:
+    description: 플레이어를 서버에서 추방합니다
+    permission: yeowool.admin
+    default: op
+  정지:
+    description: 플레이어의 접속을 정지시킵니다
+    permission: yeowool.admin
+    default: op
+  정지해제:
+    description: 플레이어의 정지를 해제합니다
+    permission: yeowool.admin
+    default: op
+  음소거:
+    description: 플레이어의 채팅을 음소거합니다
+    permission: yeowool.admin
+    default: op
+  음소거해제:
+    description: 플레이어의 음소거를 해제합니다
+    permission: yeowool.admin
+    default: op
+  제재기록:
+    description: 플레이어의 제재 기록을 조회합니다
+    permission: yeowool.admin
+    default: op
+  귀속:
+    description: 손에 든 아이템의 귀속 여부를 전환합니다
+    permission: yeowool.admin
+    default: op
+  기간제:
+    description: 손에 든 아이템에 기간 제한을 설정합니다
+    permission: yeowool.admin
+    default: op
+  아이템이름:
+    description: 손에 든 아이템의 이름을 변경합니다
+    permission: yeowool.admin
+    default: op
+  아이템설명:
+    description: 손에 든 아이템의 설명(lore)을 변경합니다
+    permission: yeowool.admin
+    default: op
+  아이템:
+    description: 손에 든 아이템을 복사합니다
+    permission: yeowool.admin
+    default: op
+  아이템내구도:
+    description: 손에 든 아이템의 내구도를 무한으로 설정합니다
+    permission: yeowool.admin
+    default: op
+  관리자아이템:
+    description: 관리자용 아이템 카탈로그를 엽니다
+    permission: yeowool.admin
+    default: op
+  쿠폰:
+    description: 쿠폰 이름을 입력할 모루를 엽니다
+  쿠폰생성:
+    description: 새 쿠폰을 생성합니다 (주손에 든 아이템이 보상)
+    permission: yeowool.admin
+    default: op
+  쿠폰관리:
+    description: 쿠폰 목록 조회/정보/삭제/수정
+    permission: yeowool.admin
+    default: op
+  수표:
+    description: 지정한 금액의 온 수표를 생성합니다
+    permission: yeowool.admin
+    default: op
+  유료수표:
+    description: 지정한 금액의 캐시 수표를 생성합니다
+    permission: yeowool.admin
+    default: op
+  캐시지급:
+    description: 플레이어에게 캐시를 즉시 지급/차감합니다 (금액에 음수 입력 시 차감)
+    permission: yeowool.admin
+    default: op
+  아이템밴:
+    description: 손에 든 아이템을 소지 자체가 불가능하도록 밴합니다 (발견 즉시 자동 회수)
+    permission: yeowool.admin
+    default: op
+  조합밴:
+    description: 손에 든 아이템의 제작(조합)을 금지합니다
+    permission: yeowool.admin
+    default: op
+  추첨:
+    description: 손에 든 아이템으로 접속 중인 플레이어(OP 제외) 대상 추첨을 진행합니다
+    permission: yeowool.admin
+    default: op
+  npc태그:
+    description: 바라보고 있는 NPC(엔티티)의 이름표에 태그 아이콘을 붙이거나 제거합니다
+    permission: yeowool.admin
+    default: op
+
+permissions:
+  yeowool.admin:
+    description: YeowoolAdmin 관리 명령어 사용 권한
+    default: op
+  yeowool.admin.alerts:
+    description: 부정거래 탐지 경고를 실시간으로 수신
+    default: op
+  yeowool.admin.super:
+    description: 백업 복구 등 파괴적인 관리 명령어 사용 권한 (총관리진 전용)
+    default: op

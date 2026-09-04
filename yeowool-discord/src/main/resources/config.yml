@@ -1,0 +1,57 @@
+# 디스코드 연동 설정. 여기서 값을 채우면 서버가 켜질 때(그리고 /디스코드리로드 실행 시)
+# 이 값들을 DB(yw_discord_config 테이블)에 그대로 써두고, 별도 PC에서 도는 JS 디스코드
+# 봇이 그 값을 읽어가서 실제로 디스코드에 접속합니다 — 즉 이 파일 하나만 관리하면 됩니다.
+# (JS 봇 쪽에는 이 DB에 접속하기 위한 최소한의 접속 정보만 따로 필요합니다.)
+
+# 디스코드 개발자 포털(discord.com/developers/applications)에서 만든 봇 애플리케이션의 토큰.
+bot-token: ""
+
+# (선택, 강력 권장) bot-token을 DB에 평문이 아니라 암호화해서 저장하고 싶으면 여기에
+# 32바이트를 base64로 인코딩한 키를 넣으세요. 웹사이트 DB 계정(web_readonly)이 전체
+# 테이블에 대해 읽기 권한을 갖고 있어서, 암호화를 안 하면 이 테이블의 bot-token이
+# 그 계정으로도 그대로 읽힙니다.
+#   1) 키 생성 (터미널에서 한 번만): openssl rand -base64 32
+#   2) 그 값을 아래 config-encryption-key에 붙여넣기
+#   3) 완전히 동일한 값을 JS 봇 쪽 환경변수 CONFIG_ENCRYPTION_KEY로도 설정
+#   4) 봇 쪽 코드에서 yw_discord_config에서 읽은 bot-token 값을 그대로 쓰지 말고,
+#      같은 키로 AES-256-GCM 복호화한 뒤 사용하도록 수정 (자세한 안내는 별도 전달됨)
+# 비워두면 예전처럼 평문으로 저장됩니다 (기존 설정은 그대로 계속 동작함).
+config-encryption-key: ""
+
+# 명령어를 등록할 길드(서버) ID.
+guild-id: ""
+
+# 경고 로그를 올릴 채널 ID (게임 내 /경고 발생 시 자동 전송됨).
+warn-log-channel-id: ""
+
+# 공지를 올릴 채널 ID (게임 내 /여울관리 공지 실행 시 자동 전송됨).
+announcement-channel-id: ""
+
+# /경고, 티켓 처리 등 운영 명령어를 쓸 수 있는 역할(Role) ID.
+staff-role-id: ""
+
+# 티켓 유형별로 채널이 생성될 카테고리. /티켓 실행 시 여기 등록된 유형들이 드롭다운으로
+# 나타나고, 고른 유형에 맞는 카테고리 밑에 채널이 생성됩니다.
+ticket-categories:
+  - id: "report"
+    label: "유저 신고"
+    emoji: "🚨"
+    category-id: ""
+  - id: "bug"
+    label: "버그 제보"
+    emoji: "🐛"
+    category-id: ""
+  - id: "question"
+    label: "문의"
+    emoji: "❓"
+    category-id: ""
+
+# 여기 값은 yeowool-admin의 moderation.warning 설정과 반드시 같아야 합니다 —
+# 디스코드에서 온 경고 요청을 처리할 때 자동 정지 여부를 판단하는 데 씁니다.
+moderation:
+  auto-ban-threshold: 10
+  auto-ban-duration-minutes: 1440
+
+# 디스코드 봇이 /경고 슬래시 명령어로 남긴 요청을 얼마나 자주 확인해서 게임에 반영할지(틱).
+# 기본값 5초.
+warn-queue-poll-interval-ticks: 100

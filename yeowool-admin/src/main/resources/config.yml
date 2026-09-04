@@ -1,0 +1,181 @@
+anti-exploit:
+  # 이 값 이상으로 지갑/은행 잔액이 한 번에 증가하면 온라인 관리자에게 경고
+  balance-alert-threshold: 1000000
+  # 캐시(유료 화폐)는 온/은행보다 훨씬 작은 단위로 거래되는 경우가 많아 별도 임계치를 둡니다.
+  cash-alert-threshold: 50000
+  # 위 임계치 미만인 증가분이라도, 한 플레이어에게 이 시간(초) 안에 여러 번 몰려서
+  # 합계가 임계치를 넘으면 "구조화(임계치 회피 목적의 분할 거래)" 의심으로 별도 경고합니다.
+  structuring-window-seconds: 300
+  # 아이템 복제 탐지의 보조 전수 스캔 주기 (틱). 주 탐지는 클릭/접속 시 즉시 이뤄지고,
+  # 이 스캔은 그걸로 못 잡는 경우(예: 외부 플러그인이 이벤트 없이 직접 인벤토리를 조작)를
+  # 대비한 안전망이라 자주 돌 필요가 없습니다. 0 이하면 비활성화. 기본값 10분.
+  duplication-scan-interval-ticks: 12000
+
+moderation:
+  warning:
+    # 누적 경고가 이 값 이상이 되면 자동으로 정지(BAN) 처리합니다.
+    auto-ban-threshold: 10
+    # 자동 정지 기간(분). 0 이하면 영구 정지. 기본값 1440분(24시간).
+    auto-ban-duration-minutes: 1440
+    # 경고에 만료기간을 걸어둔 경우, 그 경고가 만료돼 누적이 임계치 밑으로 떨어지면
+    # 자동 정지도 같이 풀어줘야 하는데 이건 그 자동 정지가 실제로 풀렸는지 주기적으로
+    # 다시 확인하는 주기(틱)입니다. /경고 회수를 실행할 때도 그때그때 확인하지만,
+    # 아무도 회수를 실행하지 않으면 이 주기적 점검이 유일한 안전망입니다.
+    # 0 이하면 비활성화. 기본값 5분.
+    auto-ban-review-interval-ticks: 6000
+
+backup:
+  # 자동 백업 주기 (틱). 0 이하로 설정하면 비활성화. 기본값 6시간.
+  auto-interval-ticks: 432000
+
+update:
+  # 0이면 접속 시 공지를 표시하지 않음. 새 공지를 추가할 때마다 이 값을 올리세요.
+  version: 0
+  notes:
+    - "여울 서버 오픈!"
+
+raffle:
+  # 같은 아이템으로 이미 당첨된 적 있는 플레이어의 다음 확률 = 이 값 ^ (그 아이템에서 당첨된 횟수).
+  # 0.5면 1번 당첨될 때마다 확률이 절반씩 줄어듦(완전히 배제되지는 않음). 다른 아이템을
+  # 손에 들고 /추첨하면 그 아이템은 이력이 없어서 자동으로 모두 균등하게 시작함.
+  repeat-weight-multiplier: 0.5
+
+# /관리자아이템 카탈로그. name/lore는 생략 가능(생략 시 바닐라 이름 그대로).
+# name/lore는 MiniMessage 서식 지원. custom-icon을 지정하면 ItemsAdder 아이템을
+# 우선 사용하고(없거나 ItemsAdder 미설치 시 material로 대체), material은 항상
+# 대체용으로 필요합니다. 지금까지 /iagive로만 꺼낼 수 있던(=OP 전용이던) 낚싯대·
+# 미끼(yeowool-life의 fishing_expansion 낚시 확장)를 여기 등록해서 다른 관리자도
+# 명령어 없이 GUI로 바로 꺼낼 수 있게 함.
+admin-item-catalog:
+  items:
+    - material: BARREL
+      amount: 1
+      name: "<green>토지 배럴</green>"
+      lore:
+        - "<gray>설치하면 그 청크에 토지가 생성/확장됩니다.</gray>"
+    - material: FISHING_ROD
+      custom-icon: "fishing_expansion:copper_fishing_rod"
+      amount: 1
+      name: "<gold>구리 낚싯대</gold>"
+      lore:
+        - "<gray>낚시 시 일반을 제외한 등급 확률이 소폭 상승합니다. (x1.1)</gray>"
+    - material: FISHING_ROD
+      custom-icon: "fishing_expansion:iron_fishing_rod"
+      amount: 1
+      name: "<gold>철 낚싯대</gold>"
+      lore:
+        - "<gray>낚시 시 일반을 제외한 등급 확률이 상승합니다. (x1.2)</gray>"
+    - material: FISHING_ROD
+      custom-icon: "fishing_expansion:golden_fishing_rod"
+      amount: 1
+      name: "<gold>황금 낚싯대</gold>"
+      lore:
+        - "<gray>낚시 시 일반을 제외한 등급 확률이 더 크게 상승합니다. (x1.3)</gray>"
+    - material: FISHING_ROD
+      custom-icon: "fishing_expansion:diamond_fishing_rod"
+      amount: 1
+      name: "<gold>다이아몬드 낚싯대</gold>"
+      lore:
+        - "<gray>낚시 시 일반을 제외한 등급 확률이 크게 상승합니다. (x1.45)</gray>"
+    - material: FISHING_ROD
+      custom-icon: "fishing_expansion:netherite_fishing_rod"
+      amount: 1
+      name: "<gold>네더라이트 낚싯대</gold>"
+      lore:
+        - "<gray>낚시 시 일반을 제외한 등급 확률이 가장 크게 상승합니다. (x1.6)</gray>"
+    - material: PAPER
+      custom-icon: "fishing_expansion:bobber_bait"
+      amount: 1
+      name: "<aqua>찌 미끼</aqua>"
+      lore:
+        - "<gray>오프핸드에 들고 낚시하면 1개 소모되며 등급 확률이 소폭 상승합니다. (x1.1)</gray>"
+    - material: PAPER
+      custom-icon: "fishing_expansion:nautilus_bait"
+      amount: 1
+      name: "<aqua>조개껍질 미끼</aqua>"
+      lore:
+        - "<gray>오프핸드에 들고 낚시하면 1개 소모되며 등급 확률이 상승합니다. (x1.15)</gray>"
+    - material: PAPER
+      custom-icon: "fishing_expansion:copper_bait"
+      amount: 1
+      name: "<aqua>구리 미끼</aqua>"
+      lore:
+        - "<gray>오프핸드에 들고 낚시하면 1개 소모되며 등급 확률이 상승합니다. (x1.15)</gray>"
+    - material: PAPER
+      custom-icon: "fishing_expansion:gelatin_bait"
+      amount: 1
+      name: "<aqua>젤라틴 미끼</aqua>"
+      lore:
+        - "<gray>오프핸드에 들고 낚시하면 1개 소모되며 등급 확률이 상승합니다. (x1.2)</gray>"
+    - material: PAPER
+      custom-icon: "fishing_expansion:slime_bait"
+      amount: 1
+      name: "<aqua>슬라임 미끼</aqua>"
+      lore:
+        - "<gray>오프핸드에 들고 낚시하면 1개 소모되며 등급 확률이 상승합니다. (x1.25)</gray>"
+    - material: PAPER
+      custom-icon: "fishing_expansion:magma_bait"
+      amount: 1
+      name: "<aqua>마그마 미끼</aqua>"
+      lore:
+        - "<gray>오프핸드에 들고 낚시하면 1개 소모되며 등급 확률이 상승합니다. (x1.35)</gray>"
+    - material: PAPER
+      custom-icon: "fishing_expansion:iridescent_bait"
+      amount: 1
+      name: "<aqua>무지갯빛 미끼</aqua>"
+      lore:
+        - "<gray>오프핸드에 들고 낚시하면 1개 소모되며 등급 확률이 크게 상승합니다. (x1.4)</gray>"
+    - material: PAPER
+      custom-icon: "fishing_expansion:ender_bait"
+      amount: 1
+      name: "<aqua>엔더 미끼</aqua>"
+      lore:
+        - "<gray>오프핸드에 들고 낚시하면 1개 소모되며 등급 확률이 크게 상승합니다. (x1.5)</gray>"
+    - material: PAPER
+      custom-icon: "fishing_expansion:trident_bait"
+      amount: 1
+      name: "<aqua>삼지창 미끼</aqua>"
+      lore:
+        - "<gray>오프핸드에 들고 낚시하면 1개 소모되며 등급 확률이 크게 상승합니다. (x1.45)</gray>"
+    - material: PAPER
+      custom-icon: "fishing_expansion:sea_heart_bait"
+      amount: 1
+      name: "<aqua>바다의 심장 미끼</aqua>"
+      lore:
+        - "<gray>오프핸드에 들고 낚시하면 1개 소모되며 등급 확률이 가장 크게 상승합니다. (x1.6)</gray>"
+    - material: PAPER
+      custom-icon: "moafarm_items:magic_ore_1"
+      amount: 16
+      name: "<white>초급 강화석</white>"
+      lore:
+        - "<gray>강화 +0 ~ +4 구간에서 사용됩니다.</gray>"
+    - material: PAPER
+      custom-icon: "moafarm_items:magic_ore_2"
+      amount: 16
+      name: "<green>중급 강화석</green>"
+      lore:
+        - "<gray>강화 +5 ~ +9 구간에서 사용됩니다.</gray>"
+    - material: PAPER
+      custom-icon: "moafarm_items:magic_ore_3"
+      amount: 16
+      name: "<aqua>고급 강화석</aqua>"
+      lore:
+        - "<gray>강화 +10 ~ +14 구간에서 사용됩니다.</gray>"
+    - material: PAPER
+      custom-icon: "moafarm_items:magic_ore_4"
+      amount: 16
+      name: "<light_purple>정예 강화석</light_purple>"
+      lore:
+        - "<gray>강화 +15 ~ +19 구간에서 사용됩니다.</gray>"
+    - material: PAPER
+      custom-icon: "moafarm_items:magic_ore_5"
+      amount: 16
+      name: "<gold>신비 강화석</gold>"
+      lore:
+        - "<gray>강화 +20 ~ +24 구간에서 사용됩니다.</gray>"
+    - material: PAPER
+      custom-icon: "moafarm_items:magic_ore_6"
+      amount: 16
+      name: "<red>태초 강화석</red>"
+      lore:
+        - "<gray>강화 +25 ~ +29 구간에서 사용됩니다.</gray>"

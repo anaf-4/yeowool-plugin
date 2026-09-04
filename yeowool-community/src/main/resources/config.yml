@@ -1,0 +1,505 @@
+# velocity.toml [servers]에 등록된 이 서버의 식별자 - 똑같이 맞춰야 함(lobby/town/wild).
+# 아래의 사람이 보는 표시용 "server-name"과는 다른 용도 - 크로스서버 전체 채팅에서
+# 프록시가 "어느 서버에서 온 메시지인지" 판단해서 같은 서버 플레이어에게 중복으로
+# 다시 안 보내는 데 씀.
+proxy-server-id: lobby
+
+# /출석체크 - 일일(연속 출석 시 <N>일째마다 추가 보너스)/주간/월간 3단.
+# GUI 배경과 아이콘은 "Rewards UI by MCMobs" ItemsAdder 애드온
+# (namespace: rewards, 아이템: rewards_daily/dailye/weekly/weeklye/
+# monthly/monthlye)을 그대로 사용함 - 그 애드온의 contents/rewards
+# 폴더를 서버 ItemsAdder에 넣고 /iazip 해야 실제로 보임. 없으면 자동으로
+# 기본 종이 아이템 + 평범한 GUI 제목으로 대체됨.
+attendance:
+  reward-on: 1000
+  streak-bonus:
+    7: 5000
+    30: 20000
+  weekly:
+    cooldown-hours: 168
+    reward-on: 5000
+  monthly:
+    cooldown-hours: 720
+    reward-on: 20000
+  gui:
+    # rewards_blue / rewards_brown / rewards_green / rewards_purple / rewards_red 중 선택
+    background: rewards_blue
+
+# /퀘스트 (일일/주간, 왼쪽·오른쪽 버튼으로 구분). stat-key 기준 "이번 기간
+# 동안의 증가량"을 재는 방식이라 새 이벤트 리스너가 필요 없음 - YeowoolLife
+# 등이 이미 쌓고 있는 통계 키와 정확히 일치해야 함. 일일은 서버 로컬 날짜가
+# 바뀌면, 주간은 ISO 주차가 바뀌면 자동으로 다시 뽑힘.
+quest:
+  # /퀘스트 GUI 배경(daily_quest:*_bg, DailyQuest-1.8.3 팩 기반)의 세로 위치 보정값 — 인게임에서 보면서 조정하세요.
+  gui-background-offset: -8
+
+  # 총 완료 퀘스트 수(일일+주간 합산) 기준 뱃지 단계 — 오름차순이어야 함.
+  # 아이콘은 DailyQuest-1.8.3 팩의 daily_quest 네임스페이스 것을 그대로 사용.
+  badges:
+    - name: "Rookie"
+      threshold: 0
+      icon: "daily_quest:rookie_badge"
+    - name: "Beginner"
+      threshold: 10
+      icon: "daily_quest:beginner_badge"
+    - name: "Skilled"
+      threshold: 25
+      icon: "daily_quest:skilled_badge"
+    - name: "Pro"
+      threshold: 50
+      icon: "daily_quest:pro_badge"
+    - name: "Advanced"
+      threshold: 100
+      icon: "daily_quest:advanced_badge"
+    - name: "Expert"
+      threshold: 150
+      icon: "daily_quest:expert_badge"
+    - name: "Master"
+      threshold: 200
+      icon: "daily_quest:master_badge"
+    - name: "Legend"
+      threshold: 300
+      icon: "daily_quest:legend_badge"
+
+# 하루/주 12개(쉬움4+보통4+어려움4)씩 뽑힘 — DailyQuest-1.8.3 "12 quests per day" 구조.
+# 난이도별 후보가 각각 count보다 적으면 있는 만큼만 뽑힘.
+daily:
+  easy-count: 4
+  medium-count: 4
+  hard-count: 4
+  quest-pool:
+    - id: mining_easy
+      stat-key: life.mining.mined
+      target: 25
+      display: "광물 25개 채굴하기"
+      reward-on: 1000
+      difficulty: easy
+    - id: mining_medium
+      stat-key: life.mining.mined
+      target: 50
+      display: "광물 50개 채굴하기"
+      reward-on: 2000
+      difficulty: medium
+    - id: mining_hard
+      stat-key: life.mining.mined
+      target: 100
+      display: "광물 100개 채굴하기"
+      reward-on: 4000
+      difficulty: hard
+    - id: farming_easy
+      stat-key: life.farming.harvested
+      target: 50
+      display: "작물 50개 수확하기"
+      reward-on: 1000
+      difficulty: easy
+    - id: farming_medium
+      stat-key: life.farming.harvested
+      target: 100
+      display: "작물 100개 수확하기"
+      reward-on: 2000
+      difficulty: medium
+    - id: farming_hard
+      stat-key: life.farming.harvested
+      target: 200
+      display: "작물 200개 수확하기"
+      reward-on: 4000
+      difficulty: hard
+    - id: fishing_easy
+      stat-key: life.fishing.caught
+      target: 10
+      display: "물고기 10마리 낚시하기"
+      reward-on: 1000
+      difficulty: easy
+    - id: fishing_medium
+      stat-key: life.fishing.caught
+      target: 20
+      display: "물고기 20마리 낚시하기"
+      reward-on: 2000
+      difficulty: medium
+    - id: fishing_hard
+      stat-key: life.fishing.caught
+      target: 40
+      display: "물고기 40마리 낚시하기"
+      reward-on: 4000
+      difficulty: hard
+    - id: logging_easy
+      stat-key: life.logging.chopped
+      target: 40
+      display: "나무 40개 벌목하기"
+      reward-on: 1000
+      difficulty: easy
+    - id: logging_medium
+      stat-key: life.logging.chopped
+      target: 80
+      display: "나무 80개 벌목하기"
+      reward-on: 2000
+      difficulty: medium
+    - id: logging_hard
+      stat-key: life.logging.chopped
+      target: 160
+      display: "나무 160개 벌목하기"
+      reward-on: 4000
+      difficulty: hard
+    - id: ranch_easy
+      stat-key: life.ranch.bred
+      target: 5
+      display: "동물 5마리 번식시키기"
+      reward-on: 1000
+      difficulty: easy
+    - id: ranch_medium
+      stat-key: life.ranch.bred
+      target: 10
+      display: "동물 10마리 번식시키기"
+      reward-on: 2000
+      difficulty: medium
+    - id: ranch_hard
+      stat-key: life.ranch.bred
+      target: 20
+      display: "동물 20마리 번식시키기"
+      reward-on: 4000
+      difficulty: hard
+    - id: hunting_easy
+      stat-key: life.hunting.killed
+      target: 15
+      display: "몬스터 15마리 처치하기"
+      reward-on: 1000
+      difficulty: easy
+    - id: hunting_medium
+      stat-key: life.hunting.killed
+      target: 30
+      display: "몬스터 30마리 처치하기"
+      reward-on: 2000
+      difficulty: medium
+    - id: hunting_hard
+      stat-key: life.hunting.killed
+      target: 60
+      display: "몬스터 60마리 처치하기"
+      reward-on: 4000
+      difficulty: hard
+
+weekly:
+  easy-count: 4
+  medium-count: 4
+  hard-count: 4
+  quest-pool:
+    - id: mining_easy
+      stat-key: life.mining.mined
+      target: 125
+      display: "광물 125개 채굴하기"
+      reward-on: 4000
+      difficulty: easy
+    - id: mining_medium
+      stat-key: life.mining.mined
+      target: 250
+      display: "광물 250개 채굴하기"
+      reward-on: 8000
+      difficulty: medium
+    - id: mining_hard
+      stat-key: life.mining.mined
+      target: 500
+      display: "광물 500개 채굴하기"
+      reward-on: 16000
+      difficulty: hard
+    - id: farming_easy
+      stat-key: life.farming.harvested
+      target: 250
+      display: "작물 250개 수확하기"
+      reward-on: 4000
+      difficulty: easy
+    - id: farming_medium
+      stat-key: life.farming.harvested
+      target: 500
+      display: "작물 500개 수확하기"
+      reward-on: 8000
+      difficulty: medium
+    - id: farming_hard
+      stat-key: life.farming.harvested
+      target: 1000
+      display: "작물 1000개 수확하기"
+      reward-on: 16000
+      difficulty: hard
+    - id: fishing_easy
+      stat-key: life.fishing.caught
+      target: 50
+      display: "물고기 50마리 낚시하기"
+      reward-on: 4000
+      difficulty: easy
+    - id: fishing_medium
+      stat-key: life.fishing.caught
+      target: 100
+      display: "물고기 100마리 낚시하기"
+      reward-on: 8000
+      difficulty: medium
+    - id: fishing_hard
+      stat-key: life.fishing.caught
+      target: 200
+      display: "물고기 200마리 낚시하기"
+      reward-on: 16000
+      difficulty: hard
+    - id: logging_easy
+      stat-key: life.logging.chopped
+      target: 200
+      display: "나무 200개 벌목하기"
+      reward-on: 4000
+      difficulty: easy
+    - id: logging_medium
+      stat-key: life.logging.chopped
+      target: 400
+      display: "나무 400개 벌목하기"
+      reward-on: 8000
+      difficulty: medium
+    - id: logging_hard
+      stat-key: life.logging.chopped
+      target: 800
+      display: "나무 800개 벌목하기"
+      reward-on: 16000
+      difficulty: hard
+    - id: ranch_easy
+      stat-key: life.ranch.bred
+      target: 25
+      display: "동물 25마리 번식시키기"
+      reward-on: 4000
+      difficulty: easy
+    - id: ranch_medium
+      stat-key: life.ranch.bred
+      target: 50
+      display: "동물 50마리 번식시키기"
+      reward-on: 8000
+      difficulty: medium
+    - id: ranch_hard
+      stat-key: life.ranch.bred
+      target: 100
+      display: "동물 100마리 번식시키기"
+      reward-on: 16000
+      difficulty: hard
+    - id: hunting_easy
+      stat-key: life.hunting.killed
+      target: 75
+      display: "몬스터 75마리 처치하기"
+      reward-on: 4000
+      difficulty: easy
+    - id: hunting_medium
+      stat-key: life.hunting.killed
+      target: 150
+      display: "몬스터 150마리 처치하기"
+      reward-on: 8000
+      difficulty: medium
+    - id: hunting_hard
+      stat-key: life.hunting.killed
+      target: 300
+      display: "몬스터 300마리 처치하기"
+      reward-on: 16000
+      difficulty: hard
+      reward-on: 8000
+
+chat:
+  cooldown-ms: 1500
+  # 지역채팅(/채널 지역, /지역 <메시지>)에서 메시지가 보이는 반경 (블록)
+  local-radius: 100
+
+# 이 서버 인스턴스(백엔드 서버)를 부르는 이름 - 탭리스트 헤더의
+# <servername> 토큰에서만 쓰인다. 프록시(YeowoolProxy)로 여러 서버를 묶어
+# 운영할 때 각 서버의 이 config.yml에 서로 다른 값을 넣어두면 된다.
+server-name: "야생"
+
+# 사이드바/탭리스트. <on>, <bank>, <cash>(유료 재화), <landlevel>, <landxp>, <playtime>,
+# <title>, <online>, <max_players>, <tps>, <player>(실명 고정),
+# <servername>(탭리스트 헤더/푸터 전용) 토큰 사용 가능.
+# <identity>는 랭크 아이콘 + 칭호 + 한글 닉네임(설정 안 했으면 실명)을 전부
+# 합친 것으로, 탭리스트의 플레이어 목록/네임태그에 보이는 것과 동일하게
+# 표시하고 싶을 때 사용. 탭리스트의 "플레이어 목록"(각 접속자 줄) 자체는
+# 헤더/푸터와 달리 여기 설정하는 게 아니라 접속 중인 모든 플레이어가
+# 자동으로 표시되며, 각 줄의 내용(랭크 아이콘/칭호/닉네임)은
+# /랭크아이콘, /칭호, /한글닉네임설정권으로 플레이어별로 정해진다.
+# PlaceholderAPI가 설치되어 있으면 %other_plugin_placeholder% 도 함께 쓸 수 있음.
+scoreboard:
+  enabled: true
+  update-interval-ticks: 20
+  title: "<green><bold>여울</bold></green>"
+  lines:
+    - " "
+    - "<gray>닉네임: <white><identity></white></gray>"
+    - "<gray>온: <gold><on></gold></gray>"
+    - "<gray>캐시: <light_purple><cash></light_purple></gray>"
+    - "<gray>토지 레벨: <gold>Lv.<landlevel></gold></gray>"
+    - "<gray>채팅: <yellow><channel></yellow></gray>"
+    - "<gray>자동줍기: <aqua><autopickup></aqua></gray>"
+    - "<gray>자동심기: <aqua><autoplant></aqua></gray>"
+
+tablist:
+  enabled: true
+  header: "<green><bold>YEOWOOL</bold></green>\n\n<gray>여울 | 반야생 서버</gray>\n<gray>현재 서버: <yellow><servername></yellow></gray>"
+  footer: "<gray>온라인 <gold><online></gold> / <gold><max_players></gold></gray>\n<gray>즐거운 여울 생활을 시작해보세요.</gray>"
+
+# 랭크 아이콘 (/랭크아이콘 목록|부여|제거) - ItemsAdder의 font_images 기능으로
+# 채팅/탭리스트/네임태그 옆에 아이콘을 표시한다. 전투력/경제력과 무관한 순수
+# 표시용이며, 관리자가 /랭크아이콘 부여로 직접 지급한다 (칭호/코스메틱처럼
+# 플레이어가 스스로 해금하는 방식이 아님). id는 rank-icon 리소스팩의
+# beautiful_ranks.yml에 있는 font_images 키와 정확히 일치해야 한다
+# (예: ":owner_icon:" 플레이스홀더 -> id: owner_icon).
+# rank-icon-default-id: 아무 아이콘도 부여받지 않은 일반 플레이어에게
+# 기본으로 붙는 아이콘 id. 빈 문자열로 두면 기본 아이콘 없이 표시됨.
+rank-icon-default-id: "player_icon"
+rank-icons:
+  - id: owner_icon
+    display: "오너"
+  - id: admin_icon
+    display: "관리자"
+  - id: manager_icon
+    display: "매니저"
+  - id: dev_icon
+    display: "개발자"
+  - id: builder_icon
+    display: "빌더"
+  - id: graphiste_icon
+    display: "그래픽 디자이너"
+  - id: mod_icon
+    display: "모더레이터"
+  - id: helper_icon
+    display: "헬퍼"
+  - id: staff_icon
+    display: "스태프"
+  - id: vip_icon
+    display: "VIP"
+  - id: vip_plus_icon
+    display: "VIP+"
+  - id: mvp_icon
+    display: "MVP"
+  - id: mvp_plus_icon
+    display: "MVP+"
+  - id: player_icon
+    display: "플레이어"
+
+# 한글 닉네임 (/한글닉네임설정권) - OP가 지급한 설정권 아이템을 우클릭하면
+# 가상 모루가 열려 한글 닉네임을 입력할 수 있다. 설정한 닉네임은 채팅/
+# 탭리스트/네임태그에 실명 대신 표시된다 (아머스탠드 방식이 아니라
+# Player#playerListName으로 실제 표시 이름 자체를 갈아끼우는 방식).
+# voucher-item-id를 비워두면 기본 종이 아이템으로 지급된다.
+korean-nickname:
+  voucher-item-id: "ec_killeffects:kfx-scroll-killeffects_golden_scroll"
+
+# 칭호/업적 (기획서 9.3/9.4). requirement-stat이 없으면 자동 해금되지 않으며
+# 관리자가 직접 지급해야 하는 칭호로 취급한다 (예: [여울의 주민]).
+# requirement-stat에 "land.level"을 쓰면 토지 레벨을, 그 외에는
+# YeowoolLife 등이 기록하는 통계 키(life.farming.harvested 등)를 사용한다.
+titles:
+  - id: farmer
+    display: "<green>[농부]</green>"
+    requirement-stat: life.farming.harvested
+    requirement-value: 10000
+    reward-on: 5000
+  - id: lumberjack
+    display: "<dark_green>[벌목꾼]</dark_green>"
+    requirement-stat: life.logging.chopped
+    requirement-value: 5000
+    reward-on: 5000
+  - id: angler
+    display: "<aqua>[낚시꾼]</aqua>"
+    requirement-stat: life.fishing.caught
+    requirement-value: 1000
+    reward-on: 3000
+  - id: rancher
+    display: "<gold>[목장주]</gold>"
+    requirement-stat: life.ranch.bred
+    requirement-value: 500
+    reward-on: 3000
+  - id: miner
+    display: "<gray>[광부]</gray>"
+    requirement-stat: life.mining.mined
+    requirement-value: 5000
+    reward-on: 5000
+  - id: land-lv10
+    display: "<yellow>[여울의 주민]</yellow>"
+    requirement-stat: land.level
+    requirement-value: 10
+    reward-on: 10000
+  # requirement-stat이 없으면 자동 해금되지 않는 관리자 전용 칭호가 된다.
+  # /칭호 지급 <플레이어> staff 로 부여 -> 대상이 /칭호 장착 staff 로 장착.
+  - id: staff
+    display: "<red>[STAFF]</red>"
+
+# /이벤트 보상받기로 지급되는 고정 보상 (기획서 10.1). 이벤트 이름별로
+# 따로 설정하지 않고 하나의 보상 세트를 공용으로 사용한다.
+event:
+  reward-on: 5000
+  reward-items:
+    - material: DIAMOND
+      amount: 1
+
+# /이벤트 미션시작으로 시작하는 미션형 이벤트(몹 처치 수 / 아이템 수집)의
+# 보상. 서버 전체에서 목표를 가장 먼저 달성한 한 명에게만 지급된다.
+mission:
+  reward-on: 20000
+  reward-items:
+    - material: NETHERITE_INGOT
+      amount: 1
+  # 서버 시간 기준 자동 시작 - 이미 다른 미션이 진행 중이면(관리자가 수동으로
+  # 시작한 것 포함) 건너뜀. 하루에 한 번만 발동하고, /이벤트 미션시작으로
+  # 수동 진행하는 것도 그대로 가능함.
+  schedule:
+    - time: "20:00"
+      kind: KILL
+      target: ZOMBIE
+      goal: 100
+      minutes: 30
+    - time: "12:00"
+      kind: COLLECT
+      target: DIAMOND
+      goal: 50
+      minutes: 30
+
+# /코스메틱 상점 (기획서 10.2) - 전투력/경제력과 무관한 순수 장식.
+# type: PARTICLE (value=파티클 이름) 또는 CHAT_COLOR (value=색상 이름 또는 #hex)
+cosmetics:
+  - id: particle_flame
+    type: PARTICLE
+    display: "<red>불꽃 오라</red>"
+    price: 20000
+    value: FLAME
+  - id: particle_heart
+    type: PARTICLE
+    display: "<light_purple>하트 오라</light_purple>"
+    price: 20000
+    value: HEART
+  - id: particle_note
+    type: PARTICLE
+    display: "<green>음표 오라</green>"
+    price: 15000
+    value: NOTE
+  - id: chatcolor_gold
+    type: CHAT_COLOR
+    display: "<gold>황금빛 이름</gold>"
+    price: 30000
+    value: gold
+  - id: chatcolor_aqua
+    type: CHAT_COLOR
+    display: "<aqua>청록빛 이름</aqua>"
+    price: 30000
+    value: aqua
+
+# /배틀패스 - FREE 트랙은 기본 열려있고, PREMIUM 트랙은 캐시로 구매(또는
+# /배틀패스 프리미엄지급 으로 관리자가 무상 지급)해야 열림. 포인트는
+# /퀘스트(일일/주간) 완료 시 난이도별로 자동 적립되며, 티어별 보상 내용
+# (필요 포인트/금액/화폐/아이템)은 /배틀패스 보상설정 [free|premium] [tier]
+# GUI에서 직접 설정한다 (config.yml에는 없음 - DB에 저장됨).
+# 배경/아이콘은 "Immersive_BattlePass_UI" ItemsAdder 애드온
+# (namespace: yeowool_battlepass)을 그대로 사용함 - 없으면 자동으로
+# 기본 아이템 + 평범한 GUI 제목으로 대체됨.
+battlepass:
+  season: 1
+  premium-price-cash: 9900
+  # /배틀패스 포탈 GUI 배경(bp_portal_bg)의 좌우 위치 보정값.
+  gui-background-offset: -8
+  # /배틀패스 보상 목록 GUI 배경(bp_rewards_bg)의 좌우 위치 보정값 - 포탈과 따로 조정 가능.
+  gui-background-offset-rewards: -8
+  points-per-quest:
+    easy: 10
+    medium: 10
+    hard: 10
+
+# /메뉴 (Shift+F 흉내로도 열림) - 배경(yeowool_menu:menu_bg_*)은 "UltimateGUI_steampunk_pack"
+# ItemsAdder 애드온 사용. 배경 좌우 위치 보정값 - 인게임에서 보면서 조정하세요.
+menu:
+  gui-background-offset: -8
+  # 카테고리 서브 화면(경제/생활/상점·시장/... 전부 공유)의 좌우 위치 보정값.
+  gui-background-offset-categories: -8

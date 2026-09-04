@@ -1,0 +1,20 @@
+name: YeowoolLand
+version: '${version}'
+main: com.yeowool.land.YeowoolLand
+api-version: '1.21'
+author: Yeowool
+description: 토지 시스템 (배럴 등록, 청크 소유권, 토지 생성/확장/레벨/보호/멤버)
+depend: [YeowoolCore]
+
+commands:
+  토지:
+    description: 토지 관리 명령어
+  마을랭킹:
+    description: 토지 레벨 기준 마을 랭킹 TOP 10을 확인합니다
+  토지이동:
+    description: 내 토지로 이동합니다 (다른 서버에 있으면 토지가 있는 서버로 먼저 이동)
+
+permissions:
+  yeowool.land.bypass:
+    description: 토지 보호를 무시하고 아무 토지에나 건축/상자/배럴 파괴가 가능한 스태프 전용 권한
+    default: op

@@ -1,0 +1,26 @@
+name: YeowoolLife
+version: '${version}'
+main: com.yeowool.life.YeowoolLife
+api-version: '1.21'
+author: Yeowool
+description: 생활 콘텐츠 (농사, 벌목, 목축, 낚시, 채광)
+depend: [YeowoolCore]
+softdepend: [ItemsAdder]
+
+commands:
+  도감:
+    description: 물고기/광물/사냥/작물 도감을 확인합니다
+  직업:
+    description: 직업 선택/정보/목록/스킬
+  낚시대회:
+    description: 진행 중인 낚시 대회 현황을 확인합니다
+  자동줍기권:
+    description: OP 전용 - 지급 <횟수>로 자동줍기권 아이템을 지급합니다 (-1=무제한)
+  자동심기권:
+    description: OP 전용 - 지급 <횟수>로 자동심기권 아이템을 지급합니다 (-1=무제한)
+  가방:
+    description: 작물/광물/낚시/목축 가방을 확인합니다
+  가방확장권:
+    description: OP 전용 - 지급 <개수>로 가방 확장권(ticket_chest)을 지급합니다
+  낚시관리:
+    description: 관리진 전용 - "물고기"로 등록된 모든 물고기를 GUI에서 바로 지급받습니다

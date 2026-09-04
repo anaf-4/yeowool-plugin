@@ -1,0 +1,789 @@
+# YeowoolLife 설정
+# 모든 xp/제한 값은 밸런스 튜닝용 플레이스홀더입니다.
+
+farming:
+  growth-minutes: 10
+  xp-per-harvest: 5
+
+# 자동줍기권/자동심기권 — /자동줍기권 지급 <횟수>, /자동심기권 지급 <횟수>(관리자 전용)로만 지급됩니다.
+# 지급받은 아이템은 지정한 횟수만큼 충전된 채로 나오며, 우클릭 시 1회씩, 쉬프트+우클릭 시 한 번에 전부
+# 사용됩니다. 밀/당근/감자/비트/네더 사마귀/코코아를 다 자란 상태로 수확할 때만 적용됩니다. 남은 횟수는
+# 레벨 숫자로 표시됩니다(둘 다 활성화되어 있으면 자동줍기가 우선 표시됨) — 스코어보드에도
+# <autopickup>/<autoplant> 토큰으로 뜹니다.
+
+logging:
+  xp-per-log: 2
+  # 묘목이 나무로 자라기까지 걸리는 고정 시간 (바닐라 랜덤 성장 대신).
+  # 단일 묘목도 자라도록 허용함 (정글/다크오크의 바닐라 2x2 요구사항 생략).
+  sapling-growth-minutes: 15
+
+ranch:
+  xp-per-breed: 10
+  max-animals-per-chunk: 16
+
+fishing:
+  xp-per-catch: 3
+  # /도감의 물고기 도감(FishCatalogGui)에 fishing_expansion 팩의 "fish_codex" 배경
+  # 이미지를 띄울 때 쓰는 가로 위치 보정값. 배경이 좌우로 어긋나 보이면 조절하세요.
+  # 팩 제작자가 자신의 DeluxeMenus 설정(fish_codex.yml)에서 이 배경에 실제로 쓴 값이
+  # -8이라, 그 값을 기본값으로 씀 (직업 배경의 -46과는 스케일이 다름 — 서로 다른 이미지).
+  gui-background-offset: -8
+  # 바닐라 낚시 대기시간(찌를 던진 뒤 입질이 오기까지) 대신 여기서 지정한 범위로 강제 적용.
+  wait-time:
+    min-seconds: 5
+    max-seconds: 30
+  # 입질(BITE)이 오면 보스바가 뜨고 total-duration-ms 동안 차오릅니다. 그 안에서
+  # 무작위 위치에 "스위트 스팟"(sweet-spot-min/max-width-ms 폭)이 생기고, 그 구간에
+  # 보스바가 들어가 있을 때(초록색) 우클릭해서 릴을 감으면 완벽한 타이밍(perfect-*),
+  # 그 앞뒤로 good-buffer-ms만큼은 좋은 타이밍(good-*) — 각각 등급 확률(rare-bonus)과
+  # 크기(size-bonus-percent, 최대 크기 쪽으로 그 %만큼 보정)에 곱/가산됨. 그보다 멀리
+  # 벗어나서 감으면 miss-fail-chance-percent 확률로 아예 물고기를 놓칩니다.
+  minigame:
+    total-duration-ms: 2500
+    sweet-spot-min-width-ms: 400
+    sweet-spot-max-width-ms: 700
+    good-buffer-ms: 300
+    perfect-rare-bonus: 1.3
+    good-rare-bonus: 1.1
+    perfect-size-bonus-percent: 25
+    good-size-bonus-percent: 10
+    miss-fail-chance-percent: 40
+  # "별" 등급 — 새로운 물고기 종류가 아니라, 정상적으로 낚은 아무 물고기에나 독립적으로
+  # chance-percent 확률로 붙는 "반짝이는" 변종(원본 CustomFishing의 실버/골드 스타와
+  # 같은 개념). 붙으면 등급 표시가 "별"로 바뀌고 크기가 size-bonus-percent%만큼 커짐.
+  star:
+    chance-percent: 2
+    size-bonus-percent: 40
+  # 매일 start-hour(서버 시간, 24시 기준)에 자동 시작해서 duration-minutes 동안 진행되는
+  # 낚시 대회. 대회 중 낚은 물고기 중 가장 큰 걸 기준으로 참가자 순위를 매기고, 종료 시
+  # 1~3위에게 rewards에 설정된 만큼 온을 지급합니다(0이거나 생략하면 보상 없음).
+  competition:
+    start-hour: 18
+    duration-minutes: 60
+    rewards:
+      1: 50000
+      2: 30000
+      3: 15000
+  # /도감으로 확인 가능. 등급마다 원하는 만큼 물고기를 추가할 수 있음.
+  # custom-icon은 ItemsAdder "fishing_expansion" 팩의 아이템 id로, 잡은 적이 있는
+  # 물고기의 /도감 아이콘에 우선 사용됨(없거나 ItemsAdder 미설치 시 material로 대체).
+  # 등급별 가중치(weight)는 그대로 유지하고 fishing_expansion 팩의 물고기 60종으로 교체함.
+  rarities:
+    - name: 일반
+      weight: 60
+      color: white
+      fish:
+        - id: trout
+          name: "송어"
+          material: COD
+          custom-icon: "fishing_expansion:trout"
+          description: "차가운 계곡물에서 사는 은빛 물고기."
+          min-size-cm: 15
+          max-size-cm: 40
+        - id: sardine
+          name: "정어리"
+          material: COD
+          custom-icon: "fishing_expansion:sardine"
+          description: "떼를 지어 헤엄치는 작고 흔한 물고기."
+          min-size-cm: 8
+          max-size-cm: 20
+        - id: pike
+          name: "꼬치고기"
+          material: COD
+          custom-icon: "fishing_expansion:pike"
+          description: "날카로운 이빨을 가진 육식성 민물고기."
+          min-size-cm: 20
+          max-size-cm: 60
+        - id: perch
+          name: "농어"
+          material: COD
+          custom-icon: "fishing_expansion:perch"
+          description: "얕은 물가에서 흔히 잡히는 물고기."
+          min-size-cm: 10
+          max-size-cm: 30
+        - id: mackerel
+          name: "고등어"
+          material: COD
+          custom-icon: "fishing_expansion:mackerel"
+          description: "등이 푸른빛을 띠는 흔한 바닷물고기."
+          min-size-cm: 15
+          max-size-cm: 35
+        - id: herring
+          name: "청어"
+          material: COD
+          custom-icon: "fishing_expansion:herring"
+          description: "예로부터 식용으로 많이 잡혀온 물고기."
+          min-size-cm: 10
+          max-size-cm: 25
+        - id: catfish
+          name: "메기"
+          material: COD
+          custom-icon: "fishing_expansion:catfish"
+          description: "긴 수염이 특징인 민물 바닥 물고기."
+          min-size-cm: 20
+          max-size-cm: 80
+        - id: carp
+          name: "잉어"
+          material: COD
+          custom-icon: "fishing_expansion:carp"
+          description: "연못과 강에서 오래 사는 물고기."
+          min-size-cm: 20
+          max-size-cm: 70
+        - id: bass
+          name: "배스"
+          material: COD
+          custom-icon: "fishing_expansion:bass"
+          description: "낚시꾼들에게 인기 있는 손맛 좋은 물고기."
+          min-size-cm: 15
+          max-size-cm: 45
+    - name: 희귀
+      weight: 25
+      color: aqua
+      fish:
+        - id: trigger_fish
+          name: "쥐치"
+          material: COD
+          custom-icon: "fishing_expansion:trigger_fish"
+          description: "질긴 가죽 같은 피부를 가진 물고기."
+          min-size-cm: 15
+          max-size-cm: 35
+        - id: surgeonfish
+          name: "쥐돔"
+          material: COD
+          custom-icon: "fishing_expansion:surgeonfish"
+          description: "꼬리에 날카로운 가시가 있는 열대어."
+          min-size-cm: 10
+          max-size-cm: 25
+        - id: parrotfish
+          name: "앵무고기"
+          material: COD
+          custom-icon: "fishing_expansion:parrotfish"
+          description: "산호를 갉아먹는 화려한 색의 물고기."
+          min-size-cm: 15
+          max-size-cm: 40
+        - id: moray_eel
+          name: "곰치"
+          material: COD
+          custom-icon: "fishing_expansion:moray_eel"
+          description: "바위틈에 숨어사는 사나운 장어."
+          min-size-cm: 30
+          max-size-cm: 100
+        - id: lion_fish
+          name: "라이언피시"
+          material: COD
+          custom-icon: "fishing_expansion:lion_fish"
+          description: "화려하지만 독가시를 품은 위험한 물고기."
+          min-size-cm: 10
+          max-size-cm: 25
+        - id: damsel_fish
+          name: "자리돔"
+          material: COD
+          custom-icon: "fishing_expansion:damsel_fish"
+          description: "산호초 주변을 맴도는 작은 물고기."
+          min-size-cm: 5
+          max-size-cm: 12
+        - id: butterflyfish
+          name: "나비고기"
+          material: COD
+          custom-icon: "fishing_expansion:butterflyfish"
+          description: "나비 날개 같은 무늬를 가진 물고기."
+          min-size-cm: 5
+          max-size-cm: 15
+        - id: angelfish
+          name: "엔젤피시"
+          material: COD
+          custom-icon: "fishing_expansion:angelfish"
+          description: "우아한 지느러미를 가진 관상용 물고기."
+          min-size-cm: 5
+          max-size-cm: 15
+        - id: snail
+          name: "달팽이"
+          material: COD
+          custom-icon: "fishing_expansion:snail"
+          description: "물속 바위에 붙어사는 연체동물."
+          min-size-cm: 2
+          max-size-cm: 6
+        - id: mussel
+          name: "홍합"
+          material: COD
+          custom-icon: "fishing_expansion:mussel"
+          description: "바위에 붙어 무리지어 사는 조개."
+          min-size-cm: 3
+          max-size-cm: 8
+        - id: freshwater_sponge
+          name: "민물해면"
+          material: COD
+          custom-icon: "fishing_expansion:freshwater_sponge"
+          description: "민물 바닥에서 자라는 해면동물."
+          min-size-cm: 5
+          max-size-cm: 20
+        - id: crayfish
+          name: "가재"
+          material: COD
+          custom-icon: "fishing_expansion:crayfish"
+          description: "맑은 개울에 사는 작은 갑각류."
+          min-size-cm: 5
+          max-size-cm: 15
+        - id: crab
+          name: "게"
+          material: COD
+          custom-icon: "fishing_expansion:crab"
+          description: "옆으로 걷는 딱딱한 껍질의 갑각류."
+          min-size-cm: 5
+          max-size-cm: 18
+        - id: clam
+          name: "조개"
+          material: COD
+          custom-icon: "fishing_expansion:clam"
+          description: "모래 속에 파묻혀 사는 조개."
+          min-size-cm: 3
+          max-size-cm: 10
+        - id: amphipod
+          name: "옆새우"
+          material: COD
+          custom-icon: "fishing_expansion:amphipod"
+          description: "물속 바닥을 기어다니는 작은 갑각류."
+          min-size-cm: 1
+          max-size-cm: 4
+    - name: 특수
+      weight: 12
+      color: light_purple
+      fish:
+        - id: wahoo
+          name: "와후"
+          material: COD
+          custom-icon: "fishing_expansion:wahoo"
+          description: "빠른 속도로 헤엄치는 원양성 물고기."
+          min-size-cm: 80
+          max-size-cm: 170
+        - id: tuna
+          name: "참치"
+          material: COD
+          custom-icon: "fishing_expansion:tuna"
+          description: "먼바다를 회유하는 대형 물고기."
+          min-size-cm: 60
+          max-size-cm: 200
+        - id: sword_fish
+          name: "황새치"
+          material: COD
+          custom-icon: "fishing_expansion:sword_fish"
+          description: "칼처럼 뾰족한 주둥이를 가진 대형 물고기."
+          min-size-cm: 100
+          max-size-cm: 250
+        - id: snook
+          name: "스눅"
+          material: COD
+          custom-icon: "fishing_expansion:snook"
+          description: "강어귀에서도 발견되는 사냥꾼 물고기."
+          min-size-cm: 40
+          max-size-cm: 90
+        - id: snapper
+          name: "도미"
+          material: COD
+          custom-icon: "fishing_expansion:snapper"
+          description: "고급 식재료로 유명한 붉은 물고기."
+          min-size-cm: 30
+          max-size-cm: 70
+        - id: redfish
+          name: "레드피시"
+          material: COD
+          custom-icon: "fishing_expansion:redfish"
+          description: "붉은 빛을 띠는 힘 좋은 물고기."
+          min-size-cm: 30
+          max-size-cm: 80
+        - id: marlin
+          name: "청새치"
+          material: COD
+          custom-icon: "fishing_expansion:marlin"
+          description: "긴 창 같은 주둥이를 가진 거대한 물고기."
+          min-size-cm: 150
+          max-size-cm: 350
+        - id: grouper
+          name: "그루퍼"
+          material: COD
+          custom-icon: "fishing_expansion:grouper"
+          description: "바위틈에 숨어 먹이를 기다리는 큰 물고기."
+          min-size-cm: 50
+          max-size-cm: 150
+        - id: barracuda
+          name: "바라쿠다"
+          material: COD
+          custom-icon: "fishing_expansion:barracuda"
+          description: "날카로운 이빨을 가진 빠른 포식자."
+          min-size-cm: 60
+          max-size-cm: 130
+        - id: viper_fish
+          name: "바이퍼피시"
+          material: COD
+          custom-icon: "fishing_expansion:viper_fish"
+          description: "심해에 사는 송곳니가 긴 물고기."
+          min-size-cm: 15
+          max-size-cm: 30
+        - id: vampire_squid
+          name: "흡혈오징어"
+          material: COD
+          custom-icon: "fishing_expansion:vampire_squid"
+          description: "심해에 사는 신비로운 두족류."
+          min-size-cm: 10
+          max-size-cm: 30
+    - name: 전설
+      weight: 3
+      color: gold
+      fish:
+        - id: lanternfish
+          name: "랜턴피시"
+          material: COD
+          custom-icon: "fishing_expansion:lanternfish"
+          description: "스스로 빛을 내는 심해어."
+          min-size-cm: 5
+          max-size-cm: 15
+        - id: gulper_eel
+          name: "주머니장어"
+          material: COD
+          custom-icon: "fishing_expansion:gulper_eel"
+          description: "몸통보다 큰 입을 가진 심해 장어."
+          min-size-cm: 30
+          max-size-cm: 80
+        - id: giant_isopod
+          name: "대왕쥐며느리"
+          material: COD
+          custom-icon: "fishing_expansion:giant_isopod"
+          description: "심해 바닥을 기어다니는 거대한 갑각류."
+          min-size-cm: 20
+          max-size-cm: 50
+        - id: dumbo_octopus
+          name: "덤보문어"
+          material: COD
+          custom-icon: "fishing_expansion:dumbo_octopus"
+          description: "귀처럼 생긴 지느러미로 헤엄치는 심해 문어."
+          min-size-cm: 15
+          max-size-cm: 30
+        - id: dragon_fish
+          name: "드래곤피시"
+          material: COD
+          custom-icon: "fishing_expansion:dragon_fish"
+          description: "날카로운 이빨을 가진 심해의 포식자."
+          min-size-cm: 15
+          max-size-cm: 40
+        - id: blobfish
+          name: "블롭피시"
+          material: COD
+          custom-icon: "fishing_expansion:blobfish"
+          description: "수압이 낮으면 흐물흐물해지는 기묘한 물고기."
+          min-size-cm: 20
+          max-size-cm: 40
+        - id: barreleye_fish
+          name: "베럴아이"
+          material: COD
+          custom-icon: "fishing_expansion:barreleye_fish"
+          description: "투명한 머리 속에 통 모양 눈이 있는 신비한 물고기."
+          min-size-cm: 10
+          max-size-cm: 20
+        - id: anglerfish
+          name: "아귀"
+          material: COD
+          custom-icon: "fishing_expansion:anglerfish"
+          description: "빛나는 미끼로 먹이를 유인하는 심해어."
+          min-size-cm: 15
+          max-size-cm: 40
+        # 아래부터는 네더/용암 테마 물고기 — 별도 차원 판정 없이 전설 등급에 그대로 포함
+        - id: ashmaw
+          name: "애쉬마우"
+          material: COD
+          custom-icon: "fishing_expansion:ashmaw"
+          description: "용암 근처에서만 발견되는 재빛 물고기."
+          min-size-cm: 30
+          max-size-cm: 80
+        - id: soulfin
+          name: "소울핀"
+          material: COD
+          custom-icon: "fishing_expansion:soulfin"
+          description: "영혼모래 지역에서 헤엄치는 창백한 물고기."
+          min-size-cm: 25
+          max-size-cm: 70
+        - id: blightscale
+          name: "블라이트스케일"
+          material: COD
+          custom-icon: "fishing_expansion:blightscale"
+          description: "부식된 비늘을 가진 네더의 물고기."
+          min-size-cm: 35
+          max-size-cm: 90
+        - id: bone_dart
+          name: "본다트"
+          material: COD
+          custom-icon: "fishing_expansion:bone_dart"
+          description: "뼈처럼 하얗고 화살처럼 빠른 물고기."
+          min-size-cm: 20
+          max-size-cm: 50
+        - id: cinder_pike
+          name: "신더파이크"
+          material: COD
+          custom-icon: "fishing_expansion:cinder_pike"
+          description: "잉걸불 속에서도 살아남는 억센 물고기."
+          min-size-cm: 30
+          max-size-cm: 75
+        - id: ember_carp
+          name: "엠버카프"
+          material: COD
+          custom-icon: "fishing_expansion:ember_carp"
+          description: "붉게 타오르는 비늘을 가진 잉어."
+          min-size-cm: 25
+          max-size-cm: 60
+        - id: glowsnap
+          name: "글로우스냅"
+          material: COD
+          custom-icon: "fishing_expansion:glowsnap"
+          description: "어둠 속에서 은은히 빛나는 물고기."
+          min-size-cm: 15
+          max-size-cm: 40
+        - id: glowtail
+          name: "글로우테일"
+          material: COD
+          custom-icon: "fishing_expansion:glowtail"
+          description: "꼬리 끝이 빛나는 네더의 물고기."
+          min-size-cm: 20
+          max-size-cm: 55
+        - id: hellpuffer
+          name: "헬퍼퍼"
+          material: COD
+          custom-icon: "fishing_expansion:hellpuffer"
+          description: "위협을 느끼면 부풀어 오르는 용암 물고기."
+          min-size-cm: 20
+          max-size-cm: 60
+        - id: hellstripe
+          name: "헬스트라이프"
+          material: COD
+          custom-icon: "fishing_expansion:hellstripe"
+          description: "선명한 줄무늬를 가진 네더의 물고기."
+          min-size-cm: 25
+          max-size-cm: 65
+        - id: lava_lantern
+          name: "라바랜턴"
+          material: COD
+          custom-icon: "fishing_expansion:lava_lantern"
+          description: "몸속에서 용암빛이 새어나오는 물고기."
+          min-size-cm: 15
+          max-size-cm: 45
+        - id: magma_belly
+          name: "마그마벨리"
+          material: COD
+          custom-icon: "fishing_expansion:magma_belly"
+          description: "배 속에 마그마를 품은 듯한 물고기."
+          min-size-cm: 30
+          max-size-cm: 85
+        - id: nether_ray
+          name: "네더레이"
+          material: COD
+          custom-icon: "fishing_expansion:nether_ray"
+          description: "네더의 하늘을 나는 것처럼 헤엄치는 가오리."
+          min-size-cm: 40
+          max-size-cm: 100
+        - id: rustfin
+          name: "러스트핀"
+          material: COD
+          custom-icon: "fishing_expansion:rustfin"
+          description: "녹슨 듯한 지느러미를 가진 물고기."
+          min-size-cm: 20
+          max-size-cm: 55
+        - id: spore_jelly
+          name: "스포어젤리"
+          material: COD
+          custom-icon: "fishing_expansion:spore_jelly"
+          description: "포자를 흩뿌리며 떠다니는 젤리 형태의 생물."
+          min-size-cm: 10
+          max-size-cm: 35
+        - id: warped_eel
+          name: "뒤틀린장어"
+          material: COD
+          custom-icon: "fishing_expansion:warped_eel"
+          description: "뒤틀린 숲 근처에서 발견되는 장어."
+          min-size-cm: 30
+          max-size-cm: 90
+        - id: moltenjaw
+          name: "몰튼조"
+          material: COD
+          custom-icon: "fishing_expansion:moltenjaw"
+          description: "녹아내리는 턱을 가진 네더의 거대 물고기."
+          min-size-cm: 100
+          max-size-cm: 300
+  # 등급별 낚싯대 (ItemsAdder "fishing_expansion" 팩, 실제 재질은 바닐라 FISHING_ROD라
+  # 캐스팅은 평소처럼 동작함) — 메인핸드에 들고 낚시하면 위 rarities 중 "일반"을 제외한
+  # 모든 등급의 가중치가 rare-weight-multiplier배로 뻥튀기되어 더 자주 나옴.
+  # 관리자는 ItemsAdder 자체 명령어(/iagive <닉네임> fishing_expansion:<id>)로 지급.
+  rods:
+    copper:
+      display: "구리 낚싯대"
+      custom-icon: "fishing_expansion:copper_fishing_rod"
+      rare-weight-multiplier: 1.1
+    iron:
+      display: "철 낚싯대"
+      custom-icon: "fishing_expansion:iron_fishing_rod"
+      rare-weight-multiplier: 1.2
+    golden:
+      display: "황금 낚싯대"
+      custom-icon: "fishing_expansion:golden_fishing_rod"
+      rare-weight-multiplier: 1.3
+    diamond:
+      display: "다이아몬드 낚싯대"
+      custom-icon: "fishing_expansion:diamond_fishing_rod"
+      rare-weight-multiplier: 1.45
+    netherite:
+      display: "네더라이트 낚싯대"
+      custom-icon: "fishing_expansion:netherite_fishing_rod"
+      rare-weight-multiplier: 1.6
+  # 미끼(ItemsAdder "fishing_expansion" 팩) — 오프핸드에 들고 있으면 잡을 때마다 1개
+  # 소모되며, rare-weight-multiplier가 낚싯대 보너스와 곱해져 함께 적용됨.
+  baits:
+    bobber_bait:
+      display: "찌 미끼"
+      custom-icon: "fishing_expansion:bobber_bait"
+      rare-weight-multiplier: 1.1
+    nautilus_bait:
+      display: "조개껍질 미끼"
+      custom-icon: "fishing_expansion:nautilus_bait"
+      rare-weight-multiplier: 1.15
+    copper_bait:
+      display: "구리 미끼"
+      custom-icon: "fishing_expansion:copper_bait"
+      rare-weight-multiplier: 1.15
+    gelatin_bait:
+      display: "젤라틴 미끼"
+      custom-icon: "fishing_expansion:gelatin_bait"
+      rare-weight-multiplier: 1.2
+    slime_bait:
+      display: "슬라임 미끼"
+      custom-icon: "fishing_expansion:slime_bait"
+      rare-weight-multiplier: 1.25
+    magma_bait:
+      display: "마그마 미끼"
+      custom-icon: "fishing_expansion:magma_bait"
+      rare-weight-multiplier: 1.35
+    iridescent_bait:
+      display: "무지갯빛 미끼"
+      custom-icon: "fishing_expansion:iridescent_bait"
+      rare-weight-multiplier: 1.4
+    ender_bait:
+      display: "엔더 미끼"
+      custom-icon: "fishing_expansion:ender_bait"
+      rare-weight-multiplier: 1.5
+    trident_bait:
+      display: "삼지창 미끼"
+      custom-icon: "fishing_expansion:trident_bait"
+      rare-weight-multiplier: 1.45
+    sea_heart_bait:
+      display: "바다의 심장 미끼"
+      custom-icon: "fishing_expansion:sea_heart_bait"
+      rare-weight-multiplier: 1.6
+
+mining:
+  xp-per-ore: 4
+
+hunting:
+  # PVP 킬은 제외 (몬스터만) - 전투력과 무관한 수집 요소
+  xp-per-kill: 3
+
+# /도감 (물고기/광물/사냥/작물 4개 카테고리). id는 반드시 실제 블록/엔티티의
+# 바닐라 Material/EntityType 이름과 정확히 일치해야 자동으로 집계됩니다
+# (안 그러면 그 항목은 영원히 "???"로 남음). material은 GUI 아이콘일 뿐이라
+# 자유롭게 골라도 됩니다.
+collection-dex:
+  mining:
+    - id: COAL_ORE
+      display: "석탄"
+      material: COAL_ORE
+    - id: IRON_ORE
+      display: "철"
+      material: IRON_ORE
+    - id: GOLD_ORE
+      display: "금"
+      material: GOLD_ORE
+    - id: REDSTONE_ORE
+      display: "레드스톤"
+      material: REDSTONE_ORE
+    - id: LAPIS_ORE
+      display: "청금석"
+      material: LAPIS_ORE
+    - id: DIAMOND_ORE
+      display: "다이아몬드"
+      material: DIAMOND_ORE
+    - id: EMERALD_ORE
+      display: "에메랄드"
+      material: EMERALD_ORE
+    - id: ANCIENT_DEBRIS
+      display: "고대 잔해"
+      material: ANCIENT_DEBRIS
+  hunting:
+    - id: ZOMBIE
+      display: "좀비"
+      material: ZOMBIE_HEAD
+    - id: SKELETON
+      display: "스켈레톤"
+      material: SKELETON_SKULL
+    - id: CREEPER
+      display: "크리퍼"
+      material: CREEPER_HEAD
+    - id: SPIDER
+      display: "거미"
+      material: SPIDER_EYE
+    - id: ENDERMAN
+      display: "엔더맨"
+      material: ENDER_PEARL
+    - id: WITCH
+      display: "마녀"
+      material: POTION
+    - id: WITHER_SKELETON
+      display: "위더 스켈레톤"
+      material: WITHER_SKELETON_SKULL
+    - id: BLAZE
+      display: "블레이즈"
+      material: BLAZE_ROD
+  farming:
+    - id: WHEAT
+      display: "밀"
+      material: WHEAT
+    - id: CARROTS
+      display: "당근"
+      material: CARROT
+    - id: POTATOES
+      display: "감자"
+      material: POTATO
+    - id: BEETROOTS
+      display: "비트"
+      material: BEETROOT
+    - id: PUMPKIN
+      display: "호박"
+      material: PUMPKIN
+    - id: MELON
+      display: "수박"
+      material: MELON_SLICE
+    - id: COCOA
+      display: "코코아"
+      material: COCOA_BEANS
+    - id: SUGAR_CANE
+      display: "사탕수수"
+      material: SUGAR_CANE
+    - id: NETHER_WART
+      display: "네더 사마귀"
+      material: NETHER_WART
+    - id: SWEET_BERRY_BUSH
+      display: "달콤한 열매"
+      material: SWEET_BERRIES
+
+# 직업 시스템: 한 번에 하나의 직업만 활성화할 수 있습니다 (/직업 선택 - GUI로 선택).
+# 전직해도 이전 직업의 레벨/경험치는 그대로 남아있고, 다시 선택하면 이어집니다.
+# /직업 목록 은 각 직업의 설명/보유 레벨을 보여주는 정보용 GUI입니다.
+# 레벨업마다 스킬 포인트를 얻고, /직업 스킬 GUI에서 아래 skills(모든 직업 공통, 4개)에
+# 포인트를 배분해 패시브 보너스를 올릴 수 있습니다.
+jobs:
+  # /직업 스킬 화면에 medival_jobs 팩의 직업별 배경 이미지를 띄울 때 쓰는 가로 위치 보정값입니다.
+  # 배경이 왼쪽/오른쪽으로 살짝 어긋나 보이면 이 값을 조금씩 조절해서 맞추세요.
+  gui-background-offset: -46
+  max-level: 50
+  xp-curve:
+    # 필요 경험치 = base * 레벨 ^ exponent
+    base: 100
+    exponent: 1.8
+  # BONUS_CURRENCY_CHANCE_PERCENT 스킬이 발동할 때마다 지급되는 고정 온 금액
+  bonus-currency-per-proc: 10
+  xp-per-action:
+    alchemist: 6      # 양조기에서 완성된 물약을 꺼낼 때마다
+    blacksmith: 5     # 화로/용광로에서 광석을 제련해 주괴를 꺼낼 때마다
+    builder: 3        # 나무 블록(판자/계단/슬래브/울타리/문) 설치 1회당
+    digger: 8         # 구조물 상자를 처음 열어 전리품을 획득할 때마다
+    enchanter: 6       # 마법부여 테이블에서 인챈트를 부여할 때마다
+    farmer: 5         # 다 자란 작물 수확 1회당
+    fisherman: 5      # 낚시 성공 1회당
+    hunter: 4         # 적대적 몬스터 처치 1회당
+    miner: 4          # 광석 채굴 1회당
+    wood_cutter: 2    # 원목 채벌 1회당
+  # icon은 ItemsAdder가 없거나 custom-icon을 못 찾을 때 쓰이는 대체 재질입니다.
+  # custom-icon은 medival_jobs 팩의 아이템 id로, /직업 목록·/직업 선택 GUI에서 우선 사용됩니다.
+  list:
+    alchemist:
+      display: "연금술사"
+      icon: BREWING_STAND
+      custom-icon: "medival_jobs:medival_jobs_alchemist"
+      description: "양조기에서 물약을 완성하며 경험치를 얻습니다."
+    blacksmith:
+      display: "대장장이"
+      icon: ANVIL
+      custom-icon: "medival_jobs:medival_jobs_blacksmith"
+      description: "화로/용광로에서 광석을 제련하며 경험치를 얻습니다."
+    builder:
+      display: "건축가"
+      icon: BRICKS
+      custom-icon: "medival_jobs:medival_jobs_builder"
+      description: "나무 계열 블록을 설치하며 경험치를 얻습니다."
+    digger:
+      display: "도굴꾼"
+      icon: CHEST
+      custom-icon: "medival_jobs:medival_jobs_digger"
+      description: "구조물 상자를 처음 열어 전리품을 획득하며 경험치를 얻습니다."
+    enchanter:
+      display: "인챈터"
+      icon: ENCHANTING_TABLE
+      custom-icon: "medival_jobs:medival_jobs_enchanter"
+      description: "마법부여 테이블에서 아이템에 인챈트를 부여하며 경험치를 얻습니다."
+    farmer:
+      display: "농부"
+      icon: WHEAT
+      custom-icon: "medival_jobs:medival_jobs_farmer"
+      description: "다 자란 작물을 수확하며 경험치를 얻습니다."
+    fisherman:
+      display: "어부"
+      icon: FISHING_ROD
+      custom-icon: "medival_jobs:medival_jobs_fisherman"
+      description: "낚시에 성공할 때마다 경험치를 얻습니다."
+    hunter:
+      display: "사냥꾼"
+      icon: BOW
+      custom-icon: "medival_jobs:medival_jobs_hunter"
+      description: "적대적인 몬스터를 처치하며 경험치를 얻습니다."
+    miner:
+      display: "광부"
+      icon: IRON_PICKAXE
+      custom-icon: "medival_jobs:medival_jobs_miner"
+      description: "광석 블록을 채굴하며 경험치를 얻습니다."
+    wood_cutter:
+      display: "목수"
+      icon: OAK_LOG
+      custom-icon: "medival_jobs:medival_jobs_wood_cutter"
+      description: "나무를 베어 원목을 얻으며 경험치를 얻습니다."
+  # 모든 직업이 공유하는 4개의 패시브 스킬 (액티브 스킬 없음).
+  skills:
+    xp_bonus:
+      display: "숙련 경험치"
+      max-points: 10
+      effect: XP_BONUS_PERCENT
+      per-point: 2.0
+    extra_yield:
+      display: "생산 마스터리"
+      max-points: 10
+      effect: EXTRA_YIELD_CHANCE_PERCENT
+      per-point: 2.0
+    critical_xp:
+      display: "결정적 성과"
+      max-points: 10
+      effect: CRITICAL_XP_CHANCE_PERCENT
+      per-point: 1.5
+    bonus_currency:
+      display: "부수입"
+      max-points: 10
+      effect: BONUS_CURRENCY_CHANCE_PERCENT
+      per-point: 2.0
+
+# ItemsAdder가 설치되어 있을 때만 활성화됨 (없으면 이 섹션은 무시됩니다).
+# 바닐라 작물과 달리 성장 시간이 10분으로 고정되지 않고 단계(stage)마다
+# 개별로 설정합니다 - 각 단계는 서로 다른 커스텀 블록 ID로 표현됩니다.
+custom-farming:
+  crops:
+    # 예시 (실제 ItemsAdder에서 만든 네임스페이스ID로 교체하세요):
+    # golden_wheat:
+    #   xp-reward: 15
+    #   stages:
+    #     - id: "yeowool:golden_wheat_stage1"
+    #       minutes: 5
+    #     - id: "yeowool:golden_wheat_stage2"
+    #       minutes: 10
+    #     - id: "yeowool:golden_wheat_final"
+    #       minutes: 0   # 마지막 단계는 minutes를 쓰지 않음 (더 이상 성장 없음)

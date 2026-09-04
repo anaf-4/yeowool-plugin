@@ -1,0 +1,71 @@
+name: YeowoolMarket
+version: '${version}'
+main: com.yeowool.market.YeowoolMarket
+api-version: '1.21'
+author: Yeowool
+description: 상점 및 거래 (NPC 상점, 플레이어 상점, 직접 거래)
+depend: [YeowoolCore, YeowoolEconomy]
+softdepend: [Citizens, ItemsAdder]
+
+commands:
+  상점:
+    description: NPC 상점을 엽니다
+  상점이동:
+    description: 상점 NPC가 있는 위치로 이동합니다 (Citizens 필요)
+  상점생성:
+    description: 새로운 NPC 상점을 생성합니다
+    permission: yeowool.market.shop.manage
+    default: op
+  상점제거:
+    description: 인게임에서 생성한 NPC 상점을 제거합니다
+    permission: yeowool.market.shop.manage
+    default: op
+  상점페이지추가:
+    description: 상점에 페이지를 추가합니다
+    permission: yeowool.market.shop.manage
+    default: op
+  상점페이지제거:
+    description: 상점의 마지막 페이지를 제거합니다
+    permission: yeowool.market.shop.manage
+    default: op
+  상점수정:
+    description: GUI를 열어 상점 아이템을 추가/제거합니다
+    permission: yeowool.market.shop.manage
+    default: op
+  상점아이템설정:
+    description: GUI를 열어 상점 아이템을 추가/제거합니다 (/상점수정과 동일)
+    permission: yeowool.market.shop.manage
+    default: op
+  상점아이템가격:
+    description: GUI를 열어 이미 배치된 아이템을 우클릭해서 구매가/판매가를 설정합니다
+    permission: yeowool.market.shop.manage
+    default: op
+  상점로테이션설정:
+    description: 상점의 한정 판매 슬롯/간격을 설정합니다
+    permission: yeowool.market.shop.manage
+    default: op
+  상점로테이션추가:
+    description: 손에 든 아이템을 상점의 한정 판매 풀에 추가합니다
+    permission: yeowool.market.shop.manage
+    default: op
+  상점로테이션제거:
+    description: 상점의 한정 판매 설정을 제거합니다
+    permission: yeowool.market.shop.manage
+    default: op
+  상점가져오기:
+    description: 한 상점의 아이템을 다른 상점으로 일괄 복사합니다
+    permission: yeowool.market.shop.manage
+    default: op
+  상점자동채우기:
+    description: 아직 비어있는 건축/목축/강화재료/잡화 상점을 기본 아이템과 가격으로 채웁니다 (1회성)
+    permission: yeowool.market.shop.manage
+    default: op
+  거래:
+    description: 플레이어 간 직접 거래
+  경매:
+    description: 경매장 GUI를 엽니다 (등록/검색/내경매 하위 명령어 지원, 즉시구매·입찰 모두 지원)
+
+permissions:
+  yeowool.market.shop.manage:
+    description: 인게임에서 NPC 상점을 생성/수정/삭제할 수 있는 권한
+    default: op

@@ -1,0 +1,101 @@
+# ============================================================================
+# YEOWOOL LuckPerms 권한 그룹 설정
+# ============================================================================
+# 서버 콘솔(또는 op 인게임 채팅에 '/' 붙여서)에 순서대로 붙여넣으세요.
+# 4단계 계층: 총관리진 > 관리진 > 가이드 > 유저
+# 상속 구조: 총관리진 ⊃ 관리진 ⊃ 가이드 ⊃ 유저 (위 등급이 아래 등급 권한을 모두 포함)
+#
+# 전제: /토지, /상점, /거래소, /거래, /경매, /도감, /돈, /은행, /프로필, /칭호,
+#       /코스메틱, /이벤트(정보·보상받기만), /우편함 등 대부분의 플레이어 명령어는
+#       plugin.yml에 permission 노드가 없어 그룹과 무관하게 누구나 사용 가능합니다.
+#       아래 노드들은 "관리/운영" 관련 명령어만 통제합니다.
+#
+# !! 중요 !!: 아래 모든 plugin.yml 권한 노드는 default: op 로 선언되어 있습니다.
+# 즉 바닐라 op를 가진 계정은 LuckPerms 그룹 설정과 무관하게 전부 허용됩니다.
+# 이 4단계 그룹으로 실질적인 권한 분리를 하려면 총관리진을 제외한 모든 스태프를
+# 서버 op에서 제외(deop)하고 아래 그룹으로만 권한을 관리하세요.
+#
+# !! 앞서 드렸던 버전 수정 !!: `meta setdisplayname`은 잘못된 문법입니다(그래서
+# "인식할 수 없는 명령입니다" 오류가 났던 것). 그룹 표시 이름은 meta가 아니라
+# 그룹 명령어 바로 아래(`setdisplayname`)에 있고, 프리픽스/서픽스(`meta setprefix`)는
+# 우선순위(priority) 숫자를 첫 인자로 받습니다.
+#
+# !! 추가 수정 !!: `setdisplayname` 자체도 뺐습니다. 그룹 이름이 이미 "가이드"처럼
+# 한글이라 표시 이름을 또 똑같이 지정하면 LuckPerms가 "그룹 이름과 같으니 저장할
+# 필요 없음"으로 판단해 그냥 무시합니다(오류 아님, "표시 이름이 설정되어 있지
+# 않습니다"는 정상 출력). 실제로 채팅/스코어보드에 보이는 건 아래 meta setprefix라서
+# displayname은 없어도 아무 문제 없습니다.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# 1. 유저 (기본 그룹) — LuckPerms 기본 제공 그룹 'default'를 그대로 사용
+#    (모든 신규 접속자는 자동으로 이 그룹에 들어갑니다)
+# ---------------------------------------------------------------------------
+lp group default setweight 0
+lp group default meta setprefix 10 "&7[유저]&r "
+
+# ---------------------------------------------------------------------------
+# 2. 가이드 — 신뢰받는 도우미. 관전/모니터링 권한만 부여, 조작 권한은 없음.
+#    (부정거래 경고 수신 + 통계 열람만 가능, 아이템/경제 조작 명령어는 불가)
+# ---------------------------------------------------------------------------
+lp creategroup 가이드
+lp group 가이드 setweight 10
+lp group 가이드 parent add default
+lp group 가이드 meta setprefix 20 "&a[가이드]&r "
+lp group 가이드 permission set yeowool.admin.alerts true
+lp group 가이드 permission set yeowool.analytics.view true
+
+# ---------------------------------------------------------------------------
+# 3. 관리진 — 일반 운영진. 통합 관리 명령어, 아이템 도구, 이벤트 운영 가능.
+#    (가이드 권한을 모두 상속 + 아래 권한 추가)
+# ---------------------------------------------------------------------------
+lp creategroup 관리진
+lp group 관리진 setweight 20
+lp group 관리진 parent add 가이드
+lp group 관리진 meta setprefix 30 "&b[관리진]&r "
+lp group 관리진 permission set yeowool.admin true
+lp group 관리진 permission set yeowool.core.admin true
+lp group 관리진 permission set yeowool.event.manage true
+lp group 관리진 permission set yeowool.teleport.warp.manage true
+lp group 관리진 permission set yeowool.community.rankicon.manage true
+lp group 관리진 permission set yeowool.community.nickname.grant true
+lp group 관리진 permission set yeowool.community.title.manage true
+lp group 관리진 permission set yeowool.analytics.season.manage true
+
+# ---------------------------------------------------------------------------
+# 4. 총관리진 — 최고 관리자. 파괴적 명령어(백업 복구)와 토지 보호 우회까지
+#    전부 사용 가능. (관리진 권한을 모두 상속 + 아래 권한 추가)
+# ---------------------------------------------------------------------------
+lp creategroup 총관리진
+lp group 총관리진 setweight 40
+lp group 총관리진 parent add 관리진
+lp group 총관리진 meta setprefix 40 "&c[총관리진]&r "
+lp group 총관리진 permission set yeowool.admin.super true
+lp group 총관리진 permission set yeowool.land.bypass true
+
+# ---------------------------------------------------------------------------
+# 유저 배정 예시 (닉네임 부분을 실제 대상으로 바꿔서 사용)
+# ---------------------------------------------------------------------------
+# lp user <닉네임> parent set 가이드
+# lp user <닉네임> parent set 관리진
+# lp user <닉네임> parent set 총관리진
+
+# ---------------------------------------------------------------------------
+# 참고: 현재까지 정의된 전체 yeowool.* 권한 노드 (참고용 요약)
+# ---------------------------------------------------------------------------
+# yeowool.core.admin           YeowoolCore     /yeowoolcore reload
+# yeowool.admin                YeowoolAdmin    /여울관리(정보/지급/공지/백업/복구/기본템/로그/우편),
+#                                              /귀속, /기간제, /아이템이름, /아이템설명,
+#                                              /아이템, /아이템내구도, /관리자아이템,
+#                                              /경고, /추방, /정지, /정지해제, /음소거, /음소거해제,
+#                                              /제재기록, /쿠폰생성, /쿠폰관리
+# yeowool.admin.alerts         YeowoolAdmin    부정거래 탐지 경고 실시간 수신
+# yeowool.admin.super          YeowoolAdmin    /여울관리 복구 (백업 복구, 파괴적 명령어)
+# yeowool.analytics.view       YeowoolAnalytics /여울통계
+# yeowool.event.manage         YeowoolCommunity /이벤트 시작|종료|미션시작|미션종료
+# yeowool.land.bypass          YeowoolLand     토지 보호 무시(건축/상자/배럴 파괴), /토지 관리 목록|삭제|이전 — 총관리진 전용
+# yeowool.teleport.warp.manage YeowoolTeleport /워프 설정|삭제
+# yeowool.community.rankicon.manage YeowoolCommunity /랭크아이콘 부여|제거
+# yeowool.community.nickname.grant  YeowoolCommunity /한글닉네임설정권
+# yeowool.community.title.manage    YeowoolCommunity /칭호 지급|회수, /칭호생성 (통계 자동 해금이 없는 관리자 전용 칭호)
+# yeowool.analytics.season.manage   YeowoolAnalytics /시즌랭킹 종료 (시즌을 즉시 종료하고 보상 지급)

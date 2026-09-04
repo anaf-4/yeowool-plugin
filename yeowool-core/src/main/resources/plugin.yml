@@ -1,0 +1,35 @@
+name: YeowoolCore
+version: '${version}'
+main: com.yeowool.core.YeowoolCore
+api-version: '1.21'
+author: Yeowool
+description: 여울 서버의 공통 기반 (플레이어 데이터, DB, 캐시, API, GUI, 메시지, 로그)
+softdepend: [ItemsAdder]
+
+# Paper resolves these from Maven Central at load time - no shading needed.
+libraries:
+  - com.zaxxer:HikariCP:5.1.0
+  - com.mysql:mysql-connector-j:8.4.0
+  - com.github.ben-manes.caffeine:caffeine:3.1.8
+
+commands:
+  yeowoolcore:
+    aliases: [여울코어, ywcore]
+    description: YeowoolCore 관리 명령어
+    permission: yeowool.core.admin
+    usage: /<command> reload
+  우편함:
+    description: 받지 못한 아이템을 확인하고 수령합니다
+  여울도움말:
+    aliases: [도움말]
+    description: 전체 명령어 목록을 카테고리별로 확인합니다
+  길라잡이:
+    description: 신규 플레이어를 위한 서버 시스템 안내 GUI를 엽니다
+
+permissions:
+  yeowool.core.admin:
+    description: YeowoolCore 관리 권한
+    default: op
+  yeowool.core.guide.manage:
+    description: /길라잡이의 시작 미션을 추가/제거/수정할 수 있는 권한
+    default: op

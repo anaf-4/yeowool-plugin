@@ -1,0 +1,13 @@
+name: YeowoolDiscord
+version: '${version}'
+main: com.yeowool.discord.YeowoolDiscord
+api-version: '1.21'
+author: Yeowool
+description: 디스코드 봇 연동 (경고 큐, 공지 중계, 설정 동기화 — 실제 디스코드 접속은 별도 JS 봇이 담당)
+depend: [YeowoolCore, YeowoolAdmin]
+
+commands:
+  디스코드리로드:
+    description: 디스코드 설정(config.yml)을 DB에 다시 반영합니다
+    permission: yeowool.discord.reload
+    default: op

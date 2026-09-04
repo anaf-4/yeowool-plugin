@@ -1,0 +1,22 @@
+name: YeowoolAnalytics
+version: '${version}'
+main: com.yeowool.analytics.YeowoolAnalytics
+api-version: '1.21'
+author: Yeowool
+description: 서버/경제/토지/생활 통계 수집
+depend: [YeowoolCore]
+
+commands:
+  여울통계:
+    description: 서버 통계 리포트를 출력합니다
+    permission: yeowool.analytics.view
+    default: op
+  랭킹:
+    description: 온/은행/토지레벨/낚시도감 랭킹을 확인합니다
+  시즌랭킹:
+    description: 이번 시즌 랭킹을 확인합니다 (관리자는 [종료]로 즉시 시즌 종료 가능)
+
+permissions:
+  yeowool.analytics.season.manage:
+    description: 시즌을 즉시 종료하고 보상을 지급할 수 있는 권한
+    default: op

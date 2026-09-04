@@ -1,0 +1,37 @@
+# YeowoolLand 설정
+
+# /토지이동 - 토지가 실제로 있는 서버(보통 town)와 이 서버 자신의 이름을 비교해서,
+# 다른 서버(로비/와일드)에서 실행하면 그 서버로 먼저 보낸 뒤 도착하자마자 내 토지로 이동시킴.
+land-teleport:
+  this-server-id: lobby
+  land-server-id: town
+
+# 토지 레벨 테이블. xp/cost는 플레이스홀더 값이며, YeowoolLife의 실제 채집 XP
+# 지급량이 정해지면 함께 조정해야 한다. (기획서 4.3 - 데이터 기반 설계)
+# xp를 채우면 업그레이드가 "가능"해지고, cost(온)는 /토지 업그레이드 실행 시
+# 토지 은행(=/토지 은행)에서 차감된다. cost를 생략하거나 0으로 두면 무료.
+# reward: 업그레이드에 성공하면 (비용을 낸 후) 그 토지 은행으로 지급되는
+# 보너스 — 마을 전체가 함께 쓸 수 있는 자금이라 "다 같이 키우는 마을"이라는
+# 느낌을 주기 위한 것. 0이면 지급 없음.
+land-level:
+  - level: 1
+    xp: 0
+    chunks: 1
+    cost: 0
+    reward: 0
+  - level: 5
+    xp: 5000
+    chunks: 2
+    cost: 5000
+    reward: 3000
+  - level: 10
+    xp: 20000
+    chunks: 4
+    cost: 20000
+    reward: 10000
+
+# 토지 경계를 보여주는 /토지 확인 파티클 설정
+boundary-preview:
+  particle: FLAME
+  duration-seconds: 10
+  interval-ticks: 10

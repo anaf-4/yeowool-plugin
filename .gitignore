@@ -1,0 +1,17 @@
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+.idea/
+*.iml
+out/
+.vscode/
+
+# Separate Next.js web dashboard (own repo/deploy lifecycle) — not part of the plugin suite
+yeowool-web/
+yeowool-web-deploy.zip
+webService.md
+
+# Secrets — never commit real credentials
+*.env
+*.env.*
+!*.env.example

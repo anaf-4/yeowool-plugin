@@ -1,0 +1,18 @@
+name: YeowoolEnhance
+version: '${version}'
+main: com.yeowool.enhance.YeowoolEnhance
+api-version: '1.21'
+author: Yeowool
+description: 장비 강화 시스템 (단계별 등급 승급 + 공격력/방어력 보너스)
+depend: [YeowoolCore]
+softdepend: [ItemsAdder]
+
+commands:
+  강화:
+    description: 손에 든 무기/방어구를 강화하는 GUI를 엽니다
+  강화설정:
+    description: GUI로 강화 단계별 필요 온/재료 개수를 1강씩 설정합니다 (인자 없이 실행)
+    permission: yeowool.admin
+    default: op
+  인챈트강화:
+    description: 인챈트북을 구매/분해/조합/적용하는 GUI를 엽니다 (/강화와는 완전히 별도인 시스템)

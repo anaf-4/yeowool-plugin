@@ -1,0 +1,80 @@
+prefix: "<gray>[<green>여울</green>]</gray> "
+
+general:
+  player-only: "<red>플레이어만 사용할 수 있습니다.</red>"
+  cooldown: "<red>잠시 후 다시 시도하세요. (<seconds>초)</red>"
+
+teleport:
+  countdown: "<yellow><seconds>초 후 이동합니다. </yellow>"
+  countdown-cancellable: "<yellow><seconds>초 후 이동합니다. 움직이면 취소됩니다.</yellow>"
+  moved: "<green>이동했습니다.</green>"
+  cancelled-move: "<red>이동으로 인해 순간이동이 취소되었습니다.</red>"
+  cancelled-damage: "<red>피해를 입어 순간이동이 취소되었습니다.</red>"
+
+home:
+  not-found: "<red>등록된 홈이 없습니다: <name> (/홈 설정 [이름] 으로 등록)</red>"
+  world-not-found: "<red>해당 홈의 월드를 찾을 수 없습니다.</red>"
+  name-too-long: "<red>홈 이름은 <max>자 이하여야 합니다.</red>"
+  limit-reached: "<red>등록 가능한 홈 개수를 초과했습니다.</red>"
+  set-success: "<green>홈 [<name>]을(를) 현재 위치로 등록했습니다.</green>"
+  delete-not-found: "<red>등록된 홈이 없습니다: <name></red>"
+  delete-success: "<green>홈 [<name>]을(를) 삭제했습니다.</green>"
+  list-empty: "<gray>등록된 홈이 없습니다.</gray>"
+  list: "<gold>등록된 홈: <names></gold>"
+
+playerwarp:
+  usage: "<red>사용법: /플레이어워프 [목록|생성|삭제|내워프|즐겨찾기]</red>"
+  create-usage: "<red>사용법: /플레이어워프 생성 [이름]</red>"
+  delete-usage: "<red>사용법: /플레이어워프 삭제 [이름]</red>"
+  name-too-long: "<red>이름은 <max>자 이하여야 합니다.</red>"
+  limit-reached: "<red>등록 가능한 플레이어 워프 개수를 초과했습니다.</red>"
+  create-name-taken: "<red>이미 사용 중인 이름입니다: <name></red>"
+  create-success: "<green>플레이어 워프 [<name>]을(를) 현재 위치로 등록했습니다. 다른 플레이어도 /플레이어워프 목록에서 방문할 수 있습니다.</green>"
+  delete-not-found: "<red>등록된 플레이어 워프가 없습니다: <name></red>"
+  delete-success: "<green>플레이어 워프 [<name>]을(를) 삭제했습니다.</green>"
+  list-empty: "<gray>등록된 플레이어 워프가 없습니다. /플레이어워프 생성 [이름] 으로 만드세요.</gray>"
+  list: "<gold>내 플레이어 워프: <names></gold>"
+  insufficient-funds: "<red>온이 부족합니다. (필요: <cost>온)</red>"
+  hand-empty: "<red>손에 아이템을 들고 사용하세요.</red>"
+  favorite-added: "<green><name>을(를) 즐겨찾기에 추가했습니다.</green>"
+  favorite-removed: "<gray><name>을(를) 즐겨찾기에서 제거했습니다.</gray>"
+  rating-success: "<green><name>에 <stars>점을 평가했습니다.</green>"
+  edit-success: "<green>워프 설정을 변경했습니다.</green>"
+  rename-success: "<green><old> -> <name> 으로 이름을 변경했습니다.</green>"
+  relocate-success: "<green><name>을(를) 현재 위치로 이전했습니다.</green>"
+  transfer-success: "<green><name>의 소유권을 <target>님에게 이전했습니다.</green>"
+  preview-item-banned: "<red>이 아이템은 미리보기 아이콘으로 사용할 수 없습니다.</red>"
+  invalid-number: "<red>숫자를 입력하세요.</red>"
+  price-out-of-range: "<red>입장료는 0 ~ <max>온 사이여야 합니다.</red>"
+  player-not-found: "<red>플레이어를 찾을 수 없습니다: <name></red>"
+  anvil-unavailable: "<red>지금은 이 기능을 사용할 수 없습니다.</red>"
+  unsafe-destination: "<red>목적지 주변이 위험해서(용암/낙사 등) 이동할 수 없습니다. 워프 주인에게 위치 확인을 요청하세요.</red>"
+
+warp:
+  not-found: "<red>존재하지 않는 워프입니다: <name></red>"
+  world-not-found: "<red>해당 워프의 월드를 찾을 수 없습니다.</red>"
+  permission-denied: "<red>권한이 없습니다.</red>"
+  set-usage: '<red>사용법: /워프 설정 \<이름\></red>'
+  set-success: "<green>워프 [<name>]을(를) 현재 위치로 등록했습니다.</green>"
+  delete-usage: '<red>사용법: /워프 삭제 \<이름\></red>'
+  delete-not-found: "<red>존재하지 않는 워프입니다: <name></red>"
+  delete-success: "<green>워프 [<name>]을(를) 삭제했습니다.</green>"
+
+rtp:
+  no-safe-location: "<red>안전한 목적지를 찾지 못했습니다. 잠시 후 다시 시도하세요.</red>"
+  disabled-here: "<red>로비에서는 사용 할 수 없는 명령어입니다!</red>"
+
+tpa:
+  no-pending-request: "<red>받은 순간이동 요청이 없습니다.</red>"
+  denied: "<gray>요청을 거절했습니다.</gray>"
+  denied-notify: "<red><target>님이 요청을 거절했습니다.</red>"
+  requester-offline: "<red>요청한 플레이어가 오프라인입니다.</red>"
+  accepted-cooldown: "<yellow>요청을 수락했지만 상대방이 쿨다운 중입니다.</yellow>"
+  accepted: "<green><target>님의 요청을 수락했습니다.</green>"
+  accepted-notify: "<green><target>님이 요청을 수락했습니다.</green>"
+  usage: '<red>사용법: /<label> \<닉네임\></red>'
+  target-not-found: "<red>플레이어를 찾을 수 없습니다.</red>"
+  cannot-target-self: "<red>자기 자신에게는 요청할 수 없습니다.</red>"
+  request-sent: "<green><target>님에게 요청을 보냈습니다.</green>"
+  request-received-to: "<gold><requester>님이 그쪽으로 이동하고 싶어합니다. /tpaccept 로 수락, /tpdeny 로 거절 (60초 후 만료)</gold>"
+  request-received-here: "<gold><requester>님이 이쪽으로 불러오고 싶어합니다. /tpaccept 로 수락, /tpdeny 로 거절 (60초 후 만료)</gold>"

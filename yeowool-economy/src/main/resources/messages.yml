@@ -1,0 +1,26 @@
+prefix: "<gray>[<green>여울</green>]</gray> "
+
+general:
+  player-only: "<red>플레이어만 사용할 수 있는 명령어입니다.</red>"
+
+wallet:
+  balance: "<gray>온: <gold><on>온</gold> | 은행: <gold><bank>온</gold> | 캐시: <light_purple><cash>캐시</light_purple></gray>"
+  send-usage: "<red>사용법: /돈 보내기 [닉네임] [금액]</red>"
+  send-invalid-amount: "<red>금액은 1 이상의 정수여야 합니다.</red>"
+  send-insufficient: "<red>온이 부족합니다.</red>"
+  send-self: "<red>자기 자신에게는 보낼 수 없습니다.</red>"
+  send-player-not-found: "<red>플레이어를 찾을 수 없습니다.</red>"
+  send-success-sender: "<green><target>님에게 <amount>온을 보냈습니다.</green>"
+  send-success-receiver: "<green><sender>님에게서 <amount>온을 받았습니다.</green>"
+
+cash:
+  balance: "<gray>캐시: <light_purple><cash>캐시</light_purple></gray>"
+
+bank:
+  usage: "<red>사용법: /은행 [입금|출금] [금액]</red>"
+  balance: "<gray>은행 잔액: <gold><bank>온</gold></gray>"
+  deposit-success: "<green><amount>온을 입금했습니다.</green>"
+  withdraw-success: "<green><amount>온을 출금했습니다.</green>"
+  invalid-amount: "<red>금액은 1 이상의 정수여야 합니다.</red>"
+  insufficient-wallet: "<red>지갑에 있는 온이 부족합니다.</red>"
+  insufficient-bank: "<red>은행 잔액이 부족합니다.</red>"
