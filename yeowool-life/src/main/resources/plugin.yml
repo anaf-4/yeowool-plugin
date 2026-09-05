@@ -5,7 +5,7 @@ api-version: '1.21'
 author: Yeowool
 description: 생활 콘텐츠 (농사, 벌목, 목축, 낚시, 채광)
 depend: [YeowoolCore]
-softdepend: [ItemsAdder]
+softdepend: [ItemsAdder, CustomFishing]
 
 commands:
   도감:
@@ -24,3 +24,5 @@ commands:
     description: OP 전용 - 지급 <개수>로 가방 확장권(ticket_chest)을 지급합니다
   낚시관리:
     description: 관리진 전용 - "물고기"로 등록된 모든 물고기를 GUI에서 바로 지급받습니다
+  물고기지급:
+    description: 관리진 전용 - /낚시관리 물고기와 동일, 인자 없이 바로 GUI를 엽니다

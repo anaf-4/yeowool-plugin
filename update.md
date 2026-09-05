@@ -2,7 +2,135 @@
 
 > 날짜별로 새로 추가되거나 수정된 사항을 기록합니다. 새 작업을 할 때마다 맨 위(최신 날짜)에 이어서 추가합니다.
 
+## 2026-09-05 (계속 12)
+
+### 낚시 플레이 자체를 CustomFishing으로 전환 (yeowool-life)
+"다른 건 다 병합하고 낚시 플레이 자체만 CustomFishing으로 바꿔달라"는 요청에 따라 실제 낚시 메커닉(입질 타이밍, 릴링 등)을 CustomFishing 쪽으로 완전히 넘김:
+- CustomFishing이 설치되어 있으면 `YeowoolLife`가 자체 `FishingListener`(우리가 만든 입질 타이밍 미니게임)를 **아예 등록하지 않음** — 없을 때만 대체 수단으로 켜짐.
+- 대신 새 `FishingLootSpawnEvent` 기반 리스너가 CustomFishing으로 물고기를 잡을 때마다 우리 쪽 부가 시스템을 그대로 이어줌: 어부 직업 XP, 땅 XP, 도감 포획 통계(+최고 크기 기록, `getFishSize` API로 실제 크기 가져옴), 낚시대회 기록까지 전부 CustomFishing 낚시에도 동일하게 적용됨.
+- CustomFishing 공식 메이븐(`repo.momirealms.net`)에 2.3.26이 아직 안 올라와있어서(최신 배포본은 2.3.24) 2.3.24로 컴파일 — 실제 서버엔 2.3.26이 깔려있지만 이번에 쓴 API(`ItemManager.getFishSize` 등)는 두 버전에 공통으로 있어서 문제없음.
+
+**주의할 점**: 우리가 직접 만든 낚싯대/미끼 아이템(FishRod/FishBait, 등급 확률 보정용)은 이제 아무 효과가 없음 — 우리 자체 미니게임이 더 이상 안 돌아서 그 보정 로직 자체가 실행되지 않음. 기존에 나눠준 낚싯대/미끼를 가진 유저가 있으면 알려줘야 할 수도 있음(회수하거나, CustomFishing 쪽 낚싯대/미끼로 안내하거나).
+
+재시작 필요(콘솔에서 직접 `/stop`).
+
+## 2026-09-05 (계속 11)
+
+### CustomFishing 도감 병합 + `/물고기지급` GUI 명령어 (yeowool-life)
+CustomFishing의 공식 API(`net.momirealms:custom-fishing:2.3.7`, compileOnly로 추가 — `repo.momirealms.net` 메이븐 저장소 등록)를 연동해서 두 가지를 구현:
+
+1. **`/도감` 물고기 탭에 CustomFishing 물고기 병합**: 새 `CustomFishingBridge`가 서버 시작 시 CustomFishing의 `LootManager.getRegisteredLoots()`에서 아이템 타입 전리품만 뽑아 "커스텀 낚시"라는 가상 등급으로 묶어 기존 `FishCatalogGui`에 그대로 얹음(우리 자체 물고기 목록은 그대로 두고 추가만 함). 아이콘/이름은 매번 `ItemManager.buildAny(...)`로 실제 아이템을 그대로 가져와서 씀 — 그라디언트 색상까지 그대로 보임. 신규 `CustomFishingCatchListener`가 `FishingResultEvent`를 받아 우리 쪽 `life.fishing.catalog.<id>` 통계에 기록해서, CustomFishing으로 잡은 물고기도 우리 도감의 "???" 미포획 처리와 똑같이 동작함(크기 최고기록은 CustomFishing 쪽 통계가 따로 있어서 이번엔 안 가져옴).
+2. **`/물고기지급` 신규 명령어**: 기존에 이미 있던 `/낚시관리 물고기`(전체 물고기 GUI에서 클릭 한 번으로 즉시 지급)와 완전히 동일한 화면을 인자 없이 바로 여는 관리자 전용 명령어 — 이것도 위 병합된 목록(우리 물고기 + CustomFishing 물고기)을 그대로 보여줌.
+
+**주의**: `FishingListener`(우리 자체 낚시 미니게임)가 굴리는 목록은 그대로 원래 목록만 사용 — CustomFishing 물고기가 우리 낚싯대로 잡히거나 우리 물고기가 CustomFishing 낚시로 잡히는 일은 없음(두 낚시 시스템은 서로 독립적으로 동작, 도감/지급 화면에서만 하나로 합쳐 보여줌).
+
+새 CustomFishing 의존성 때문에 재시작 필요(콘솔에서 직접 `/stop`).
+
+## 2026-09-05 (계속 10)
+
+### `/상점자동채우기` 명령어 완전 제거
+자동 채우기가 원치 않는 아이템까지 넣을 수 있다는 우려로 명령어 자체를 삭제 요청받음 — `ShopBulkFillCommand.java` 파일 삭제, `YeowoolMarket.java`의 import/생성/`bindCommand` 호출 제거, `plugin.yml`의 `상점자동채우기:` 엔트리 제거. DB 확인 결과 광물/목축 상점 모두 page 1이 실제로 만들어진 적 없어서(둘 다 여전히 page_count=1) 되돌릴 데이터는 없었음 — 순수 명령어 제거만 진행. 이제 상점 아이템은 전부 `/상점아이템설정` + `/상점아이템가격`으로만 수동 관리됨.
+
+## 2026-09-05 (계속 9)
+
+### `/상점아이템가격` 가격 설정 후 같은 GUI로 자동 복귀
+`ShopPriceAnvilListener`가 구매가→판매가 입력을 마치고 저장한 뒤 그냥 인벤토리를 닫기만 했던 걸, 저장 직후 같은 상점/페이지의 `AdminShopPriceGui`를 바로 다시 열도록 변경 — 여러 아이템 가격을 연달아 설정할 때마다 `/상점아이템가격 <상점ID>`를 매번 다시 칠 필요 없이 우클릭만 반복하면 됨. 위 광물/목축 가격 작업과 같은 jar에 포함되어 있어서 재시작 한 번으로 둘 다 반영됨.
+
+## 2026-09-05 (계속 8)
+
+### 광물/목축 상점 가격 추가 (yeowool-market)
+`/상점자동채우기`가 상점 ID 하나만 지정해서 실행할 수 있도록 확장(`/상점자동채우기 <상점ID>`) — 기존엔 인자 없이 실행하면 building/livestock/enhance/misc 4개를 한꺼번에 채웠는데, enhance/misc는 지금 운영진이 직접 채우려고 일부러 비워둔 상태라 그대로 다시 돌리면 안 됨. 그래서 이번엔 목축·광물만 콕 집어서 채울 수 있게 함:
+- **광물(ore) 상점**: 신규로 page 1 추가 — W6 채굴 몹이 드랍하는 원석/압축 블록(석탄/구리/철/금/레드스톤/청금석/자수정/쿼츠/다이아/에메랄드/고대 잔해/네더라이트 조각) 가격 설정. page 0(운영진이 이미 채운 것)은 그대로 둠.
+- **목축(livestock) 상점**: page 1(소고기/돼지고기/양고기/닭고기/토끼고기 등)을 되살림 — 예전에 자동 채우기 했다가 지운 것과 같은 목록, page 0(운영진이 다시 채운 10개)은 그대로 둠.
+잡화/도구 상점 코드도 이대로 재사용 가능. 배포는 완료했지만 **서버 재시작이 필요함**(RCON stop은 셧다운 행 버그 때문에 이제 사용 안 함 — 콘솔에서 직접 `/stop`) — 재시작 후 `/상점자동채우기 livestock`, `/상점자동채우기 ore`를 각각 실행하면 반영됨(인자 없이 그냥 실행하면 안 됨 — enhance/misc까지 다시 채워짐).
+
+## 2026-09-05 (계속 7)
+
+### 셧다운 행 버그 원인 특정: RCON으로 보내는 stop 자체가 문제
+사용자가 서버 콘솔 창에 직접 `stop`을 치면 멀쩡히 꺼진다고 알려줘서 결정적인 단서가 됨 — 오늘 하루 종일 재현된 행이 전부 RCON으로 명령을 보낼 때만 발생했다는 뜻. 오늘 한 번도 RCON stop을 시도한 적 없던 큐 서버로 다시 검증: RCON으로 stop을 보내되 **응답을 아예 안 읽고 소켓만 바로 닫아도** 똑같이 "MoonriseCommon Awaiting termination" 지점에서 멈춤 — 즉 스크립트가 응답을 기다리는 것도 원인이 아니고, RCON 경로로 stop이 들어가는 것 자체가 문제. 콘솔 직접 입력은 이 경로를 안 타서 항상 정상 작동.
+**결론**: RCON으로 서버를 내릴 때는 매번 이 행이 재현될 걸로 보임 — 당분간은 재시작이 필요할 때 콘솔에서 직접 `stop`을 치거나(권장), RCON으로 내렸다가 멈추면 좀비 프로세스를 강제 종료하고 재기동하는 방식으로 우회. RCON stop 경로의 근본적인 코드 레벨 원인(아마 Paper의 RCON 커넥션 핸들러 스레드가 종료 시퀀스 중 정리가 안 되는 문제로 추정)은 아직 미해결.
+
+## 2026-09-05 (계속 6)
+
+### 셧다운 행 버그 원인 조사: spigot.yml `restart-on-crash`는 아님 (기각)
+사용자가 어제 손댄 `restart-on-crash`/`restart-script` 설정이 원인일 수 있다고 의심해서 직접 실험함 — 로비에서 `restart-on-crash: false`로 바꾸고 재부팅한 뒤 다시 `/stop`을 걸어봤는데, **완전히 동일한 지점("MoonriseCommon Awaiting termination of worker pool for up to 60s")에서 똑같이 멈춤**. 즉 watchdog의 크래시 자동 재시작 기능과는 무관하다는 게 확인됨 — 설정을 다시 `true`로 원복. 근본 원인은 여전히 미궁 상태(다음 후보: Skript/SkBee, ModelEngine, MythicMobs RandomSpawns 등 최근에 추가된 서드파티 플러그인들의 셧다운 훅 — 하나씩 꺼가면서 재현 테스트 필요).
+
+## 2026-09-05 (계속 5)
+
+### `/광석소환` 명령어 추가 (yeowool-admin)
+W6 Custom Mining 팩의 위장 채굴 몹(석탄/구리/철/금/다이아/에메랄드/청금석/레드스톤/자수정/쿼츠/네더라이트)을 OP가 자기 위치에 바로 소환할 수 있는 명령어 추가 — `/광석소환 <종류> [개수, 최대 10]`. 별도 드랍 로직 없이 `mm mobs spawn`을 그대로 위임 실행하는 얇은 래퍼라, 랜덤 스폰으로 자연 발생한 것과 완전히 동일하게 캐면 광석이 드롭됨. 몹 자체가 타운/야생에만 등록돼 있어서 로비에서는 자동으로 동작 안 함(따로 막을 필요 없음).
+
+배포 중 셧다운 행 버그가 **4번째로** 재현됨(세 서버 다 동일 지점에서 멈춤) — 좀비 프로세스 강제 종료 후 재기동으로 정상화, 새 명령어 정상 로드 확인. 근본 원인은 여전히 미해결.
+
+## 2026-09-05 (계속 4)
+
+### W6 Custom Mining & Ores 팩 추가 (타운/야생 전용)
+구매한 "W6 - Custom Mining & Ores"(MythicMobs + ModelEngine 기반, 광물 블록처럼 위장한 채굴 가능 몹 11종: 석탄/구리/철/금/다이아/에메랄드/청금석/레드스톤/자수정/네더 쿼츠/네더라이트)를 타운·야생에만 배포(로비엔 안 넣음, 확인 완료). 팩 자체의 `Worlds: world`/`world_nether` 기본값을 서버별 실제 월드 이름(`town_world`/`town_world_nether`, `wild_world`/`wild_world_nether`)으로 고쳐서 각 서버 전용 랜덤스폰 설정 파일을 따로 만듦 — 안 고치면 아무 데도 안 스폰됨. `/meg reload` + `/mm reload`로 반영, 몹 개수 37→48로 정상 증가 확인.
+**주의**: 제작사 README에 랜덤스폰 확률(`Chance`)을 프로덕션에 바로 쓰지 말고 테스트 후 조정하라는 경고가 있음 — 기본값 그대로 배포했으니 스폰 밀도를 지켜보고 필요하면 `plugins/MythicMobs/randomspawns/workshop_six/w6_custom_mining_spawns.yml`의 `Chance` 값을 조정할 것.
+
+## 2026-09-05 (계속 3)
+
+### 장애 (3차): 18:00에 로비/타운/야생/큐 4개 서버 전부 다운
+- **로비**: 언젠가 `/서버재부팅설정 06:00,18:00`으로 예약이 걸려있었고, 18:00 정각에 그 예약이 실제로 발동 → `Bukkit.shutdown()`이 호출됐는데 오늘 낮에 두 번이나 겪은 것과 동일한 "MoonriseCommon Awaiting termination" 지점에서 멈춤. 즉 RCON `/stop`이 아니라 **정상적인 플러그인발 종료 경로에서도 셧다운 행 버그가 그대로 재현됨**이 이번에 확인됨 — RCON 명령 자체의 문제가 아니라 더 근본적인 셧다운 훅 문제.
+- **타운/야생/큐**: 같은 시각에 로그에 종료 시도 흔적이 전혀 없이(경고 방송도, MoonriseCommon 로그도 없이) 그냥 프로세스 자체가 사라짐. Windows 이벤트 로그(System/Application)에도 재부팅·전원·크래시 관련 기록이 전혀 없어서 원인 특정 실패 — 예약 재부팅 대상도 아니었음(DB엔 로비만 등록되어 있었음). 외부 요인(작업 스케줄러, 백신 등) 의심되지만 확증 못함.
+- **조치**: 4개 서버 전부 재기동해서 정상화(에러 없음 확인). 재발 방지를 위해 **로비의 예약 재부팅을 일단 해제**함(`/서버재부팅설정 해제`) — 셧다운 행 버그의 근본 원인을 못 고친 상태에서 자동 재부팅을 계속 켜두면 매번 이런 다운타임을 유발하기 때문. 셧다운 행 버그 자체는 여전히 미해결.
+
+## 2026-09-05 (계속 2)
+
+### 버그 수정: 강화석 등급 태그가 `:tag_artifact:` 원문 그대로 표시되던 문제
+`yeowool_tooltips` 콘텐츠팩 하나에 `minecraft` 네임스페이스(툴팁 배경/프레임)와 `yeowool_tooltips` 네임스페이스(등급 태그 글리프)를 동시에 `resourcepack/assets/`로 섞어 넣었더니, 빌드된 zip 안에 태그 글리프 경로가 `assets/yeowool_tooltips/resourcepack/assets/yeowool_tooltips/...`처럼 이중으로 겹쳐 들어가면서 실제 텍스트 치환은 계속 실패하고 있었음(로그도 "Image not found" 반복). 태그 글리프 6종을 완전히 별도의 단일 네임스페이스 콘텐츠팩(`yeowool_tags`)으로 분리하니 바로 해결 — 세 서버 다 확인 완료(에러 없음, 리소스팩에 6개 파일 정상 포함).
+
+## 2026-09-05 (계속)
+
+### 정정: 직업별 소득 차등화는 상점 판매가 기준이었음 — 잘못 만든 직업 소득 코드 되돌림
+농사/광질/벌목/목축/낚시 소득 차등화 요청이 "상점에 파는 아이템 가격" 기준이었다는 걸 뒤늦게 확인 — 아래(첫 번째 09-05 항목)에서 만든 `jobs.income-per-action`(직업 행동 1회당 직접 온 지급)과 `RancherIncomeListener`(목축 전용 직접 지급)는 요청과 다른 방향이라 전부 되돌림(`JobManager`/`YeowoolLife`/config.yml 원상복구, `RancherIncomeListener.java` 삭제). DB 조회 결과 farming/fishing/ore/tool/weapon/dye/livestock 상점은 이미 유저가 직접 아이템+가격을 다 채워둔 상태였고(목축도 이미 10개 채워져 있음), 벌목(원목)만 전용 상점 id가 아직 없음 — 이 부분은 추가 확인 필요.
+
+### 커스텀 농사 품질 등급(일반/은별/금별) 추가
+대신 커스텀 농사(아직 실제 작물 미설정)에 요청하신 품질 차등을 반영: 수확마다 `CustomFarmingQualityConfig`가 금별(3%)→은별(15%)→일반 순으로 굴려서, 기본 수확 소득(`income-per-harvest`)에 금별 3배/은별 1.5배를 곱해 지급. 은별/금별 수확 시엔 채팅 메시지도 뜸. 실제 작물을 채운 뒤 확률/배율은 config.yml `custom-farming.quality`에서 바로 조정 가능.
+
+### 장애 (2차): 재배포 재시작 중 로비/타운/야생이 또 멈춤 + 프록시 중복 실행 발견
+같은 코드를 재배포하려고 재시작을 걸었는데 또 세 서버 모두 "MoonriseCommon Awaiting termination" 지점에서 응답이 끊김 — 이번엔 좀비로 남지 않고 아예 프로세스 자체가 죽어버림(재시작할 때마다 재현되는 걸 보면 오늘 새로 만든 코드보단 기존에 깔려있던 무언가—Skript/SkBee 등—의 셧다운 훅 문제일 가능성이 큼, 원인 미특정). 확인 과정에서 별개로 **프록시(Velocity)가 3개 중복 실행 중이었던 것도 발견**함 — 15:49:39~40에 정상 프록시(새벽 1시45분부터 계속 떠있던 것) 외에 똑같은 `velocity-3.4.0-566.jar` 프로세스 2개가 같은 초에 추가로 뜸(포트 25565 충돌로 둘 다 바인딩 실패, 게임엔 영향 없었지만 메모리만 낭비 중이었음) — 이 시점에 누가/무엇이 프록시 `start.bat`을 두 번 실행했는지는 특정 못함, 이번 작업으로 발생한 건 아님. 중복 프로세스 강제 종료 + 로비/타운/야생 재기동으로 정상화, 콘솔 에러 없음 확인.
+
+## 2026-09-05
+
+### 강화석(초급~태초) 6종에 tooltip_style + 등급 태그 글리프 적용 (ItemsAdder)
+`moafarm_items:magic_ore_1`~`magic_ore_6`(강화 재료로 쓰이는 원석, `/강화설정`에서 강화 구간별로 요구됨)에 그동안 없던 한글 표시 이름·설명 로어·`minecraft:tooltip_style`을 직접 심었습니다 — 지금까지는 `/관리자아이템` GUI 안에서만 "초급 강화석" 등으로 보였을 뿐, 아이템 자체의 실제 이름은 영어 "Magic Ore 1" 그대로였음.
+- 초급→common, 중급→uncommon, 고급→rare, 정예→epic, 신비→legendary, 태초→artifact — 강화 장비와 동일한 Ultimate Tooltips 등급 6종에 정확히 1:1로 대응(사용자가 언급한 5개 + 이미 존재하던 6번째 "태초" 등급까지 포함해 완성).
+- 추가로 "tags" 요청에 맞춰 Ultimate Tooltips 팩의 등급 글리프 아이콘(`common.png`~`artifact.png`) 6개를 `yeowool_tooltips` 콘텐츠팩에 `font_images`로 등록(`tag_common`~`tag_artifact`)하고, 각 강화석 로어 마지막 줄에 해당 등급 글리프를 붙임.
+- **삽질 기록**: 글리프 PNG를 처음엔 콘텐츠팩 자기 네임스페이스 축약 경로(`resourcepack/yeowool_tooltips/textures/...`)에 뒀더니 `font_images`가 "Image not found"로 계속 실패함 — 아이템 텍스처(`resource.texture`)에서는 통하는 축약 경로가 `font_images`의 이미지 탐색에는 안 통하는 것으로 보임. 이미 검증된 명시적 경로(`resourcepack/assets/yeowool_tooltips/textures/...`, 강화 장비 tooltip_style 배경/프레임과 동일한 패턴)로 옮기니 바로 해결됨. 또한 `/iareload`만으로는 설정만 다시 읽고 zip을 재압축하지 않는다는 것도 재확인 — `/iazip`을 따로 한 번 더 호출해야 실제로 리소스팩에 반영됨.
+
+### 채집 직업별 시간당 소득 차등화 (yeowool-life)
+"시간당 온 얼마나 벌게 할지"의 기준선을 5,000온/h 안팎으로 잡고, 농사/광물/벌목/목축/커스텀 농사가 서로 조금씩 다른 소득을 갖도록 새 소득 체계를 추가했습니다. 기존엔 직업 시스템이 경험치만 주고(`jobs.xp-per-action`), 실제 수입은 전부 관리자 상점에 내다 파는 것에만 의존했는데(그마저도 목축/벌목은 상점가가 아예 없거나 유저가 직접 채우는 중), 그와 별개로 행동 1회당 바로 지급되는 기본 온 소득을 추가한 것 — 상점 판매 수입은 그대로 유지되고 이건 그 위에 더해집니다.
+- `JobManager.grantXp()`에 `jobs.income-per-action`(직업ID→온) 맵을 추가해 farmer(3온)/miner(4온)/wood_cutter(2온) 행동마다 즉시 지급 — 기존 `bonus-currency-per-proc`(부수입 스킬 확률 발동)와는 별개로 항상 지급되며, 레벨 상한에 도달해도 계속 지급됨(XP만 막힘).
+- 목축은 대응하는 직업/경험치 트랙이 아예 없었어서, 최소 구현으로 신규 `RancherIncomeListener`(양털 깎기·소/무시룸 우유 짜기 시 `ranching.income-per-action` = 5온 지급, XP·레벨 없이 소득만)를 추가.
+- 커스텀 농사(`custom-farming`, 아직 실제 작물은 config에 미설정 상태)는 수확 시점(`CustomFarmingListener.onBreak`)에 `custom-farming.income-per-harvest`(30온) 지급을 추가 — 성장 시간이 행동 속도가 아니라 수확 빈도를 결정하는 구조라 farmer보다 단가를 높게 잡음. 실제 작물을 채워 넣은 뒤 성장 시간에 맞춰 재조정 필요.
+- 모든 수치는 "시간당 대략 몇 번 행동 가능한지"를 가정해서 역산한 것이라 config.yml 주석에 근거를 남겨뒀고, 실제 플레이 데이터로 언제든 재조정 가능.
+
+### 장애: 로비/타운/야생 재시작 중 전부 멈춰서 약 13시간 다운
+위 두 작업(강화석 tooltip/태그, 직업 소득) 배포를 위해 세 서버에 `/stop`을 보냈는데, 셋 다 정확히 같은 지점(`[MoonriseCommon] Awaiting termination of worker pool for up to 60s...`)에서 멈춰서 그대로 다시 안 올라옴 — 원래 이 단계는 최대 60초 대기 후 자동으로 넘어가야 하는데 그러지 못하고 JVM이 좀비 상태로 남았음(큐 서버로는 접속이 계속 가능해서 플레이어는 로비/타운/야생에만 못 들어가는 상태로 방치됨). 원인은 아직 특정 못함 — 세 서버가 동시에 똑같이 멈춘 걸 보면 이번 배포 코드보다는 공용 플러그인(사용자가 직접 추가한 Skript-2.11.0/SkBee-3.10.1 포함) 쪽 셧다운 훅 문제일 가능성이 있음. 좀비 프로세스 강제 종료 후 재기동해서 정상화됨(월드 데이터는 멈추기 직전에 이미 전부 저장 완료된 상태였어서 데이터 손실은 없음). 같은 현상이 재발하면 어느 플러그인이 원인인지 좁혀볼 필요 있음.
+
 ## 2026-09-04
+
+### 강화 장비 tooltip_style 적용 + spigot.yml 크래시 자동 재시작 복구 + plugin.yml 버그 수정
+세 가지가 한 번에 얽힌 작업:
+
+**1. 마인크래프트 1.21.2+ 바닐라 `minecraft:tooltip_style` 적용 (Ultimate Tooltips 리소스팩)**
+구매한 "Ultimate Tooltips (Animated)" 팩의 `assets/minecraft/textures/gui/sprites/tooltip/<등급>_{background,frame}.png`(9-slice + 애니메이션 mcmeta)를 신규 ItemsAdder 콘텐츠팩 `yeowool_tooltips`(세 서버 공통, `resourcepack/assets/minecraft/...`로 바닐라 minecraft 네임스페이스를 직접 덮어씀 — 기존 `cosmetics` 팩의 `assets/minecraft/atlases`/`models/item` 오버라이드와 동일한 방식)로 병합. `/iareload`+`/iazip`은 비동기라 즉시 zip을 열어보면 반영 전일 수 있음 — 몇 초 폴링 후 재확인 필요(이번에 실제로 그래서 처음엔 "안 들어간 줄" 착각했었음).
+
+강화(`/강화`) 장비에 실제로 적용: `EnhanceItemData.applyLevel()`이 레벨 변경마다 `item.setData(DataComponentTypes.TOOLTIP_STYLE, ...)`로 현재 등급(`EnhanceConfig.tierFor`)에 맞는 스타일을 심음 — 일반→common, 희귀→rare, 에픽→epic, (향후 4·5번째 등급 추가 시) legendary→artifact 순으로 자동 승격(`EnhanceConfig.tiers()`에서 해당 등급의 서수 위치로 스타일 배열 인덱싱). +0강(미강화)이면 `unsetData`로 바닐라 기본 툴팁으로 되돌림.
+
+**2. spigot.yml `restart-on-crash` 복구**: 로비/타운/야생/큐 4개 서버 전부 `restart-on-crash: true`는 켜져 있었지만 `restart-script: ./start.sh`가 이 윈도우 환경에 존재하지 않는 경로라 크래시/행 감지 시 재시작이 실질적으로 무의미했음 — `start.bat`으로 수정. 크래시-재시작 시 새로 뜨는 cmd 창이 `pause`에 멈춰 좀비로 남는 것도 방지하려고 각 `start.bat`의 마지막 `pause` 줄 제거. (참고: 이 기능은 워치독이 감지하는 행/크래시에만 반응하고, `/서버재부팅설정`의 정상적인 `/stop` 종료는 트리거하지 않음 — 둘은 서로 다른 안전망으로 공존.)
+
+**3. yeowool-admin `plugin.yml` YAML 문법 버그**: `서버재부팅설정` 명령어 설명에 콜론+공백(`예: /...`)이 따옴표 없이 들어가 YAML 파싱이 깨짐 — YeowoolAdmin 전체가 조용히 로드 실패(콘솔에 에러도 안 뜸, YeowoolDiscord처럼 그걸 의존하는 플러그인이 있어야만 `UnknownDependencyException`으로 간접 발각됨). 세 서버 다 `/여울관리`·`/경고`·`/추방`·`/쿠폰` 등 관리 명령어 전체가 먹통이었던 상태 — description을 큰따옴표로 감싸서 수정.
+
+### 예약 자동 재부팅 시스템 (yeowool-admin)
+운영진이 지정한 시각에 서버가 자동으로 재부팅되도록 요청받아 신규 `restart` 패키지 추가:
+- `/서버재부팅설정 <HH:mm[,HH:mm...]|해제>` — 이 서버(`restart.this-server-id`, 로비/타운/야생 배포본마다 다르게 설정)의 자동 재부팅 시각을 인게임에서 즉시 설정/해제(`yw_server_restart_schedule` DB 테이블에 저장, 재시작 없이 바로 반영). 인자 없이 실행하면 현재 예약 조회. 여러 시각을 콤마로 지정 가능(예: 하루 2번).
+- `ScheduledRestartTask`가 1초마다 다음 예약 시각까지 남은 시간을 확인해 10분/5분/1분 전 채팅 경고(`MessageService.broadcast`)를 보내고, 1분 전에는 `YeowoolCoreAPI.playerData().saveAll()`을 백그라운드로 한 번 더 트리거해 재부팅으로 인한 "백섭"(저장 안 된 최근 데이터가 롤백되는 현상)을 방지 — 재부팅 자체는 `Bukkit.shutdown()`으로 정상 종료시켜, YeowoolCore의 `onDisable`에 이미 있던 `saveAll().join()` 안전망도 그대로 한 번 더 걸림.
+- **한계**: Paper 플러그인은 자기 자신의 JVM을 재실행할 수 없어서, 이 기능은 "경고 후 안전하게 종료"까지만 담당함. 종료된 프로세스를 실제로 다시 띄우는 건 서버 밖의 워치독/작업 스케줄러가 따로 필요함(아직 미구현 — 필요시 추가 요청).
+
+### 출석체크 보상 기본값 채우기 (yeowool-community)
+출석 보상(일일/주간/월간)이 비어있어서 신규 1회성 명령어 `/출석보상초기화` 추가: 일일 1,500온 + 자동줍기권/자동심기권 각 50회, 주간 15,000온 + 각 500회, 월간 100,000온 + 각 1,000회로 채움. 이미 아이템이 있는 티어는 건너뛰어 재실행해도 안전. 자동줍기권/자동심기권 아이템은 yeowool-life의 `AutoFarmVoucherItem`이 쓰는 것과 동일한 PDC 키(`yeowoollife:autofarm_voucher_type`/`_charges`)를 직접 만들어 사용 — yeowool-community가 yeowool-life에 의존하지 않고도(그 모듈은 로비에 안 깔림) 완전히 호환되는 아이템을 만들기 위함.
 
 ### 강화 파괴 보호권 아이콘 교체 + /강화설정 GUI화
 "파괴 보호권"(강화 실패로 하락/파괴될 때 대신 소모되는 보호 아이템, `enhance.protection-item`)을 기존 바닐라 네더라이트 주괴에서 `moafarm_items:easypoint`(이미 리소스팩에 있던 미사용 아이콘, PAPER 베이스)로 교체. 아이템 자체의 표시 이름도 "Easypoint" → "파괴 보호권"으로 변경(`moafarm_items.yml`) — 다른 시스템에서 이 아이템을 참조하는 곳이 없어서 안전하게 재활용.

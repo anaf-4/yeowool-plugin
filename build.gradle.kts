@@ -17,6 +17,7 @@ subprojects {
         maven("https://jitpack.io") // VaultAPI
         maven("https://maven.citizensnpcs.co/repo") // Citizens
         maven("https://repo.extendedclip.com/content/repositories/placeholderapi/") // PlaceholderAPI
+        maven("https://repo.momirealms.net/releases/") // CustomFishing
     }
 
     tasks.withType<JavaCompile> {

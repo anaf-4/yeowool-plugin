@@ -28,6 +28,7 @@ import com.yeowool.community.quest.AttendanceRewardAmountListener;
 import com.yeowool.community.quest.AttendanceRewardCommand;
 import com.yeowool.community.quest.AttendanceRewardRepository;
 import com.yeowool.community.quest.AttendanceRewardSchemaInitializer;
+import com.yeowool.community.quest.AttendanceRewardSeedCommand;
 import com.yeowool.community.quest.AttendanceRewardStore;
 import com.yeowool.community.quest.QuestBadgeConfig;
 import com.yeowool.community.quest.QuestBoardCommand;
@@ -132,6 +133,10 @@ public final class YeowoolCommunity extends JavaPlugin {
         var attendanceRewardCommand = getCommand("출석보상설정");
         if (attendanceRewardCommand != null) {
             attendanceRewardCommand.setExecutor(new AttendanceRewardCommand(attendanceRewardStore, attendanceRewardAmountListener, messages));
+        }
+        var attendanceRewardSeedCommand = getCommand("출석보상초기화");
+        if (attendanceRewardSeedCommand != null) {
+            attendanceRewardSeedCommand.setExecutor(new AttendanceRewardSeedCommand(attendanceRewardStore));
         }
 
         // 배틀패스 (FREE는 기본 열림, PREMIUM은 캐시 구매 또는 관리자 지급 전까지 잠김)

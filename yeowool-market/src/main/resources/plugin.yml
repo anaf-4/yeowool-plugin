@@ -56,10 +56,6 @@ commands:
     description: 한 상점의 아이템을 다른 상점으로 일괄 복사합니다
     permission: yeowool.market.shop.manage
     default: op
-  상점자동채우기:
-    description: 아직 비어있는 건축/목축/강화재료/잡화 상점을 기본 아이템과 가격으로 채웁니다 (1회성)
-    permission: yeowool.market.shop.manage
-    default: op
   거래:
     description: 플레이어 간 직접 거래
   경매:

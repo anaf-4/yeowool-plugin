@@ -2,6 +2,7 @@ package com.yeowool.life.fishing;
 
 import com.yeowool.core.api.gui.GuiButton;
 import com.yeowool.core.api.gui.YeowoolGui;
+import com.yeowool.life.fishing.customfishing.CustomFishingBridge;
 import dev.lone.itemsadder.api.CustomStack;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -34,7 +35,7 @@ public final class FishAdminGui extends YeowoolGui {
     private static final int[] SLOTS_NEXT = {41, 42};
     private static final String INVISIBLE_ICON_ID = "fishing_expansion:invisible_item";
 
-    public FishAdminGui(List<FishRarity> rarities, int page, int backgroundOffsetPx) {
+    public FishAdminGui(Player viewer, List<FishRarity> rarities, int page, int backgroundOffsetPx) {
         super(54, FishBackgroundImages.title(backgroundOffsetPx, "fish_codex",
                 Component.text("물고기 지급 (페이지 " + (page + 1) + ")", NamedTextColor.AQUA)));
 
@@ -44,11 +45,11 @@ public final class FishAdminGui extends YeowoolGui {
 
         for (int i = from; i < to; i++) {
             Entry entry = entries.get(i);
-            setButton(DISPLAY_SLOTS[i - from], GuiButton.of(buildIcon(entry.rarity(), entry.species()), event -> {
+            setButton(DISPLAY_SLOTS[i - from], GuiButton.of(buildIcon(viewer, entry.rarity(), entry.species()), event -> {
                 if (event.getWhoClicked() instanceof Player admin) {
-                    var leftover = admin.getInventory().addItem(buildIcon(entry.rarity(), entry.species()));
+                    var leftover = admin.getInventory().addItem(buildIcon(admin, entry.rarity(), entry.species()));
                     leftover.values().forEach(item -> admin.getWorld().dropItemNaturally(admin.getLocation(), item));
-                    admin.sendMessage(Component.text(entry.species().name() + "을(를) 지급했습니다.", NamedTextColor.GREEN));
+                    admin.sendMessage(Component.text(displayName(entry.species()) + "을(를) 지급했습니다.", NamedTextColor.GREEN));
                 }
             }));
         }
@@ -56,14 +57,14 @@ public final class FishAdminGui extends YeowoolGui {
         if (page > 0) {
             for (int slot : SLOTS_PREV) {
                 setButton(slot, GuiButton.of(navItem("이전 페이지"), event ->
-                        new FishAdminGui(rarities, page - 1, backgroundOffsetPx).open((Player) event.getWhoClicked())));
+                        new FishAdminGui(viewer, rarities, page - 1, backgroundOffsetPx).open((Player) event.getWhoClicked())));
             }
         }
         setButton(SLOT_CLOSE, GuiButton.of(navItem("닫기"), event -> event.getWhoClicked().closeInventory()));
         if (to < entries.size()) {
             for (int slot : SLOTS_NEXT) {
                 setButton(slot, GuiButton.of(navItem("다음 페이지"), event ->
-                        new FishAdminGui(rarities, page + 1, backgroundOffsetPx).open((Player) event.getWhoClicked())));
+                        new FishAdminGui(viewer, rarities, page + 1, backgroundOffsetPx).open((Player) event.getWhoClicked())));
             }
         }
     }
@@ -98,7 +99,18 @@ public final class FishAdminGui extends YeowoolGui {
         return stack;
     }
 
-    private ItemStack buildIcon(FishRarity rarity, FishSpecies species) {
+    private ItemStack buildIcon(Player viewer, FishRarity rarity, FishSpecies species) {
+        if (species.customFishingId() != null && CustomFishingBridge.isEnabled()) {
+            // The real CustomFishing item already carries its own name/lore —
+            // don't wrap it in our own rarity lore, just add the "click to get" hint.
+            ItemStack stack = CustomFishingBridge.buildItem(viewer, species.customFishingId());
+            ItemMeta meta = stack.getItemMeta();
+            List<Component> lore = meta.hasLore() ? new ArrayList<>(meta.lore()) : new ArrayList<>();
+            lore.add(Component.text("클릭하여 지급받기", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));
+            meta.lore(lore);
+            stack.setItemMeta(meta);
+            return stack;
+        }
         ItemStack stack = resolveIcon(species);
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(Component.text(species.name(), rarity.color()).decoration(TextDecoration.ITALIC, false));
@@ -111,6 +123,10 @@ public final class FishAdminGui extends YeowoolGui {
         meta.lore(lore);
         stack.setItemMeta(meta);
         return stack;
+    }
+
+    private static String displayName(FishSpecies species) {
+        return species.customFishingId() != null ? species.customFishingId() : species.name();
     }
 
     private static ItemStack resolveIcon(FishSpecies species) {

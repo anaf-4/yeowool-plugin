@@ -1,5 +1,7 @@
 package com.yeowool.enhance;
 
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -25,10 +27,27 @@ import java.util.List;
  * accumulating stale text. An empty captured name means "no custom name" —
  * rebuilt as {@link Component#translatable} so the vanilla client-side
  * translation (Korean included) still applies to the base item name.
+ *
+ * <p>Also drives the vanilla 1.21.2+ {@code minecraft:tooltip_style} item
+ * component (Ultimate Tooltips resourcepack, {@code assets/minecraft/textures/
+ * gui/sprites/tooltip/<style>_{background,frame}.png}, merged in as the
+ * {@code yeowool_tooltips} ItemsAdder content pack): the item's hover tooltip
+ * box itself gets a themed border/background matching its current
+ * {@link EnhanceTier}, escalating through {@link #TOOLTIP_STYLES} by that
+ * tier's ordinal position in {@link EnhanceConfig#tiers()} — so any tier an
+ * admin adds to config.yml automatically gets the next style in line, up to
+ * "artifact" for the 5th tier and beyond.
  */
 public final class EnhanceItemData {
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+    private static final Key[] TOOLTIP_STYLES = {
+            Key.key("minecraft", "common"),
+            Key.key("minecraft", "rare"),
+            Key.key("minecraft", "epic"),
+            Key.key("minecraft", "legendary"),
+            Key.key("minecraft", "artifact"),
+    };
 
     private final NamespacedKey levelKey;
     private final NamespacedKey baseNameKey;
@@ -118,6 +137,20 @@ public final class EnhanceItemData {
         }
 
         item.setItemMeta(meta);
+
+        if (level > 0) {
+            item.setData(DataComponentTypes.TOOLTIP_STYLE, tooltipStyleFor(tier));
+        } else {
+            item.unsetData(DataComponentTypes.TOOLTIP_STYLE);
+        }
+    }
+
+    private Key tooltipStyleFor(EnhanceTier tier) {
+        int index = config.tiers().indexOf(tier);
+        if (index < 0) {
+            index = 0;
+        }
+        return TOOLTIP_STYLES[Math.min(index, TOOLTIP_STYLES.length - 1)];
     }
 
     private double weaponBonus(int level, EnhanceTier tier) {

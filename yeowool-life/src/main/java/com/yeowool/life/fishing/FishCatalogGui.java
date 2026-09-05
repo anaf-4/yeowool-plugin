@@ -3,6 +3,7 @@ package com.yeowool.life.fishing;
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.gui.GuiButton;
 import com.yeowool.core.api.gui.YeowoolGui;
+import com.yeowool.life.fishing.customfishing.CustomFishingBridge;
 import dev.lone.itemsadder.api.CustomStack;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -59,7 +60,7 @@ public final class FishCatalogGui extends YeowoolGui {
             Entry entry = entries.get(i);
             long caught = data.map(d -> d.getStatistic(entry.species().statisticKey())).orElse(0L);
             long bestSizeMm = data.map(d -> d.getStatistic(entry.species().sizeRecordStatisticKey())).orElse(0L);
-            setButton(DISPLAY_SLOTS[i - from], GuiButton.display(buildIcon(entry.rarity(), entry.species(), caught, bestSizeMm)));
+            setButton(DISPLAY_SLOTS[i - from], GuiButton.display(buildIcon(viewer, entry.rarity(), entry.species(), caught, bestSizeMm)));
         }
 
         if (page > 0) {
@@ -114,8 +115,18 @@ public final class FishCatalogGui extends YeowoolGui {
         return stack;
     }
 
-    private ItemStack buildIcon(FishRarity rarity, FishSpecies species, long caught, long bestSizeMm) {
+    private ItemStack buildIcon(Player viewer, FishRarity rarity, FishSpecies species, long caught, long bestSizeMm) {
         boolean known = caught > 0;
+        if (known && species.customFishingId() != null && CustomFishingBridge.isEnabled()) {
+            ItemStack cfStack = CustomFishingBridge.buildItem(viewer, species.customFishingId());
+            ItemMeta cfMeta = cfStack.getItemMeta();
+            List<Component> cfLore = cfMeta.hasLore() ? new ArrayList<>(cfMeta.lore()) : new ArrayList<>();
+            cfLore.add(Component.text("등급: " + rarity.name(), rarity.color()));
+            cfLore.add(Component.text("포획 수: " + caught + "마리", NamedTextColor.GRAY));
+            cfMeta.lore(cfLore);
+            cfStack.setItemMeta(cfMeta);
+            return cfStack;
+        }
         ItemStack stack = known ? resolveIcon(species) : new ItemStack(Material.GRAY_DYE);
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(known

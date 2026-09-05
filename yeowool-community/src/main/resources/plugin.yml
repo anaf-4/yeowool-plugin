@@ -46,6 +46,10 @@ commands:
     description: 출석 보상(금액/화폐/아이템)을 직접 수정합니다
     permission: yeowool.community.attendance.manage
     default: op
+  출석보상초기화:
+    description: 일일/주간/월간 출석 보상을 기본값(온 + 자동줍기권/자동심기권)으로 채웁니다 (1회성)
+    permission: yeowool.community.attendance.manage
+    default: op
   채널:
     description: 채팅 채널 전환 (전체/지역/마을)
   전체:
