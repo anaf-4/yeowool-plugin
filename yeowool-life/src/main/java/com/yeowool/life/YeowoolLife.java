@@ -25,6 +25,7 @@ import com.yeowool.life.farming.GrowthInfoListener;
 import com.yeowool.life.farming.custom.CustomCropRegistry;
 import com.yeowool.life.farming.custom.CustomCropTimerService;
 import com.yeowool.life.farming.custom.CustomFarmingListener;
+import com.yeowool.life.farming.custom.CustomFarmingQualityConfig;
 import com.yeowool.life.farming.custom.database.CustomFarmingSchemaInitializer;
 import com.yeowool.life.farming.custom.repository.CustomCropRepository;
 import com.yeowool.life.farming.database.FarmingSchemaInitializer;
@@ -41,6 +42,9 @@ import com.yeowool.life.fishing.FishSpecies;
 import com.yeowool.life.fishing.FishStarConfig;
 import com.yeowool.life.fishing.FishWaitTime;
 import com.yeowool.life.fishing.FishAdminCommand;
+import com.yeowool.life.fishing.FishGiveCommand;
+import com.yeowool.life.fishing.customfishing.CustomFishingBridge;
+import com.yeowool.life.fishing.customfishing.CustomFishingCatchListener;
 import com.yeowool.life.fishing.FishingCompetitionCommand;
 import com.yeowool.life.fishing.FishingCompetitionManager;
 import com.yeowool.life.fishing.FishingListener;
@@ -221,9 +225,13 @@ public final class YeowoolLife extends JavaPlugin {
                 competitionRewards);
         competitionManager.scheduleNextStart();
 
-        getServer().getPluginManager().registerEvents(
-                new FishingListener(this, core, messages, config.getLong("fishing.xp-per-catch", 3), fishRarities, fishRods, fishBaits,
-                        fishWaitTime, fishMinigame, fishStar, competitionManager), this);
+        // 낚시 플레이 자체는 CustomFishing이 설치되어 있으면 그쪽 메커닉을 그대로 씀 —
+        // 우리 자체 미니게임(입질 타이밍 등)은 CustomFishing이 없을 때의 대체 수단으로만 남김.
+        if (!CustomFishingBridge.isEnabled()) {
+            getServer().getPluginManager().registerEvents(
+                    new FishingListener(this, core, messages, config.getLong("fishing.xp-per-catch", 3), fishRarities, fishRods, fishBaits,
+                            fishWaitTime, fishMinigame, fishStar, competitionManager), this);
+        }
         var competitionCommand = getCommand("낚시대회");
         if (competitionCommand != null) {
             competitionCommand.setExecutor(new FishingCompetitionCommand(competitionManager));
@@ -234,19 +242,32 @@ public final class YeowoolLife extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new HuntingListener(core, config.getLong("hunting.xp-per-kill", 3)), this);
 
+        // /도감·/물고기지급에는 CustomFishing 물고기를 합침 (도감 표시용 목록만 —
+        // 실제 낚시 메커닉은 위에서 이미 CustomFishing 쪽으로 넘어감).
+        List<FishRarity> dexFishRarities = new ArrayList<>(fishRarities);
+        boolean customFishingEnabled = CustomFishingBridge.isEnabled();
+        if (customFishingEnabled) {
+            dexFishRarities.add(CustomFishingBridge.buildRarity());
+        }
+
         List<DexEntry> miningDex = DexConfigLoader.load(this, "mining");
         List<DexEntry> huntingDex = DexConfigLoader.load(this, "hunting");
         List<DexEntry> farmingDex = DexConfigLoader.load(this, "farming");
         var catalogCommand = getCommand("도감");
         if (catalogCommand != null) {
             int fishBackgroundOffset = config.getInt("fishing.gui-background-offset", -46);
-            catalogCommand.setExecutor(new DexCommand(core, messages, fishRarities, miningDex, huntingDex, farmingDex, fishBackgroundOffset));
+            catalogCommand.setExecutor(new DexCommand(core, messages, dexFishRarities, miningDex, huntingDex, farmingDex, fishBackgroundOffset));
         }
 
         var fishAdminCommand = getCommand("낚시관리");
         if (fishAdminCommand != null) {
             int fishBackgroundOffset = config.getInt("fishing.gui-background-offset", -46);
-            fishAdminCommand.setExecutor(new FishAdminCommand(messages, fishRarities, fishBackgroundOffset));
+            fishAdminCommand.setExecutor(new FishAdminCommand(messages, dexFishRarities, fishBackgroundOffset));
+        }
+        var fishGiveCommand = getCommand("물고기지급");
+        if (fishGiveCommand != null) {
+            int fishBackgroundOffset = config.getInt("fishing.gui-background-offset", -46);
+            fishGiveCommand.setExecutor(new FishGiveCommand(messages, dexFishRarities, fishBackgroundOffset));
         }
 
         // 직업 시스템 (연금술사/대장장이/건축가/도굴꾼/인챈터/농부/어부/사냥꾼/광부/목수 - 동시에 하나만 활성화 가능)
@@ -256,6 +277,12 @@ public final class YeowoolLife extends JavaPlugin {
         JobManager jobManager = new JobManager(this, core, jobRepository, executor, jobDefinitions, jobSkills,
                 config.getDouble("jobs.xp-curve.base", 100), config.getDouble("jobs.xp-curve.exponent", 1.8),
                 config.getInt("jobs.max-level", 50), config.getLong("jobs.bonus-currency-per-proc", 10));
+
+        if (customFishingEnabled) {
+            getServer().getPluginManager().registerEvents(
+                    new CustomFishingCatchListener(core, jobManager, config.getLong("fishing.xp-per-catch", 3), competitionManager), this);
+            getLogger().info("CustomFishing 연동이 활성화되었습니다 — 낚시 플레이는 CustomFishing, 어부 XP/땅 XP/도감/낚시대회는 그대로 연결됨.");
+        }
 
         getServer().getPluginManager().registerEvents(new JobJoinListener(this, jobManager), this);
         getServer().getPluginManager().registerEvents(
@@ -312,7 +339,14 @@ public final class YeowoolLife extends JavaPlugin {
         CustomCropTimerService timerService = new CustomCropTimerService(this, repository, registry, executor);
         timerService.reconcileOnStartup();
 
-        getServer().getPluginManager().registerEvents(new CustomFarmingListener(core, registry, timerService), this);
+        long customFarmingIncomePerHarvest = getConfig().getLong("custom-farming.income-per-harvest", 30);
+        CustomFarmingQualityConfig customFarmingQuality = new CustomFarmingQualityConfig(
+                getConfig().getDouble("custom-farming.quality.silver-chance-percent", 15),
+                getConfig().getDouble("custom-farming.quality.gold-chance-percent", 3),
+                getConfig().getDouble("custom-farming.quality.silver-multiplier", 1.5),
+                getConfig().getDouble("custom-farming.quality.gold-multiplier", 3.0));
+        getServer().getPluginManager().registerEvents(
+                new CustomFarmingListener(core, registry, timerService, customFarmingIncomePerHarvest, customFarmingQuality), this);
         getLogger().info("ItemsAdder 커스텀 작물 시스템이 활성화되었습니다.");
     }
 
@@ -337,7 +371,8 @@ public final class YeowoolLife extends JavaPlugin {
                             fishEntry.get("custom-icon") == null ? null : fishEntry.get("custom-icon").toString(),
                             fishEntry.get("description") == null ? "" : fishEntry.get("description").toString(),
                             fishEntry.get("min-size-cm") == null ? 10.0 : ((Number) fishEntry.get("min-size-cm")).doubleValue(),
-                            fishEntry.get("max-size-cm") == null ? 30.0 : ((Number) fishEntry.get("max-size-cm")).doubleValue()
+                            fishEntry.get("max-size-cm") == null ? 30.0 : ((Number) fishEntry.get("max-size-cm")).doubleValue(),
+                            null
                     ));
                 }
                 rarities.add(new FishRarity(name, weight, color == null ? NamedTextColor.WHITE : color, species));
@@ -347,7 +382,7 @@ public final class YeowoolLife extends JavaPlugin {
         }
         if (rarities.isEmpty()) {
             rarities.add(new FishRarity("일반", 1, NamedTextColor.WHITE,
-                    List.of(new FishSpecies("fish", "물고기", Material.COD, null, "", 10.0, 30.0))));
+                    List.of(new FishSpecies("fish", "물고기", Material.COD, null, "", 10.0, 30.0, null))));
         }
         return rarities;
     }

@@ -16,7 +16,6 @@ import com.yeowool.market.citizens.ShopLocationCommand;
 import com.yeowool.market.citizens.ShopTeleportJoinListener;
 import com.yeowool.market.command.AuctionCommand;
 import com.yeowool.market.command.NPCShopCommand;
-import com.yeowool.market.command.ShopBulkFillCommand;
 import com.yeowool.market.command.ShopCreateCommand;
 import com.yeowool.market.command.ShopDeleteCommand;
 import com.yeowool.market.adminshop.ShopPriceAnvilListener;
@@ -115,8 +114,6 @@ public final class YeowoolMarket extends JavaPlugin {
         bindCommand("상점로테이션제거", shopRotationClearCommand, shopRotationClearCommand);
         var shopImportCommand = new ShopImportCommand(adminShopStore, shops);
         bindCommand("상점가져오기", shopImportCommand, shopImportCommand);
-        var shopBulkFillCommand = new ShopBulkFillCommand(this, adminShopStore);
-        bindCommand("상점자동채우기", shopBulkFillCommand);
 
         var npcShopCommand = getCommand("상점");
         if (npcShopCommand != null) {

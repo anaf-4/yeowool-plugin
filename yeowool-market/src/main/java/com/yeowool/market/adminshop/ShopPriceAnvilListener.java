@@ -124,7 +124,10 @@ public final class ShopPriceAnvilListener implements Listener {
         }
 
         applyPrice(admin, edit.shopId(), edit.pageIndex(), edit.slot(), edit.buyPrice(), value);
-        Bukkit.getScheduler().runTask(plugin, () -> admin.closeInventory());
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            admin.closeInventory();
+            new AdminShopPriceGui(plugin, store, this, edit.shopId(), edit.pageIndex()).open(admin);
+        });
     }
 
     @EventHandler

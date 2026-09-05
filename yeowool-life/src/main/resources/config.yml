@@ -776,6 +776,16 @@ jobs:
 # 바닐라 작물과 달리 성장 시간이 10분으로 고정되지 않고 단계(stage)마다
 # 개별로 설정합니다 - 각 단계는 서로 다른 커스텀 블록 ID로 표현됩니다.
 custom-farming:
+  # 수확 1회당 지급되는 온(일반 등급 기준값 — 은별/금별은 아래 quality 배율만큼 더 받음).
+  # 커스텀 작물은 행동 속도가 아니라 성장 시간(stages의 minutes)이 수확 빈도를 결정하므로,
+  # 아래 crops를 실제로 채우고 나면 작물별 성장 시간에 맞춰 이 값을 다시 조정하세요.
+  income-per-harvest: 30
+  # 수확 시 굴리는 품질 등급 — 금별을 먼저 굴리고(못 뜨면) 은별을 굴립니다. 나머지는 일반.
+  quality:
+    gold-chance-percent: 3
+    silver-chance-percent: 15
+    gold-multiplier: 3.0
+    silver-multiplier: 1.5
   crops:
     # 예시 (실제 ItemsAdder에서 만든 네임스페이스ID로 교체하세요):
     # golden_wheat:

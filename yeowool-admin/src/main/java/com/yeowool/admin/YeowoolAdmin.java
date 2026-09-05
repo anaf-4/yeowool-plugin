@@ -47,6 +47,7 @@ import com.yeowool.admin.moderation.UnmuteCommand;
 import com.yeowool.admin.moderation.WarnAutoBanReviewTask;
 import com.yeowool.admin.moderation.WarnCommand;
 import com.yeowool.admin.report.ReportCommand;
+import com.yeowool.admin.mining.OreSummonCommand;
 import com.yeowool.admin.restart.RestartScheduleCommand;
 import com.yeowool.admin.restart.RestartScheduleRepository;
 import com.yeowool.admin.restart.RestartScheduleSchemaInitializer;
@@ -277,6 +278,9 @@ public final class YeowoolAdmin extends JavaPlugin {
         }
         bindCommand("서버재부팅설정", new RestartScheduleCommand(restartScheduleStore, messages));
         new ScheduledRestartTask(this, core, messages, restartScheduleStore).runTaskTimer(this, 20L, 20L);
+
+        OreSummonCommand oreSummonCommand = new OreSummonCommand();
+        bindCommand("광석소환", oreSummonCommand, oreSummonCommand);
 
         long autoBackupIntervalTicks = getConfig().getLong("backup.auto-interval-ticks", 20L * 60 * 60 * 6);
         if (autoBackupIntervalTicks > 0) {

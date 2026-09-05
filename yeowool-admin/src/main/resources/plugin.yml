@@ -108,6 +108,10 @@ commands:
     description: "이 서버의 자동 재부팅 시각을 설정/해제/조회합니다 (예: /서버재부팅설정 06:00,18:00)"
     permission: yeowool.admin.super
     default: op
+  광석소환:
+    description: "W6 Custom Mining 팩의 위장 채굴 몹을 자기 위치에 소환합니다 (예: /광석소환 다이아 3)"
+    permission: yeowool.admin
+    default: op
   npc태그:
     description: 바라보고 있는 NPC(엔티티)의 이름표에 태그 아이콘을 붙이거나 제거합니다
     permission: yeowool.admin
