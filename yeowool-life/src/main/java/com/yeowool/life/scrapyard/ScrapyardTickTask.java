@@ -80,6 +80,5 @@ public final class ScrapyardTickTask extends BukkitRunnable {
         String coords = spawnPoint.getWorld().getName() + "," + spawnPoint.getX() + "," + spawnPoint.getY() + "," + spawnPoint.getZ();
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "mm mobs spawn " + config.bossMobId() + " 1 " + coords);
         messages.send(player, "scrapyard.boss-spawned");
-        sessionManager.showBossBar(player, messages.resolve("scrapyard.boss-name"));
     }
 }

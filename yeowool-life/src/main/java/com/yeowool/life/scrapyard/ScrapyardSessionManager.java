@@ -2,8 +2,6 @@ package com.yeowool.life.scrapyard;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.model.PlayerData;
-import net.kyori.adventure.bossbar.BossBar;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -36,7 +34,6 @@ public final class ScrapyardSessionManager {
     private final ScrapyardConfig config;
     private final Map<UUID, Long> sessionStartedAt = new ConcurrentHashMap<>();
     private final Set<UUID> bossSpawnedFor = ConcurrentHashMap.newKeySet();
-    private final Map<UUID, BossBar> bossBars = new ConcurrentHashMap<>();
 
     public ScrapyardSessionManager(JavaPlugin plugin, YeowoolCoreAPI core, ScrapyardLocationStore locationStore, ScrapyardConfig config) {
         this.plugin = plugin;
@@ -110,27 +107,12 @@ public final class ScrapyardSessionManager {
         bossSpawnedFor.add(uuid);
     }
 
-    /** Shows a purely cosmetic (always-full) boss bar to {@code player} — the boss itself is invincible. */
-    public void showBossBar(Player player, Component title) {
-        BossBar bar = BossBar.bossBar(title, 1f, BossBar.Color.RED, BossBar.Overlay.PROGRESS);
-        bossBars.put(player.getUniqueId(), bar);
-        player.showBossBar(bar);
-    }
-
-    private void hideBossBar(Player player) {
-        BossBar bar = bossBars.remove(player.getUniqueId());
-        if (bar != null) {
-            player.hideBossBar(bar);
-        }
-    }
-
     /** 실패(사망/시간초과/구역 이탈/접속종료) — 소지 중인 폐기물을 전부 비우고 세션을 끝낸다. */
     public void forfeit(Player player) {
         if (sessionStartedAt.remove(player.getUniqueId()) == null) {
             return;
         }
         bossSpawnedFor.remove(player.getUniqueId());
-        hideBossBar(player);
         clearScrapItems(player);
         teleportToReturn(player);
     }
@@ -141,7 +123,6 @@ public final class ScrapyardSessionManager {
             return;
         }
         bossSpawnedFor.remove(player.getUniqueId());
-        hideBossBar(player);
         teleportToReturn(player);
     }
 

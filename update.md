@@ -2,6 +2,22 @@
 
 > 날짜별로 새로 추가되거나 수정된 사항을 기록합니다. 새 작업을 할 때마다 맨 위(최신 날짜)에 이어서 추가합니다.
 
+## 2026-09-13
+
+### ModelEngine 4.1.0 ↔ ItemsAdder 충돌 근본 해결, 폐기장 보스를 ent_keeper로 복귀
+[config.yml:38-42](C:\YEOWOOL\lobby\plugins\ModelEngine\config.yml)의 `Model-Generator.Register-Post-Server`/`Assets-Post-Server`/`Compile-Post-Server`를 전부 `false`로 변경 — ModelEngine이 리소스팩 에셋을 서버 기동 후 비동기로 늦게 만들던 것을 기동 중 동기적으로 먼저 만들도록 바꿔서, ItemsAdder가 `ModelEngine/resource pack/assets/cosmetics`를 조립 시점에 못 찾던 경쟁 상태가 해소됨(사장님이 직접 재시작해서 확인). 이제 ModelEngine 4.1.0으로 올려도 ItemsAdder 리소스팩 파이프라인이 정상 동작하고, `ent_keeper` 보스 모델도 정상 소환/렌더링됨.
+- 폐기장 보스를 임시로 대체했던 `am_goblin_brute`에서 원래 계획한 `ent_keeper_boss`로 되돌림 (`scrapyard.boss.mob-id`, [yeowool-life/config.yml](yeowool-life/src/main/resources/config.yml) + 로비 서버 배포본 둘 다 수정).
+- `ent_keeper_boss.yml`(MythicMobs) — `Options.Invincible: false → true`(플레이어가 못 죽이게, am_goblin_brute 때와 동일하게), `Display: 'Ent Keeper Boss' → '폐기장의 괴물'`(보스 이름 한글화). 보스바(`BossBar.Title`)는 전용 텍스처 폰트 이미지라 손대지 않고 그대로 둠.
+
+로비 서버 재시작 필요(config.yml `mob-id` 변경 반영), MythicMobs는 `/mm reload`로도 반영 가능.
+
+### 폐기장 보스 전용 보스바 중복 제거, 무적 이중화
+`ScrapyardTickTask`가 MythicMobs 자체 보스바(전용 텍스처, "ENT KEEPER")와 별개로 YeowoolLife 코드가 직접 Adventure `BossBar`를 하나 더 띄우고 있었음(구버전 이름 "고블린 습격대장" 하드코딩) — 두 보스바가 겹쳐서 뜨는 문제라 후자를 완전히 제거함 (`ScrapyardSessionManager`의 `bossBars`/`showBossBar`/`hideBossBar`, `ScrapyardTickTask`의 호출부 삭제). `messages.yml`의 `scrapyard.boss-name`도 "폐기장의 괴물"로 갱신(더는 안 쓰이지만 다른 용도로 재사용될 수 있어 값만 정리).
+- `Options.Invincible: true`인데도 보스가 대미지 누적으로 죽는 문제 확인 — `~onAttack`(공격 시 CancelEvent로 넉백/피격 이벤트 취소)과 같은 방식을 `~onDamaged`에도 추가해 맞는 순간 자체를 이중으로 차단함.
+
+### 저장소를 실제 배포 상태와 동기화 (git stash 복구)
+이 브랜치가 최근 세션에서 작업한 폐기장/서버간 인벤토리 동기화/CustomCrops 계절 동기화/AddCook 레시피북 GUI/CustomFishing 메뉴/파티 시스템/플레이타임 보상 시스템의 자바 소스를 커밋하지 않은 채로 있었음 — 실제로는 라이브 서버에 전부 배포되어 동작 중인데, `git stash`(브랜치 전환 전 임시 저장)에만 남아있고 워킹 트리엔 없는 상태였음. `git stash`의 untracked-files 커밋에서 총 37개 파일을 복구해 커밋함 — 이제 저장소가 실제 배포 상태와 일치함. 전체 모듈 `./gradlew compileJava` 정상 확인.
+
 ## 2026-09-09
 
 ### 폐기장 보스를 ent_keeper → am_goblin_brute로 교체, 던전/로비 월드 건축 금지, 보스 무적 설정

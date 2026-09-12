@@ -19,7 +19,7 @@ scrapyard:
   left-region: "<red>구역을 벗어나 폐기장 도전이 실패 처리되었습니다.</red>"
   time-warning: "<gold>폐기장 남은 시간: <time></gold>"
   boss-spawned: "<dark_red><bold>보스가 나타났습니다!</bold></dark_red>"
-  boss-name: "<dark_red><bold>고블린 습격대장</bold></dark_red>"
+  boss-name: "<dark_red><bold>폐기장의 괴물</bold></dark_red>"
 
 autofarm:
   usage: "<red>사용법: /<voucher> 지급 <횟수></red>"
