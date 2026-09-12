@@ -1,6 +1,7 @@
 package com.yeowool.life.fishing;
 
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.life.fishing.customfishing.CustomFishingBridge;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
@@ -8,6 +9,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** {@code /낚시관리 물고기} (yeowool.admin) — {@link FishAdminGui}를 열어 등록된 모든 물고기를 즉시 지급받을 수 있게 한다. */
@@ -15,11 +17,13 @@ public final class FishAdminCommand implements CommandExecutor {
 
     private final MessageService messages;
     private final List<FishRarity> rarities;
+    private final boolean customFishingEnabled;
     private final int backgroundOffsetPx;
 
-    public FishAdminCommand(MessageService messages, List<FishRarity> rarities, int backgroundOffsetPx) {
+    public FishAdminCommand(MessageService messages, List<FishRarity> rarities, boolean customFishingEnabled, int backgroundOffsetPx) {
         this.messages = messages;
         this.rarities = rarities;
+        this.customFishingEnabled = customFishingEnabled;
         this.backgroundOffsetPx = backgroundOffsetPx;
     }
 
@@ -37,7 +41,14 @@ public final class FishAdminCommand implements CommandExecutor {
             player.sendMessage(Component.text("사용법: /낚시관리 물고기", NamedTextColor.RED));
             return true;
         }
-        new FishAdminGui(player, rarities, 0, backgroundOffsetPx).open(player);
+        // CustomFishing 물고기는 매번 새로 합침 — 플러그인 활성화 시점에 캐싱해두면
+        // CustomFishing 쪽 로딩(loot 등록)이 아직 안 끝난 상태를 그대로 굳혀버릴 수 있음.
+        List<FishRarity> combined = rarities;
+        if (customFishingEnabled) {
+            combined = new ArrayList<>(rarities);
+            combined.add(CustomFishingBridge.buildRarity());
+        }
+        new FishAdminGui(player, combined, 0, backgroundOffsetPx).open(player);
         return true;
     }
 }

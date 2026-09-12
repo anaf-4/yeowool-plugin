@@ -90,7 +90,7 @@ public final class ShopRotationManager {
         for (int i = 0; i < slots.size() && i < pool.size(); i++) {
             ShopItem base = pool.get(i);
             chosen.add(new ShopItem(base.material(), base.itemId(), base.buyPrice(), base.sellPrice(), slots.get(i),
-                    base.customModelData(), base.currency(), 0, base.strictMatch(), base.customDisplayName()));
+                    base.customModelData(), base.currency(), 0, base.strictMatch(), base.customDisplayName(), base.templateItem()));
         }
         activeRotatedItems.put(shop.id(), chosen);
     }

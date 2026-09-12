@@ -38,4 +38,24 @@ public final class ItemStackSerializer {
             throw new IllegalStateException("아이템 역직렬화 실패", e);
         }
     }
+
+    /** Same round-trip as {@link #serialize}, but for a whole slot array at once (a full inventory/armor/ender chest snapshot) — used by the cross-server inventory sync. */
+    public static String serializeArray(ItemStack[] items) {
+        try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+             BukkitObjectOutputStream out = new BukkitObjectOutputStream(byteStream)) {
+            out.writeObject(items);
+            return Base64.getEncoder().encodeToString(byteStream.toByteArray());
+        } catch (IOException e) {
+            throw new IllegalStateException("아이템 배열 직렬화 실패", e);
+        }
+    }
+
+    public static ItemStack[] deserializeArray(String data) {
+        try (ByteArrayInputStream byteStream = new ByteArrayInputStream(Base64.getDecoder().decode(data));
+             BukkitObjectInputStream in = new BukkitObjectInputStream(byteStream)) {
+            return (ItemStack[]) in.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            throw new IllegalStateException("아이템 배열 역직렬화 실패", e);
+        }
+    }
 }

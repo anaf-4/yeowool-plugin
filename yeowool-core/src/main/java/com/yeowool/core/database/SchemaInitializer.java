@@ -95,6 +95,22 @@ public final class SchemaInitializer {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
             """
+            CREATE TABLE IF NOT EXISTS yw_player_inventory (
+                uuid CHAR(36) NOT NULL PRIMARY KEY,
+                main_inventory MEDIUMTEXT NOT NULL,
+                armor MEDIUMTEXT NOT NULL,
+                off_hand MEDIUMTEXT NOT NULL,
+                ender_chest MEDIUMTEXT NOT NULL,
+                exp_level INT NOT NULL DEFAULT 0,
+                exp_progress FLOAT NOT NULL DEFAULT 0,
+                health DOUBLE NOT NULL DEFAULT 20,
+                food_level INT NOT NULL DEFAULT 20,
+                saturation FLOAT NOT NULL DEFAULT 5,
+                updated_at BIGINT NOT NULL,
+                FOREIGN KEY (uuid) REFERENCES yw_players(uuid) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
             CREATE TABLE IF NOT EXISTS yw_punishments (
                 id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 target CHAR(36) NOT NULL,

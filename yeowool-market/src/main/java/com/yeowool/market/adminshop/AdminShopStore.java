@@ -1,6 +1,7 @@
 package com.yeowool.market.adminshop;
 
 import com.yeowool.core.api.model.CurrencyType;
+import com.yeowool.core.util.ItemStackSerializer;
 import com.yeowool.market.npcshop.ShopDefinition;
 import com.yeowool.market.npcshop.ShopItem;
 import com.yeowool.market.npcshop.ShopLayout;
@@ -434,16 +435,17 @@ public final class AdminShopStore {
         CurrencyType currency = ShopPricedItem.currency(plugin, stamped);
         boolean strictMatch = ShopPricedItem.strictMatch(plugin, stamped);
         String customDisplayName = captureDisplayName(stamped);
+        String templateItem = ItemStackSerializer.serialize(ShopPricedItem.unstamp(plugin, stamped));
 
         if (ItemResolver.isItemsAdderAvailable()) {
             CustomStack custom = CustomStack.byItemStack(stamped);
             if (custom != null) {
-                return new ShopItem(null, custom.getNamespacedID(), buy, sell, slot, -1, currency, page, strictMatch, customDisplayName);
+                return new ShopItem(null, custom.getNamespacedID(), buy, sell, slot, -1, currency, page, strictMatch, customDisplayName, templateItem);
             }
         }
         ItemMeta meta = stamped.getItemMeta();
         int customModelData = meta != null && meta.hasCustomModelData() ? meta.getCustomModelData() : -1;
-        return new ShopItem(stamped.getType(), null, buy, sell, slot, customModelData, currency, page, strictMatch, customDisplayName);
+        return new ShopItem(stamped.getType(), null, buy, sell, slot, customModelData, currency, page, strictMatch, customDisplayName, templateItem);
     }
 
     /**

@@ -97,4 +97,37 @@ public final class ShopPricedItem {
         ItemMeta meta = item.getItemMeta();
         return meta != null && meta.getPersistentDataContainer().getOrDefault(strictMatchKey(plugin), PersistentDataType.BYTE, (byte) 0) != 0;
     }
+
+    /**
+     * A clone of {@code item} with the price PDC tags and the "구매가:"/"판매가:"/"엄격 매칭:"
+     * lore lines this class's {@link #stamp} adds removed — everything else (including any
+     * other plugin's own NBT/PDC, like an AddCook recipe book's id or a CustomFishing rod's
+     * effect tag) untouched. Used to snapshot the exact item an admin placed via 상점수정 as
+     * the {@link ShopItem#templateItem()} customers actually receive on purchase.
+     */
+    public static ItemStack unstamp(JavaPlugin plugin, ItemStack item) {
+        ItemStack clone = item.clone();
+        ItemMeta meta = clone.getItemMeta();
+        if (meta == null) {
+            return clone;
+        }
+        var pdc = meta.getPersistentDataContainer();
+        pdc.remove(buyKey(plugin));
+        pdc.remove(sellKey(plugin));
+        pdc.remove(currencyKey(plugin));
+        pdc.remove(strictMatchKey(plugin));
+
+        if (meta.hasLore() && meta.lore() != null) {
+            List<Component> lore = new ArrayList<>();
+            for (Component line : meta.lore()) {
+                String plain = PlainTextComponentSerializer.plainText().serialize(line);
+                if (!plain.startsWith("구매가:") && !plain.startsWith("판매가:") && !plain.startsWith("엄격 매칭:")) {
+                    lore.add(line);
+                }
+            }
+            meta.lore(lore.isEmpty() ? null : lore);
+        }
+        clone.setItemMeta(meta);
+        return clone;
+    }
 }

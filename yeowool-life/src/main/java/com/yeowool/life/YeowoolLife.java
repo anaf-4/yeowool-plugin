@@ -28,6 +28,8 @@ import com.yeowool.life.farming.custom.CustomFarmingListener;
 import com.yeowool.life.farming.custom.CustomFarmingQualityConfig;
 import com.yeowool.life.farming.custom.database.CustomFarmingSchemaInitializer;
 import com.yeowool.life.farming.custom.repository.CustomCropRepository;
+import com.yeowool.life.farming.customcrops.CustomCropsSeasonSyncTask;
+import com.yeowool.life.cooking.addcook.MyRecipesCommand;
 import com.yeowool.life.farming.database.FarmingSchemaInitializer;
 import com.yeowool.life.farming.repository.CropRepository;
 import com.yeowool.life.dex.DexCommand;
@@ -43,8 +45,11 @@ import com.yeowool.life.fishing.FishStarConfig;
 import com.yeowool.life.fishing.FishWaitTime;
 import com.yeowool.life.fishing.FishAdminCommand;
 import com.yeowool.life.fishing.FishGiveCommand;
+import com.yeowool.life.fishing.customfishing.BaitUnequipCommand;
 import com.yeowool.life.fishing.customfishing.CustomFishingBridge;
 import com.yeowool.life.fishing.customfishing.CustomFishingCatchListener;
+import com.yeowool.life.fishing.customfishing.CustomFishingMenuCommand;
+import com.yeowool.life.fishing.customfishing.CustomFishingNativeFishExporter;
 import com.yeowool.life.fishing.FishingCompetitionCommand;
 import com.yeowool.life.fishing.FishingCompetitionManager;
 import com.yeowool.life.fishing.FishingListener;
@@ -74,6 +79,15 @@ import com.yeowool.life.job.action.JobMinerListener;
 import com.yeowool.life.job.action.JobWoodCutterListener;
 import com.yeowool.life.mining.MiningListener;
 import com.yeowool.life.ranch.RanchListener;
+import com.yeowool.life.scrapyard.ScrapyardAdminCommand;
+import com.yeowool.life.scrapyard.ScrapyardConfig;
+import com.yeowool.life.scrapyard.ScrapyardListener;
+import com.yeowool.life.scrapyard.ScrapyardLocationStore;
+import com.yeowool.life.scrapyard.ScrapyardMobSpawnTask;
+import com.yeowool.life.scrapyard.ScrapyardRepository;
+import com.yeowool.life.scrapyard.ScrapyardSchemaInitializer;
+import com.yeowool.life.scrapyard.ScrapyardSessionManager;
+import com.yeowool.life.scrapyard.ScrapyardTickTask;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -189,6 +203,15 @@ public final class YeowoolLife extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new RanchListener(core, config.getLong("ranch.xp-per-breed", 10), config.getInt("ranch.max-animals-per-chunk", 16)),
                 this);
+
+        // CustomCrops의 계절은 서버(로비/타운/야생)마다 따로 흘러서 방치하면 어긋남 —
+        // 실제 시각 기준으로 계절을 계산해서 주기적으로 맞춰줌(서버 간 통신 불필요, 각자
+        // 같은 공식으로 계산하니 자연히 일치함).
+        if (config.getBoolean("customcrops.season-sync.enable", true) && Bukkit.getPluginManager().isPluginEnabled("CustomCrops")) {
+            long intervalTicks = config.getLong("customcrops.season-sync.check-interval-seconds", 60) * 20L;
+            new CustomCropsSeasonSyncTask(this).runTaskTimer(this, 100L, intervalTicks);
+        }
+
         List<FishRarity> fishRarities = loadRarities();
         Map<String, FishRod> fishRods = loadFishRods();
         Map<String, FishBait> fishBaits = loadFishBaits();
@@ -231,6 +254,11 @@ public final class YeowoolLife extends JavaPlugin {
             getServer().getPluginManager().registerEvents(
                     new FishingListener(this, core, messages, config.getLong("fishing.xp-per-catch", 3), fishRarities, fishRods, fishBaits,
                             fishWaitTime, fishMinigame, fishStar, competitionManager), this);
+        } else {
+            // 낚시 메커닉이 CustomFishing으로 완전히 넘어가서, 우리 자체 물고기도 그쪽 loot
+            // 풀에 직접 등록해줘야 실제로 잡을 수 있음 — 안 그러면 도감/지급 GUI에만 보이는
+            // 장식용 목록으로 남음.
+            CustomFishingNativeFishExporter.export(this, fishRarities);
         }
         var competitionCommand = getCommand("낚시대회");
         if (competitionCommand != null) {
@@ -242,13 +270,10 @@ public final class YeowoolLife extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new HuntingListener(core, config.getLong("hunting.xp-per-kill", 3)), this);
 
-        // /도감·/물고기지급에는 CustomFishing 물고기를 합침 (도감 표시용 목록만 —
-        // 실제 낚시 메커닉은 위에서 이미 CustomFishing 쪽으로 넘어감).
-        List<FishRarity> dexFishRarities = new ArrayList<>(fishRarities);
+        // /도감·/낚시관리·/물고기지급은 CustomFishing 물고기를 합쳐서 보여주지만, 매번 명령어를
+        // 칠 때 그 순간의 상태를 새로 읽는다(아래 각 커맨드 클래스 참고) — 여기서 한 번만
+        // 캐싱해두면 CustomFishing 쪽 loot 등록이 아직 안 끝난 상태를 그대로 굳혀버릴 수 있음.
         boolean customFishingEnabled = CustomFishingBridge.isEnabled();
-        if (customFishingEnabled) {
-            dexFishRarities.add(CustomFishingBridge.buildRarity());
-        }
 
         List<DexEntry> miningDex = DexConfigLoader.load(this, "mining");
         List<DexEntry> huntingDex = DexConfigLoader.load(this, "hunting");
@@ -256,18 +281,33 @@ public final class YeowoolLife extends JavaPlugin {
         var catalogCommand = getCommand("도감");
         if (catalogCommand != null) {
             int fishBackgroundOffset = config.getInt("fishing.gui-background-offset", -46);
-            catalogCommand.setExecutor(new DexCommand(core, messages, dexFishRarities, miningDex, huntingDex, farmingDex, fishBackgroundOffset));
+            catalogCommand.setExecutor(new DexCommand(core, messages, fishRarities, customFishingEnabled, miningDex, huntingDex, farmingDex, fishBackgroundOffset));
         }
 
         var fishAdminCommand = getCommand("낚시관리");
         if (fishAdminCommand != null) {
             int fishBackgroundOffset = config.getInt("fishing.gui-background-offset", -46);
-            fishAdminCommand.setExecutor(new FishAdminCommand(messages, dexFishRarities, fishBackgroundOffset));
+            fishAdminCommand.setExecutor(new FishAdminCommand(messages, fishRarities, customFishingEnabled, fishBackgroundOffset));
         }
         var fishGiveCommand = getCommand("물고기지급");
         if (fishGiveCommand != null) {
             int fishBackgroundOffset = config.getInt("fishing.gui-background-offset", -46);
-            fishGiveCommand.setExecutor(new FishGiveCommand(messages, dexFishRarities, fishBackgroundOffset));
+            fishGiveCommand.setExecutor(new FishGiveCommand(messages, fishRarities, customFishingEnabled, fishBackgroundOffset));
+        }
+
+        var customFishingMenuCommand = getCommand("커스텀물고기");
+        if (customFishingMenuCommand != null && customFishingEnabled) {
+            int fishBackgroundOffset = config.getInt("fishing.gui-background-offset", -46);
+            customFishingMenuCommand.setExecutor(new CustomFishingMenuCommand(messages, fishBackgroundOffset));
+        }
+        var baitCommand = getCommand("미끼");
+        if (baitCommand != null && customFishingEnabled) {
+            baitCommand.setExecutor(new BaitUnequipCommand(messages));
+        }
+
+        var myRecipesCommand = getCommand("레시피");
+        if (myRecipesCommand != null && Bukkit.getPluginManager().isPluginEnabled("AddCook")) {
+            myRecipesCommand.setExecutor(new MyRecipesCommand(messages));
         }
 
         // 직업 시스템 (연금술사/대장장이/건축가/도굴꾼/인챈터/농부/어부/사냥꾼/광부/목수 - 동시에 하나만 활성화 가능)
@@ -320,7 +360,63 @@ public final class YeowoolLife extends JavaPlugin {
             enableCustomFarming(core);
         }
 
+        enableScrapyard(core, messages);
+
         getLogger().info("YeowoolLife가 활성화되었습니다.");
+    }
+
+    /**
+     * 여울 폐기장 — 하루 1회 입장 제한 미니게임. 실제 맵(진입점/출구/구역/상자/
+     * 몹 스폰 지점)은 코드로 미리 짓지 못하니 {@code /폐기장설정}으로 관리자가
+     * 인게임에서 등록해야 실제로 동작함 — 등록 전까지는 {@code enter()}가
+     * {@code NOT_CONFIGURED}를 반환해 안전하게 아무 일도 일어나지 않는다.
+     */
+    private void enableScrapyard(YeowoolCoreAPI core, MessageManager messages) {
+        ScrapyardConfig scrapyardConfig = ScrapyardConfig.load(getConfig());
+        if (!scrapyardConfig.enabled()) {
+            return;
+        }
+
+        String worldName = getConfig().getString("scrapyard.world", "zombie_dungeon");
+        if (Bukkit.getWorld(worldName) == null) {
+            if (new java.io.File(getServer().getWorldContainer(), worldName).isDirectory()) {
+                var loaded = Bukkit.createWorld(new org.bukkit.WorldCreator(worldName));
+                if (loaded == null) {
+                    getLogger().severe("폐기장 던전 월드(" + worldName + ")를 불러오지 못했습니다.");
+                } else {
+                    getLogger().info("폐기장 던전 월드(" + worldName + ")를 불러왔습니다.");
+                }
+            } else {
+                getLogger().warning("폐기장 던전 월드 폴더(" + worldName + ")가 없습니다 — /폐기장설정으로 위치를 등록하기 전에 월드 폴더를 서버에 넣어주세요.");
+            }
+        }
+
+        try {
+            ScrapyardSchemaInitializer.initialize(core.dataSource());
+        } catch (Exception e) {
+            getLogger().severe("폐기장 데이터베이스 초기화 실패: " + e.getMessage());
+            return;
+        }
+        ScrapyardRepository scrapyardRepository = new ScrapyardRepository(core.dataSource());
+        ScrapyardLocationStore scrapyardLocationStore = new ScrapyardLocationStore(this, scrapyardRepository, executor);
+        try {
+            scrapyardLocationStore.loadIntoCache();
+        } catch (Exception e) {
+            getLogger().severe("폐기장 위치 데이터 로드 실패: " + e.getMessage());
+            return;
+        }
+        ScrapyardSessionManager scrapyardSessionManager = new ScrapyardSessionManager(this, core, scrapyardLocationStore, scrapyardConfig);
+        getServer().getPluginManager().registerEvents(
+                new ScrapyardListener(this, scrapyardSessionManager, scrapyardLocationStore, scrapyardConfig, messages), this);
+        new ScrapyardTickTask(scrapyardSessionManager, scrapyardLocationStore, scrapyardConfig, messages).runTaskTimer(this, 20L, 20L);
+        new ScrapyardMobSpawnTask(scrapyardSessionManager, scrapyardLocationStore, scrapyardConfig)
+                .runTaskTimer(this, 20L * scrapyardConfig.mobSpawnIntervalSeconds(), 20L * scrapyardConfig.mobSpawnIntervalSeconds());
+        var scrapyardAdminCommand = getCommand("폐기장설정");
+        if (scrapyardAdminCommand != null) {
+            var executorCmd = new ScrapyardAdminCommand(this, core, scrapyardSessionManager, scrapyardLocationStore);
+            scrapyardAdminCommand.setExecutor(executorCmd);
+            scrapyardAdminCommand.setTabCompleter(executorCmd);
+        }
     }
 
     private void enableCustomFarming(YeowoolCoreAPI core) {

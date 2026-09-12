@@ -21,6 +21,13 @@ ranch:
   xp-per-breed: 10
   max-animals-per-chunk: 16
 
+# CustomCrops가 설치되어 있으면, 이 서버(로비/타운/야생 등)의 계절을 실제 시각 기준으로
+# 계산해서 주기적으로 맞춰줌 — 서버끼리 계절이 따로 흘러 어긋나는 걸 방지.
+customcrops:
+  season-sync:
+    enable: true
+    check-interval-seconds: 60
+
 fishing:
   xp-per-catch: 3
   # /도감의 물고기 도감(FishCatalogGui)에 fishing_expansion 팩의 "fish_codex" 배경
@@ -797,3 +804,61 @@ custom-farming:
     #       minutes: 10
     #     - id: "yeowool:golden_wheat_final"
     #       minutes: 0   # 마지막 단계는 minutes를 쓰지 않음 (더 이상 성장 없음)
+
+# 여울 폐기장 — 하루 1회, 제한 시간 동안 폐기물을 최대한 모아서 탈출하는 미니게임.
+# 실제 맵(진입점/출구/귀환지점/구역/상자/몹 스폰 지점)은 /폐기장설정으로
+# 관리자가 인게임에서 직접 등록해야 함 — 이 config는 게임 규칙(시간, 무게에
+# 따른 이동 제한, 몹 종류, 폐기물 종류/무게/등장 확률)만 담당.
+scrapyard:
+  enabled: true
+  # 던전이 들어있는 별도 월드 폴더 이름 — 서버 루트에 이 이름의 월드 폴더가 있어야
+  # 시작할 때 자동으로 로드됨. /폐기장설정 진입목적지/출구/구역1/구역2/상자추가/
+  # 몹스폰추가는 전부 이 던전 월드 안에서 실행해야 함(진입점만 예외 — 포탈이 있는
+  # 원래 월드에 있는 트리거 블록).
+  world: "zombie_dungeon"
+  session-duration-seconds: 600
+  # 상자를 열었을 때 아무것도 안 나올 확률(%) — 나머지 확률은 scrap-items의 loot-weight 비율대로 분배됨.
+  chest-empty-chance: 30
+  # 소지 중인 폐기물 총 무게(scrap-items의 weight 합)가 이 값 이상이면 해당 둔화 효과 적용.
+  # 값은 감속 레벨(0=둔화 I, 1=둔화 II, ...)이고, 여러 구간 중 도달한 가장 높은 구간이 적용됨.
+  weight-tiers:
+    10: 0
+    20: 1
+    30: 2
+    40: 3
+  mob:
+    # MythicMobs에 등록된 몹 내부 ID (예: MythicMobs/Packs 안의 몹 파일에 정의된 Id) — 일반 몹, 반복 소환됨
+    ids: []
+    spawn-interval-seconds: 30
+    max-alive: 10
+  # 한 판(세션)에 딱 한 번만 등장하는 보스 — /폐기장설정 보스스폰으로 등장 위치를 등록해야 함.
+  # 입장 후 spawn-delay-seconds가 지나면 자동으로 소환됨. mob-id를 비워두면(기본값) 보스 없음.
+  boss:
+    mob-id: "am_goblin_brute"
+    spawn-delay-seconds: 60
+  scrap-items:
+    rusty_can:
+      material: IRON_NUGGET
+      name: "<gray>녹슨 캔</gray>"
+      weight: 1
+      loot-weight: 50
+    broken_radio:
+      material: REDSTONE
+      name: "<gold>고장난 라디오</gold>"
+      weight: 3
+      loot-weight: 25
+    scrap_metal:
+      material: IRON_INGOT
+      name: "<white>고철 조각</white>"
+      weight: 5
+      loot-weight: 15
+    old_circuit_board:
+      material: REPEATER
+      name: "<green>낡은 회로기판</green>"
+      weight: 4
+      loot-weight: 8
+    golden_relic:
+      material: GOLD_NUGGET
+      name: "<yellow>귀중한 유물</yellow>"
+      weight: 8
+      loot-weight: 2

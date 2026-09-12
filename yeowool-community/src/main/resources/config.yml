@@ -25,6 +25,17 @@ attendance:
     # rewards_blue / rewards_brown / rewards_green / rewards_purple / rewards_red 중 선택
     background: rewards_blue
 
+# /플레이타임 - 누적 플레이타임(로비+타운+야생 전체 서버 합산) 1/6/12/24시간마다
+# 한 번씩 받는 보상. 금액/화폐/아이템은 /플레이타임보상설정으로 인게임에서
+# 직접 수정 가능 - 아래 reward-on 값은 관리자가 아직 한 번도 설정하지 않았을
+# 때만 쓰이는 기본값(공장 초기값)이라 여기 값을 고쳐도 이미 설정된 서버에는
+# 영향이 없음.
+playtime:
+  reward-1h: 1000
+  reward-6h: 5000
+  reward-12h: 10000
+  reward-24h: 20000
+
 # /퀘스트 (일일/주간, 왼쪽·오른쪽 버튼으로 구분). stat-key 기준 "이번 기간
 # 동안의 증가량"을 재는 방식이라 새 이벤트 리스너가 필요 없음 - YeowoolLife
 # 등이 이미 쌓고 있는 통계 키와 정확히 일치해야 함. 일일은 서버 로컬 날짜가

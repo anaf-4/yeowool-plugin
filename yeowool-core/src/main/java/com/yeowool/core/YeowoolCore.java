@@ -9,6 +9,7 @@ import com.yeowool.core.data.PlayerCache;
 import com.yeowool.core.data.PlayerDataServiceImpl;
 import com.yeowool.core.data.repository.LogRepository;
 import com.yeowool.core.data.repository.MailboxRepository;
+import com.yeowool.core.data.repository.PlayerInventoryRepository;
 import com.yeowool.core.data.repository.PlayerRepository;
 import com.yeowool.core.data.repository.PunishmentRepository;
 import com.yeowool.core.database.DatabaseManager;
@@ -20,6 +21,7 @@ import com.yeowool.core.help.GuideMissionManager;
 import com.yeowool.core.help.HelpCommand;
 import com.yeowool.core.help.HelpIndexChecker;
 import com.yeowool.core.listener.PlayerConnectionListener;
+import com.yeowool.core.listener.PlayerInventorySyncListener;
 import com.yeowool.core.log.LogManager;
 import com.yeowool.core.mailbox.MailboxCommand;
 import com.yeowool.core.mailbox.MailboxJoinListener;
@@ -61,6 +63,7 @@ public final class YeowoolCore extends JavaPlugin {
         }
 
         PlayerRepository playerRepository = new PlayerRepository(databaseManager.getDataSource());
+        PlayerInventoryRepository playerInventoryRepository = new PlayerInventoryRepository(databaseManager.getDataSource());
         LogRepository logRepository = new LogRepository(databaseManager.getDataSource());
         MailboxRepository mailboxRepository = new MailboxRepository(databaseManager.getDataSource());
         PunishmentRepository punishmentRepository = new PunishmentRepository(databaseManager.getDataSource());
@@ -91,6 +94,8 @@ public final class YeowoolCore extends JavaPlugin {
         getServer().getServicesManager().register(YeowoolCoreAPI.class, api, this, ServicePriority.Normal);
 
         getServer().getPluginManager().registerEvents(new PlayerConnectionListener(this, playerDataService, punishmentManager), this);
+        getServer().getPluginManager().registerEvents(
+                new PlayerInventorySyncListener(this, playerInventoryRepository), this);
         getServer().getPluginManager().registerEvents(new GuiListener(this), this);
         getServer().getPluginManager().registerEvents(new MailboxJoinListener(this, mailboxManager, messageManager), this);
 

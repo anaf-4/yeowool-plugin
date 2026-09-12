@@ -45,9 +45,9 @@ public final class FishAdminGui extends YeowoolGui {
 
         for (int i = from; i < to; i++) {
             Entry entry = entries.get(i);
-            setButton(DISPLAY_SLOTS[i - from], GuiButton.of(buildIcon(viewer, entry.rarity(), entry.species()), event -> {
+            setButton(DISPLAY_SLOTS[i - from], GuiButton.of(buildDisplayIcon(viewer, entry.rarity(), entry.species()), event -> {
                 if (event.getWhoClicked() instanceof Player admin) {
-                    var leftover = admin.getInventory().addItem(buildIcon(admin, entry.rarity(), entry.species()));
+                    var leftover = admin.getInventory().addItem(buildGivenItem(admin, entry.rarity(), entry.species()));
                     leftover.values().forEach(item -> admin.getWorld().dropItemNaturally(admin.getLocation(), item));
                     admin.sendMessage(Component.text(displayName(entry.species()) + "을(를) 지급했습니다.", NamedTextColor.GREEN));
                 }
@@ -99,17 +99,26 @@ public final class FishAdminGui extends YeowoolGui {
         return stack;
     }
 
-    private ItemStack buildIcon(Player viewer, FishRarity rarity, FishSpecies species) {
+    /** GUI 슬롯에 보여줄 아이콘 — 실제 아이템에 붙으면 안 되는 "클릭하여 지급받기" 안내 문구가 붙는다. */
+    private ItemStack buildDisplayIcon(Player viewer, FishRarity rarity, FishSpecies species) {
+        ItemStack stack = buildBaseItem(viewer, rarity, species);
+        ItemMeta meta = stack.getItemMeta();
+        List<Component> lore = meta.hasLore() ? new ArrayList<>(meta.lore()) : new ArrayList<>();
+        lore.add(Component.text("클릭하여 지급받기", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));
+        meta.lore(lore);
+        stack.setItemMeta(meta);
+        return stack;
+    }
+
+    /** 클릭했을 때 실제로 인벤토리에 지급하는 아이템 — GUI 안내 문구 없이 순수한 아이템 그대로. */
+    private ItemStack buildGivenItem(Player viewer, FishRarity rarity, FishSpecies species) {
+        return buildBaseItem(viewer, rarity, species);
+    }
+
+    private ItemStack buildBaseItem(Player viewer, FishRarity rarity, FishSpecies species) {
         if (species.customFishingId() != null && CustomFishingBridge.isEnabled()) {
-            // The real CustomFishing item already carries its own name/lore —
-            // don't wrap it in our own rarity lore, just add the "click to get" hint.
-            ItemStack stack = CustomFishingBridge.buildItem(viewer, species.customFishingId());
-            ItemMeta meta = stack.getItemMeta();
-            List<Component> lore = meta.hasLore() ? new ArrayList<>(meta.lore()) : new ArrayList<>();
-            lore.add(Component.text("클릭하여 지급받기", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));
-            meta.lore(lore);
-            stack.setItemMeta(meta);
-            return stack;
+            // The real CustomFishing item already carries its own name/lore.
+            return CustomFishingBridge.buildItem(viewer, species.customFishingId());
         }
         ItemStack stack = resolveIcon(species);
         ItemMeta meta = stack.getItemMeta();
@@ -119,7 +128,6 @@ public final class FishAdminGui extends YeowoolGui {
         if (!species.description().isBlank()) {
             lore.add(Component.text(species.description(), NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
         }
-        lore.add(Component.text("클릭하여 지급받기", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));
         meta.lore(lore);
         stack.setItemMeta(meta);
         return stack;

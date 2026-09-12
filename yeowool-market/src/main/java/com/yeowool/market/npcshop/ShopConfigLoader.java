@@ -91,7 +91,7 @@ public final class ShopConfigLoader {
                 // 1-indexed in YAML (matches the "Spectra ShopGUI+" reference shop files' "page:" key), 0-indexed internally.
                 int page = entry.containsKey("page") ? Math.max(0, ((Number) entry.get("page")).intValue() - 1) : 0;
                 boolean strictMatch = entry.containsKey("strict-match") && Boolean.parseBoolean(entry.get("strict-match").toString());
-                items.add(new ShopItem(material, itemId, buy, sell, slot, customModelData, currency, page, strictMatch, null));
+                items.add(new ShopItem(material, itemId, buy, sell, slot, customModelData, currency, page, strictMatch, null, null));
             } catch (Exception e) {
                 plugin.getLogger().warning("npc-shop.shops." + shopId + "." + fieldName + " 항목이 잘못되었습니다: " + entry);
             }

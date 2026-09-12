@@ -1,5 +1,6 @@
 package com.yeowool.market.util;
 
+import com.yeowool.core.util.ItemStackSerializer;
 import com.yeowool.market.npcshop.ShopItem;
 import dev.lone.itemsadder.api.CustomStack;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
@@ -24,6 +25,11 @@ public final class ItemResolver {
 
     public static ItemStack build(ShopItem item, int amount, Logger logger) {
         ItemStack stack;
+        if (item.templateItem() != null) {
+            stack = ItemStackSerializer.deserialize(item.templateItem()).clone();
+            stack.setAmount(amount);
+            return stack;
+        }
         if (item.isCustomItem()) {
             CustomStack custom = CustomStack.getInstance(item.itemId());
             if (custom == null) {

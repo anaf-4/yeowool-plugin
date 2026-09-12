@@ -61,7 +61,20 @@ import com.yeowool.community.friend.repository.FriendRepository;
 import com.yeowool.community.nickname.KoreanNicknameManager;
 import com.yeowool.community.nickname.NicknameVoucherCommand;
 import com.yeowool.community.nickname.NicknameVoucherListener;
+import com.yeowool.community.party.PartyCommand;
+import com.yeowool.community.party.PartyCreateListener;
+import com.yeowool.community.party.PartyManager;
+import com.yeowool.community.party.PartyPresenceTask;
+import com.yeowool.community.party.PartyRepository;
+import com.yeowool.community.party.PartySchemaInitializer;
 import com.yeowool.community.placeholder.YeowoolPlaceholderExpansion;
+import com.yeowool.community.playtime.PlaytimeCommand;
+import com.yeowool.community.playtime.PlaytimeManager;
+import com.yeowool.community.playtime.PlaytimeRewardAmountListener;
+import com.yeowool.community.playtime.PlaytimeRewardCommand;
+import com.yeowool.community.playtime.PlaytimeRewardRepository;
+import com.yeowool.community.playtime.PlaytimeRewardSchemaInitializer;
+import com.yeowool.community.playtime.PlaytimeRewardStore;
 import com.yeowool.community.profile.MyInfoCommand;
 import com.yeowool.community.profile.PlaytimeTracker;
 import com.yeowool.community.profile.ProfileCommand;
@@ -137,6 +150,52 @@ public final class YeowoolCommunity extends JavaPlugin {
         var attendanceRewardSeedCommand = getCommand("출석보상초기화");
         if (attendanceRewardSeedCommand != null) {
             attendanceRewardSeedCommand.setExecutor(new AttendanceRewardSeedCommand(attendanceRewardStore));
+        }
+
+        // 플레이타임 보상 (1/6/12/24시간 누적, OP가 /플레이타임보상설정으로 금액/화폐/아이템 직접 수정 가능)
+        PlaytimeRewardStore playtimeRewardStore;
+        try {
+            PlaytimeRewardSchemaInitializer.initialize(core.dataSource());
+            PlaytimeRewardRepository playtimeRewardRepository = new PlaytimeRewardRepository(core.dataSource());
+            playtimeRewardStore = new PlaytimeRewardStore(this, playtimeRewardRepository, executor);
+            playtimeRewardStore.loadIntoCache();
+        } catch (Exception e) {
+            getLogger().severe("플레이타임 보상 데이터베이스 초기화 실패: " + e.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        PlaytimeManager playtimeManager = new PlaytimeManager(core, playtimeRewardStore);
+        PlaytimeRewardAmountListener playtimeRewardAmountListener = new PlaytimeRewardAmountListener(this, playtimeRewardStore);
+        getServer().getPluginManager().registerEvents(playtimeRewardAmountListener, this);
+        var playtimeCommand = getCommand("플레이타임");
+        if (playtimeCommand != null) {
+            playtimeCommand.setExecutor(new PlaytimeCommand(core, playtimeManager, messages));
+        }
+        var playtimeRewardCommand = getCommand("플레이타임보상설정");
+        if (playtimeRewardCommand != null) {
+            playtimeRewardCommand.setExecutor(new PlaytimeRewardCommand(playtimeRewardStore, playtimeRewardAmountListener, messages));
+        }
+
+        // 파티 (분할서버 공유 - 소속은 항상 공유 DB에서 즉시 조회, HUD용 체력만 1초 주기 캐시)
+        PartyManager partyManager;
+        try {
+            PartySchemaInitializer.initialize(core.dataSource());
+            PartyRepository partyRepository = new PartyRepository(core.dataSource());
+            partyManager = new PartyManager(this, partyRepository, executor);
+        } catch (Exception e) {
+            getLogger().severe("파티 데이터베이스 초기화 실패: " + e.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        String partyServerName = getConfig().getString("proxy-server-id", "lobby");
+        new PartyPresenceTask(partyManager, partyServerName).runTaskTimer(this, 20L, 20L);
+        PartyCreateListener partyCreateListener = new PartyCreateListener(this, partyManager, messages);
+        getServer().getPluginManager().registerEvents(partyCreateListener, this);
+        var partyCommand = getCommand("파티");
+        if (partyCommand != null) {
+            var partyExecutor = new PartyCommand(this, partyManager, partyCreateListener, messages);
+            partyCommand.setExecutor(partyExecutor);
+            partyCommand.setTabCompleter(partyExecutor);
         }
 
         // 배틀패스 (FREE는 기본 열림, PREMIUM은 캐시 구매 또는 관리자 지급 전까지 잠김)
@@ -292,7 +351,7 @@ public final class YeowoolCommunity extends JavaPlugin {
         new AchievementCheckTask(this, titleManager, messages, core.sounds()).runTaskTimer(this, 20L * 30, 20L * 60 * 5);
 
         if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            new YeowoolPlaceholderExpansion(core, titleManager).register();
+            new YeowoolPlaceholderExpansion(core, titleManager, partyManager).register();
             getLogger().info("PlaceholderAPI 확장을 등록했습니다. (%yeowool_...%)");
         }
 

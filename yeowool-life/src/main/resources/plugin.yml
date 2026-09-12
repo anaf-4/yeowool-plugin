@@ -5,7 +5,7 @@ api-version: '1.21'
 author: Yeowool
 description: 생활 콘텐츠 (농사, 벌목, 목축, 낚시, 채광)
 depend: [YeowoolCore]
-softdepend: [ItemsAdder, CustomFishing]
+softdepend: [ItemsAdder, CustomFishing, CustomCrops, AddCook]
 
 commands:
   도감:
@@ -26,3 +26,11 @@ commands:
     description: 관리진 전용 - "물고기"로 등록된 모든 물고기를 GUI에서 바로 지급받습니다
   물고기지급:
     description: 관리진 전용 - /낚시관리 물고기와 동일, 인자 없이 바로 GUI를 엽니다
+  커스텀물고기:
+    description: 관리진 전용 - /커스텀물고기 열기, CustomFishing 물고기/낚싯대/미끼를 GUI에서 바로 지급받습니다
+  미끼:
+    description: /미끼 빼기 - 보조 손에 들고 있는(장착된) 미끼를 인벤토리로 되돌립니다
+  레시피:
+    description: 현재 보유중인(AddCook 레시피북을 사용해 배운) 요리 레시피 목록을 보여줍니다
+  폐기장설정:
+    description: 관리진 전용 - 여울 폐기장의 진입점/출구/귀환지점/구역/상자/몹 스폰 지점을 등록합니다

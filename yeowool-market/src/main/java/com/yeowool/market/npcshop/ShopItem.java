@@ -48,9 +48,19 @@ import org.bukkit.Material;
  * would only ever have the item's bare material/ItemsAdder name to show,
  * losing that styling. {@code null} means "just use the item's own name",
  * which is what every config.yml-defined shop item still does.
+ *
+ * <p>{@code templateItem} (nullable, {@link com.yeowool.core.util.ItemStackSerializer}-encoded)
+ * is a full snapshot of the exact item an admin placed via {@code /상점수정}
+ * (price PDC/lore stripped) — set only by {@link com.yeowool.market.adminshop.AdminShopStore},
+ * never by a config.yml shop. When present, {@link com.yeowool.market.util.ItemResolver}
+ * clones this instead of rebuilding from {@code material}/{@code itemId}, so any extra
+ * NBT/PDC another plugin tagged the original item with (e.g. AddCook's recipe-book id,
+ * a CustomFishing rod/bait's effect id) survives the purchase intact — reconstructing from
+ * just the material or ItemsAdder id would otherwise silently drop that plugin's own tag
+ * and leave the sold item non-functional even though it looks identical.
  */
 public record ShopItem(Material material, String itemId, long buyPrice, long sellPrice, int slot, int customModelData,
-                        CurrencyType currency, int page, boolean strictMatch, String customDisplayName) {
+                        CurrencyType currency, int page, boolean strictMatch, String customDisplayName, String templateItem) {
 
     public boolean isCustomItem() {
         return itemId != null;

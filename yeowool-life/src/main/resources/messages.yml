@@ -4,6 +4,23 @@ general:
   player-only: "<red>플레이어만 사용할 수 있는 명령어입니다.</red>"
   no-permission: "<red>권한이 없습니다.</red>"
 
+scrapyard:
+  not-configured: "<red>폐기장이 아직 설정되지 않았습니다. 관리자에게 문의하세요.</red>"
+  already-locked-today: "<red>오늘은 이미 폐기장에 입장했습니다. 내일 다시 도전하세요.</red>"
+  already-active: "<red>이미 폐기장에 입장한 상태입니다.</red>"
+  enter-success: "<green>폐기장에 입장했습니다! 제한 시간: <minutes>분</green>"
+  chest-empty: "<gray>텅 비어있습니다...</gray>"
+  chest-already-opened: "<gray>이미 열어본 상자입니다.</gray>"
+  chest-loot: "<green><item>을(를) 획득했습니다!</green>"
+  need-active-session: "<red>폐기장에 입장한 상태여야 합니다.</red>"
+  exit-success: "<green>폐기장을 탈출했습니다! 획득한 폐기물을 모두 지켜냈습니다.</green>"
+  died: "<red>폐기장에서 목숨을 잃었습니다. 소지하고 있던 폐기물을 모두 잃었습니다.</red>"
+  timeout: "<red>제한 시간이 초과되어 강제로 퇴장되었습니다. 소지하고 있던 폐기물을 모두 잃었습니다.</red>"
+  left-region: "<red>구역을 벗어나 폐기장 도전이 실패 처리되었습니다.</red>"
+  time-warning: "<gold>폐기장 남은 시간: <time></gold>"
+  boss-spawned: "<dark_red><bold>보스가 나타났습니다!</bold></dark_red>"
+  boss-name: "<dark_red><bold>고블린 습격대장</bold></dark_red>"
+
 autofarm:
   usage: "<red>사용법: /<voucher> 지급 <횟수></red>"
   grant-usage: "<red>사용법: /<voucher> 지급 <횟수> (-1=무제한)</red>"
