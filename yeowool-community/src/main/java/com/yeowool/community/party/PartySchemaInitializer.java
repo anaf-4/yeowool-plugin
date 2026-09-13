@@ -2,6 +2,7 @@ package com.yeowool.community.party;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
@@ -37,6 +38,15 @@ public final class PartySchemaInitializer {
                 max_health DOUBLE NOT NULL,
                 updated_at BIGINT NOT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS yw_party_join_request (
+                uuid CHAR(36) NOT NULL PRIMARY KEY,
+                party_id BIGINT NOT NULL,
+                name VARCHAR(32) NOT NULL,
+                requested_at BIGINT NOT NULL,
+                INDEX idx_party_join_request_party (party_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """
     );
 
@@ -49,6 +59,23 @@ public final class PartySchemaInitializer {
             for (String ddl : DDL) {
                 statement.executeUpdate(ddl);
             }
+            // Additive migration for servers whose yw_party predates the
+            // 자유가입/신청승인 join-mode choice — defaults every existing party to
+            // FREE (today's behavior). "ADD COLUMN IF NOT EXISTS" only works on
+            // MySQL 8.0.29+, so this checks metadata instead (see YeowoolCore's
+            // SchemaInitializer for the same pattern).
+            addColumnIfMissing(connection, "yw_party", "join_mode", "VARCHAR(16) NOT NULL DEFAULT 'FREE'");
+        }
+    }
+
+    private static void addColumnIfMissing(Connection connection, String table, String column, String definition) throws SQLException {
+        try (ResultSet rs = connection.getMetaData().getColumns(connection.getCatalog(), null, table, column)) {
+            if (rs.next()) {
+                return;
+            }
+        }
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
         }
     }
 }

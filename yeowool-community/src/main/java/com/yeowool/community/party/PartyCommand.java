@@ -58,6 +58,8 @@ public final class PartyCommand implements CommandExecutor, TabCompleter {
             case "탈퇴" -> leave(player);
             case "삭제" -> disband(player);
             case "가입" -> join(player, args);
+            case "수락" -> approve(player, args);
+            case "거절" -> deny(player, args);
             case "정보" -> info(player);
             default -> create(player, args);
         }
@@ -65,7 +67,7 @@ public final class PartyCommand implements CommandExecutor, TabCompleter {
     }
 
     private void create(Player player, String[] args) {
-        if (args.length != 2) {
+        if (args.length != 2 && args.length != 3) {
             messages.send(player, "party.create-usage");
             return;
         }
@@ -77,8 +79,17 @@ public final class PartyCommand implements CommandExecutor, TabCompleter {
             messages.send(player, "party.create-usage");
             return;
         }
+        PartyManager.JoinMode joinMode = PartyManager.JoinMode.FREE;
+        if (args.length == 3) {
+            if (args[2].equals("신청승인")) {
+                joinMode = PartyManager.JoinMode.APPROVAL;
+            } else if (!args[2].equals("자유가입")) {
+                messages.send(player, "party.create-usage");
+                return;
+            }
+        }
 
-        partyManager.create(player.getUniqueId(), player.getName(), name, maxSize).thenAccept(outcome ->
+        partyManager.create(player.getUniqueId(), player.getName(), name, maxSize, joinMode).thenAccept(outcome ->
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     switch (outcome.result()) {
                         case OK -> messages.send(player, "party.create-success",
@@ -145,9 +156,15 @@ public final class PartyCommand implements CommandExecutor, TabCompleter {
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     switch (outcome.result()) {
                         case ALREADY_IN_PARTY -> messages.send(player, "party.join-already-in-party");
+                        case ALREADY_REQUESTED -> messages.send(player, "party.join-already-requested");
                         case PARTY_NOT_FOUND -> messages.send(player, "party.join-not-found");
                         case PARTY_FULL -> messages.send(player, "party.join-full");
                         case ERROR -> messages.send(player, "general.error");
+                        case REQUEST_SENT -> {
+                            messages.send(player, "party.join-request-sent", Placeholder.unparsed("name", outcome.party().name()));
+                            notifyOnlineMember(outcome.party().leader(), "party.join-request-received",
+                                    Placeholder.unparsed("player", player.getName()));
+                        }
                         case OK -> {
                             messages.send(player, "party.join-success", Placeholder.unparsed("name", outcome.party().name()));
                             for (var member : outcome.party().members()) {
@@ -164,6 +181,56 @@ public final class PartyCommand implements CommandExecutor, TabCompleter {
                 }));
     }
 
+    private void approve(Player player, String[] args) {
+        if (args.length != 2) {
+            messages.send(player, "party.approve-usage");
+            return;
+        }
+        partyManager.approve(player.getUniqueId(), args[1]).thenAccept(outcome ->
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    switch (outcome.result()) {
+                        case NOT_IN_PARTY, NOT_LEADER -> messages.send(player, "party.approve-not-leader");
+                        case NO_SUCH_REQUEST -> messages.send(player, "party.approve-no-such-request", Placeholder.unparsed("player", args[1]));
+                        case PARTY_FULL -> messages.send(player, "party.join-full");
+                        case ERROR -> messages.send(player, "general.error");
+                        case OK -> {
+                            messages.send(player, "party.approve-success", Placeholder.unparsed("player", args[1]));
+                            for (var member : outcome.party().members()) {
+                                if (member.uuid().equals(player.getUniqueId())) {
+                                    continue;
+                                }
+                                Player online = Bukkit.getPlayer(member.uuid());
+                                if (online != null) {
+                                    messages.send(online, member.uuid().equals(outcome.requester())
+                                            ? "party.join-approved"
+                                            : "party.member-joined-announcement",
+                                            Placeholder.unparsed("player", args[1]), Placeholder.unparsed("name", outcome.party().name()));
+                                }
+                            }
+                        }
+                    }
+                }));
+    }
+
+    private void deny(Player player, String[] args) {
+        if (args.length != 2) {
+            messages.send(player, "party.deny-usage");
+            return;
+        }
+        partyManager.deny(player.getUniqueId(), args[1]).thenAccept(outcome ->
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    switch (outcome.result()) {
+                        case NOT_IN_PARTY, NOT_LEADER -> messages.send(player, "party.approve-not-leader");
+                        case NO_SUCH_REQUEST -> messages.send(player, "party.approve-no-such-request", Placeholder.unparsed("player", args[1]));
+                        case ERROR -> messages.send(player, "general.error");
+                        case OK -> {
+                            messages.send(player, "party.deny-success", Placeholder.unparsed("player", args[1]));
+                            notifyOnlineMember(outcome.requester(), "party.join-denied", Placeholder.unparsed("name", outcome.partyName()));
+                        }
+                    }
+                }));
+    }
+
     private void info(Player player) {
         partyManager.info(player.getUniqueId()).thenAccept(infoOpt ->
                 Bukkit.getScheduler().runTask(plugin, () -> {
@@ -173,7 +240,8 @@ public final class PartyCommand implements CommandExecutor, TabCompleter {
                     }
                     var info = infoOpt.get();
                     player.sendMessage(Component.text("=== 파티: " + info.name() + " ===", NamedTextColor.GOLD));
-                    player.sendMessage(Component.text("인원: " + info.members().size() + " / " + info.maxSize(), NamedTextColor.GRAY)
+                    player.sendMessage(Component.text("인원: " + info.members().size() + " / " + info.maxSize()
+                                    + " (" + (info.joinMode() == PartyManager.JoinMode.APPROVAL ? "신청승인" : "자유가입") + ")", NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false));
                     for (var member : info.members()) {
                         boolean isLeader = member.uuid().equals(info.leader());
@@ -183,6 +251,20 @@ public final class PartyCommand implements CommandExecutor, TabCompleter {
                                 .append(Component.text(online ? " (온라인)" : " (오프라인)", NamedTextColor.DARK_GRAY))
                                 .decoration(TextDecoration.ITALIC, false);
                         player.sendMessage(line);
+                    }
+
+                    if (info.joinMode() == PartyManager.JoinMode.APPROVAL && info.leader().equals(player.getUniqueId())) {
+                        partyManager.pendingRequests(info.id()).thenAccept(requests ->
+                                Bukkit.getScheduler().runTask(plugin, () -> {
+                                    if (requests.isEmpty()) {
+                                        return;
+                                    }
+                                    player.sendMessage(Component.text("대기 중인 가입 신청:", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
+                                    for (var request : requests) {
+                                        player.sendMessage(Component.text("- " + request.name() + " (/파티 수락|거절 " + request.name() + ")", NamedTextColor.WHITE)
+                                                .decoration(TextDecoration.ITALIC, false));
+                                    }
+                                }));
                     }
                 }));
     }
@@ -200,13 +282,16 @@ public final class PartyCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return TabCompletions.filter(List.of("생성", "탈퇴", "삭제", "가입", "정보"), args[0]);
+            return TabCompletions.filter(List.of("생성", "탈퇴", "삭제", "가입", "수락", "거절", "정보"), args[0]);
         }
-        if (args.length == 2 && args[0].equals("가입")) {
+        if (args.length == 2 && (args[0].equals("가입") || args[0].equals("수락") || args[0].equals("거절"))) {
             return List.of();
         }
         if (args.length == 2) {
             return TabCompletions.filter(List.of("2", "3", "4"), args[1]);
+        }
+        if (args.length == 3) {
+            return TabCompletions.filter(List.of("자유가입", "신청승인"), args[2]);
         }
         return List.of();
     }

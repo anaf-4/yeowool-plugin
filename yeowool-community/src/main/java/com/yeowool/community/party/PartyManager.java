@@ -30,6 +30,9 @@ public final class PartyManager {
     public static final int HUD_SLOT_LIMIT = 4;
     private static final Pattern NAME_PATTERN = Pattern.compile("^[가-힣a-zA-Z0-9]{2,16}$");
 
+    /** {@code FREE} — {@code /파티 가입 <이름>} joins immediately (today's only behavior). {@code APPROVAL} — it queues a request the leader must {@code /파티 수락}. */
+    public enum JoinMode { FREE, APPROVAL }
+
     private final JavaPlugin plugin;
     private final PartyRepository repository;
     private final ExecutorService executor;
@@ -45,7 +48,7 @@ public final class PartyManager {
         return NAME_PATTERN.matcher(name).matches();
     }
 
-    public record PartyInfo(long id, String name, UUID leader, int maxSize, List<PartyRepository.MemberRow> members) {
+    public record PartyInfo(long id, String name, UUID leader, int maxSize, JoinMode joinMode, List<PartyRepository.MemberRow> members) {
     }
 
     public enum CreateResult { OK, ALREADY_IN_PARTY, NAME_TAKEN, INVALID_NAME, INVALID_MAX_SIZE, ERROR }
@@ -53,7 +56,7 @@ public final class PartyManager {
     public record CreateOutcome(CreateResult result, PartyInfo party) {
     }
 
-    public CompletableFuture<CreateOutcome> create(UUID leader, String leaderName, String partyName, int maxSize) {
+    public CompletableFuture<CreateOutcome> create(UUID leader, String leaderName, String partyName, int maxSize, JoinMode joinMode) {
         return CompletableFuture.supplyAsync(() -> {
             if (!NAME_PATTERN.matcher(partyName).matches()) {
                 return new CreateOutcome(CreateResult.INVALID_NAME, null);
@@ -68,9 +71,9 @@ public final class PartyManager {
                 if (repository.findByName(partyName).isPresent()) {
                     return new CreateOutcome(CreateResult.NAME_TAKEN, null);
                 }
-                long partyId = repository.createParty(partyName, leader, leaderName, maxSize);
+                long partyId = repository.createParty(partyName, leader, leaderName, maxSize, joinMode);
                 var members = repository.findMembers(partyId);
-                return new CreateOutcome(CreateResult.OK, new PartyInfo(partyId, partyName, leader, maxSize, members));
+                return new CreateOutcome(CreateResult.OK, new PartyInfo(partyId, partyName, leader, maxSize, joinMode, members));
             } catch (SQLException e) {
                 plugin.getLogger().severe("파티 생성 실패: " + e.getMessage());
                 return new CreateOutcome(CreateResult.ERROR, null);
@@ -144,11 +147,12 @@ public final class PartyManager {
         }, executor);
     }
 
-    public enum JoinResult { OK, ALREADY_IN_PARTY, PARTY_NOT_FOUND, PARTY_FULL, ERROR }
+    public enum JoinResult { OK, REQUEST_SENT, ALREADY_IN_PARTY, ALREADY_REQUESTED, PARTY_NOT_FOUND, PARTY_FULL, ERROR }
 
     public record JoinOutcome(JoinResult result, PartyInfo party) {
     }
 
+    /** {@code APPROVAL} parties queue a request ({@link #approve}/{@link #deny}) instead of joining immediately. */
     public CompletableFuture<JoinOutcome> join(UUID uuid, String name, String partyName) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -162,12 +166,84 @@ public final class PartyManager {
                 if (repository.countMembers(party.id()) >= party.maxSize()) {
                     return new JoinOutcome(JoinResult.PARTY_FULL, null);
                 }
+                if (party.joinMode() == JoinMode.APPROVAL) {
+                    if (repository.findJoinRequestByName(party.id(), name).isPresent()) {
+                        return new JoinOutcome(JoinResult.ALREADY_REQUESTED, null);
+                    }
+                    repository.addJoinRequest(party.id(), uuid, name);
+                    return new JoinOutcome(JoinResult.REQUEST_SENT,
+                            new PartyInfo(party.id(), party.name(), party.leader(), party.maxSize(), party.joinMode(), List.of()));
+                }
                 repository.addMember(party.id(), uuid, name);
                 var members = repository.findMembers(party.id());
-                return new JoinOutcome(JoinResult.OK, new PartyInfo(party.id(), party.name(), party.leader(), party.maxSize(), members));
+                return new JoinOutcome(JoinResult.OK, new PartyInfo(party.id(), party.name(), party.leader(), party.maxSize(), party.joinMode(), members));
             } catch (SQLException e) {
                 plugin.getLogger().severe("파티 가입 실패: " + e.getMessage());
                 return new JoinOutcome(JoinResult.ERROR, null);
+            }
+        }, executor);
+    }
+
+    public enum ApproveResult { OK, NOT_LEADER, NOT_IN_PARTY, NO_SUCH_REQUEST, PARTY_FULL, ERROR }
+
+    public record ApproveOutcome(ApproveResult result, UUID requester, PartyInfo party) {
+    }
+
+    public CompletableFuture<ApproveOutcome> approve(UUID leaderUuid, String requesterName) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                Optional<Long> partyId = repository.findPartyIdOf(leaderUuid);
+                if (partyId.isEmpty()) {
+                    return new ApproveOutcome(ApproveResult.NOT_IN_PARTY, null, null);
+                }
+                var party = repository.findById(partyId.get()).orElse(null);
+                if (party == null || !party.leader().equals(leaderUuid)) {
+                    return new ApproveOutcome(ApproveResult.NOT_LEADER, null, null);
+                }
+                var request = repository.findJoinRequestByName(party.id(), requesterName).orElse(null);
+                if (request == null) {
+                    return new ApproveOutcome(ApproveResult.NO_SUCH_REQUEST, null, null);
+                }
+                if (repository.countMembers(party.id()) >= party.maxSize()) {
+                    return new ApproveOutcome(ApproveResult.PARTY_FULL, null, null);
+                }
+                repository.addMember(party.id(), request.uuid(), request.name());
+                repository.removeJoinRequest(request.uuid());
+                var members = repository.findMembers(party.id());
+                return new ApproveOutcome(ApproveResult.OK, request.uuid(),
+                        new PartyInfo(party.id(), party.name(), party.leader(), party.maxSize(), party.joinMode(), members));
+            } catch (SQLException e) {
+                plugin.getLogger().severe("파티 가입 승인 실패: " + e.getMessage());
+                return new ApproveOutcome(ApproveResult.ERROR, null, null);
+            }
+        }, executor);
+    }
+
+    public enum DenyResult { OK, NOT_LEADER, NOT_IN_PARTY, NO_SUCH_REQUEST, ERROR }
+
+    public record DenyOutcome(DenyResult result, UUID requester, String partyName) {
+    }
+
+    public CompletableFuture<DenyOutcome> deny(UUID leaderUuid, String requesterName) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                Optional<Long> partyId = repository.findPartyIdOf(leaderUuid);
+                if (partyId.isEmpty()) {
+                    return new DenyOutcome(DenyResult.NOT_IN_PARTY, null, null);
+                }
+                var party = repository.findById(partyId.get()).orElse(null);
+                if (party == null || !party.leader().equals(leaderUuid)) {
+                    return new DenyOutcome(DenyResult.NOT_LEADER, null, null);
+                }
+                var request = repository.findJoinRequestByName(party.id(), requesterName).orElse(null);
+                if (request == null) {
+                    return new DenyOutcome(DenyResult.NO_SUCH_REQUEST, null, null);
+                }
+                repository.removeJoinRequest(request.uuid());
+                return new DenyOutcome(DenyResult.OK, request.uuid(), party.name());
+            } catch (SQLException e) {
+                plugin.getLogger().severe("파티 가입 거절 실패: " + e.getMessage());
+                return new DenyOutcome(DenyResult.ERROR, null, null);
             }
         }, executor);
     }
@@ -184,10 +260,22 @@ public final class PartyManager {
                     return Optional.<PartyInfo>empty();
                 }
                 var members = repository.findMembers(partyId.get());
-                return Optional.of(new PartyInfo(party.id(), party.name(), party.leader(), party.maxSize(), members));
+                return Optional.of(new PartyInfo(party.id(), party.name(), party.leader(), party.maxSize(), party.joinMode(), members));
             } catch (SQLException e) {
                 plugin.getLogger().severe("파티 정보 조회 실패: " + e.getMessage());
                 return Optional.<PartyInfo>empty();
+            }
+        }, executor);
+    }
+
+    /** For {@code /파티 정보} to show the leader who's waiting on approval — empty for non-leaders or FREE parties. */
+    public CompletableFuture<List<PartyRepository.JoinRequestRow>> pendingRequests(long partyId) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return repository.findJoinRequestsOf(partyId);
+            } catch (SQLException e) {
+                plugin.getLogger().severe("파티 가입 신청 목록 조회 실패: " + e.getMessage());
+                return List.<PartyRepository.JoinRequestRow>of();
             }
         }, executor);
     }

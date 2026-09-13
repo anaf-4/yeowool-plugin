@@ -4,6 +4,16 @@
 
 ## 2026-09-14
 
+### 파티 생성 시 자유가입/신청승인 선택 가능
+지금까지 `/파티 가입 <이름>`은 항상 승인 없이 즉시 가입되는 방식뿐이었는데, 파티를 만들 때 가입 방식을 고를 수 있게 함:
+- **GUI**: `/파티 생성` → 이름(모루) → 인원 선택 → **새로 추가된 가입방식 선택**(자유가입/신청승인) 순서로 진행.
+- **명령어**: `/파티 <이름> <최대인원> [자유가입|신청승인]` (생략하면 기존과 동일하게 자유가입).
+- 신청승인 파티는 `/파티 가입 <이름>`을 치면 즉시 들어가지지 않고 리더에게 알림이 가며, 리더가 `/파티 수락 <닉네임>` / `/파티 거절 <닉네임>`으로 처리. `/파티 정보`에서 리더에게는 대기 중인 신청 목록도 같이 보임.
+- DB: `yw_party`에 `join_mode` 컬럼 추가(기존 파티는 전부 자동으로 `FREE`로 마이그레이션됨, MySQL 구버전 호환 방식으로), 신청 대기열용 `yw_party_join_request` 테이블 신설.
+
+로비 서버에 yeowool-community jar 배포 완료, **재시작 필요**(재시작 시 DB 마이그레이션 자동 적용).
+
+
 ### `/내설정`에 귓속말 차단 / 거래 요청 차단 추가
 [PlayerSettingsGui](yeowool-community/src/main/java/com/yeowool/community/settings/PlayerSettingsGui.java)에 두 토글 추가 — `PlayerData`에 `block.whisper`/`block.trade`로 저장하고, 실제 발송 지점에서 확인:
 - [WhisperCommand.sendWhisper](yeowool-community/src/main/java/com/yeowool/community/chat/WhisperCommand.java) — `/귓속말`·`/답장` 둘 다 이 메서드를 거치므로 한 곳만 고치면 됨.

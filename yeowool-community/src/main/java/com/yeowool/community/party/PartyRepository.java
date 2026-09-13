@@ -18,13 +18,16 @@ import java.util.UUID;
 /** Raw DB access for the party system — see {@link PartyManager} for the actual rules/caching on top of this. */
 public final class PartyRepository {
 
-    public record PartyRow(long id, String name, UUID leader, int maxSize) {
+    public record PartyRow(long id, String name, UUID leader, int maxSize, PartyManager.JoinMode joinMode) {
     }
 
     public record MemberRow(UUID uuid, String name, long joinedAt) {
     }
 
     public record PresenceRow(String server, String name, double health, double maxHealth, long updatedAt) {
+    }
+
+    public record JoinRequestRow(UUID uuid, long partyId, String name, long requestedAt) {
     }
 
     private final DataSource dataSource;
@@ -34,19 +37,20 @@ public final class PartyRepository {
     }
 
     /** Creates the party and adds {@code leader} as its first member, in one transaction. */
-    public long createParty(String name, UUID leader, String leaderName, int maxSize) throws SQLException {
+    public long createParty(String name, UUID leader, String leaderName, int maxSize, PartyManager.JoinMode joinMode) throws SQLException {
         long now = System.currentTimeMillis();
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
                 long partyId;
                 try (PreparedStatement insertParty = connection.prepareStatement(
-                        "INSERT INTO yw_party (name, leader_uuid, max_size, created_at) VALUES (?, ?, ?, ?)",
+                        "INSERT INTO yw_party (name, leader_uuid, max_size, created_at, join_mode) VALUES (?, ?, ?, ?, ?)",
                         Statement.RETURN_GENERATED_KEYS)) {
                     insertParty.setString(1, name);
                     insertParty.setString(2, leader.toString());
                     insertParty.setInt(3, maxSize);
                     insertParty.setLong(4, now);
+                    insertParty.setString(5, joinMode.name());
                     insertParty.executeUpdate();
                     try (ResultSet keys = insertParty.getGeneratedKeys()) {
                         keys.next();
@@ -75,7 +79,7 @@ public final class PartyRepository {
     public Optional<PartyRow> findByName(String name) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement select = connection.prepareStatement(
-                     "SELECT id, name, leader_uuid, max_size FROM yw_party WHERE name = ?")) {
+                     "SELECT id, name, leader_uuid, max_size, join_mode FROM yw_party WHERE name = ?")) {
             select.setString(1, name);
             try (ResultSet rs = select.executeQuery()) {
                 return rs.next() ? Optional.of(toPartyRow(rs)) : Optional.empty();
@@ -86,7 +90,7 @@ public final class PartyRepository {
     public Optional<PartyRow> findById(long id) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement select = connection.prepareStatement(
-                     "SELECT id, name, leader_uuid, max_size FROM yw_party WHERE id = ?")) {
+                     "SELECT id, name, leader_uuid, max_size, join_mode FROM yw_party WHERE id = ?")) {
             select.setLong(1, id);
             try (ResultSet rs = select.executeQuery()) {
                 return rs.next() ? Optional.of(toPartyRow(rs)) : Optional.empty();
@@ -152,7 +156,7 @@ public final class PartyRepository {
         String placeholders = String.join(",", partyIds.stream().map(id -> "?").toList());
         try (Connection connection = dataSource.getConnection();
              PreparedStatement select = connection.prepareStatement(
-                     "SELECT id, name, leader_uuid, max_size FROM yw_party WHERE id IN (" + placeholders + ")")) {
+                     "SELECT id, name, leader_uuid, max_size, join_mode FROM yw_party WHERE id IN (" + placeholders + ")")) {
             int i = 1;
             for (Long id : partyIds) {
                 select.setLong(i++, id);
@@ -243,6 +247,11 @@ public final class PartyRepository {
                     deleteMembers.setLong(1, partyId);
                     deleteMembers.executeUpdate();
                 }
+                try (PreparedStatement deleteRequests = connection.prepareStatement(
+                        "DELETE FROM yw_party_join_request WHERE party_id = ?")) {
+                    deleteRequests.setLong(1, partyId);
+                    deleteRequests.executeUpdate();
+                }
                 try (PreparedStatement deleteParty = connection.prepareStatement(
                         "DELETE FROM yw_party WHERE id = ?")) {
                     deleteParty.setLong(1, partyId);
@@ -308,7 +317,62 @@ public final class PartyRepository {
         }
     }
 
+    /** Upserts so re-requesting (e.g. after a deny) just refreshes the timestamp instead of erroring on the duplicate uuid key. */
+    public void addJoinRequest(long partyId, UUID uuid, String name) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement upsert = connection.prepareStatement(
+                     "INSERT INTO yw_party_join_request (uuid, party_id, name, requested_at) VALUES (?, ?, ?, ?) "
+                             + "ON DUPLICATE KEY UPDATE party_id = VALUES(party_id), name = VALUES(name), requested_at = VALUES(requested_at)")) {
+            upsert.setString(1, uuid.toString());
+            upsert.setLong(2, partyId);
+            upsert.setString(3, name);
+            upsert.setLong(4, System.currentTimeMillis());
+            upsert.executeUpdate();
+        }
+    }
+
+    public void removeJoinRequest(UUID uuid) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement delete = connection.prepareStatement(
+                     "DELETE FROM yw_party_join_request WHERE uuid = ?")) {
+            delete.setString(1, uuid.toString());
+            delete.executeUpdate();
+        }
+    }
+
+    public Optional<JoinRequestRow> findJoinRequestByName(long partyId, String name) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement select = connection.prepareStatement(
+                     "SELECT uuid, party_id, name, requested_at FROM yw_party_join_request WHERE party_id = ? AND name = ?")) {
+            select.setLong(1, partyId);
+            select.setString(2, name);
+            try (ResultSet rs = select.executeQuery()) {
+                return rs.next() ? Optional.of(toJoinRequestRow(rs)) : Optional.empty();
+            }
+        }
+    }
+
+    public List<JoinRequestRow> findJoinRequestsOf(long partyId) throws SQLException {
+        List<JoinRequestRow> requests = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement select = connection.prepareStatement(
+                     "SELECT uuid, party_id, name, requested_at FROM yw_party_join_request WHERE party_id = ? ORDER BY requested_at ASC")) {
+            select.setLong(1, partyId);
+            try (ResultSet rs = select.executeQuery()) {
+                while (rs.next()) {
+                    requests.add(toJoinRequestRow(rs));
+                }
+            }
+        }
+        return requests;
+    }
+
+    private JoinRequestRow toJoinRequestRow(ResultSet rs) throws SQLException {
+        return new JoinRequestRow(UUID.fromString(rs.getString("uuid")), rs.getLong("party_id"), rs.getString("name"), rs.getLong("requested_at"));
+    }
+
     private PartyRow toPartyRow(ResultSet rs) throws SQLException {
-        return new PartyRow(rs.getLong("id"), rs.getString("name"), UUID.fromString(rs.getString("leader_uuid")), rs.getInt("max_size"));
+        return new PartyRow(rs.getLong("id"), rs.getString("name"), UUID.fromString(rs.getString("leader_uuid")), rs.getInt("max_size"),
+                PartyManager.JoinMode.valueOf(rs.getString("join_mode")));
     }
 }
