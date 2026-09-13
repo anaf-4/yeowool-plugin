@@ -4,6 +4,15 @@
 
 ## 2026-09-14
 
+### 로비 배경음악 추가
+사장님이 만드신 브금(`yeowool_lobby.mp3`, 2분 56초)을 마인크래프트 리소스팩이 요구하는 OGG Vorbis로 변환(ffmpeg 없어서 winget으로 새로 설치 후 변환)해서 ItemsAdder 커스텀 사운드로 등록함([contents/yeowool_lobby_bgm](C:\YEOWOOL\lobby\plugins\ItemsAdder\contents\yeowool_lobby_bgm), `yeowool:lobby_bgm`).
+- 새 [LobbyBgmListener](yeowool-community/src/main/java/com/yeowool/community/ambience/LobbyBgmListener.java) — 접속 시 재생 시작, 곡 길이(176초)에 맞춘 반복 작업으로 이어붙여서 계속 틀어줌(네이티브 루프 기능이 없어서 매번 다시 트는 방식 — 루프 지점에서 아주 살짝 안 맞을 수 있음), 접속 종료 시 작업 정리.
+- `lobby-bgm.enabled`(기본 false, 여러 서버가 config.yml 공유)를 **로비 서버 배포본에서만 true로 설정** — 타운/야생에서는 안 나옴.
+- **참고**: 이 김에 로비 서버 config.yml을 보니 `server-name: 야생`으로 잘못 설정돼 있었음(탭리스트 등에 표시되는 서버 이름 — README 8절 `<servername>` 토큰) — 이번 작업과 무관해서 손대지 않았지만, 실제로 탭리스트에 "야생"이라고 잘못 표시되고 있을 가능성이 있어 참고차 남겨둠.
+
+로비 서버에 yeowool-community jar 배포 완료, **재시작 필요**(새 리소스팩 콘텐츠 폴더는 재시작해야 인식됨).
+
+
 ### `/마을대항` — 마을간 경쟁 이벤트 신설 (yeowool-land)
 `/마을대항 시작 <분>`(관리진, `yeowool.event.manage` 재사용)으로 정해진 시간 동안 소유자의 토지 XP 획득량이 가장 많은 마을을 겨루는 이벤트를 새로 만듦 — `/마을랭킹`이 이미 쓰고 있는 "소유자의 토지 레벨/XP = 마을 강함" 정의를 그대로 재사용해서, 멤버별 기여도 집계 같은 새 개념을 안 만들어도 됨. `SeasonScoreListener`(시즌랭킹)와 같은 방식으로 실제 토지 XP는 전혀 건드리지 않고 이벤트 진행 중에만 메모리에서 별도로 집계(`VillageEventManager`) — DB 테이블도 새로 안 만듦, 이벤트가 끝나면 집계값은 그냥 버려짐. 종료 시(자동 또는 `/마을대항 종료`) 우승 마을의 마을 은행에 보너스 온 지급(`village-event.reward-on`, 기본 50000) + 서버 전체 방송. `/마을대항 정보`(누구나)로 진행 중 실시간 순위 TOP 5 확인 가능.
 - `LandCommand.displayName(Land)`를 패키지 전용 → `public`으로 완화(마을대항 커맨드에서도 "이름없는 마을" 폴백을 재사용하기 위함).

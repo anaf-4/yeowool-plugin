@@ -514,3 +514,13 @@ menu:
   gui-background-offset: -8
   # 카테고리 서브 화면(경제/생활/상점·시장/... 전부 공유)의 좌우 위치 보정값.
   gui-background-offset-categories: -8
+
+# 로비 배경음악 - ItemsAdder 커스텀 사운드(yeowool:lobby_bgm)를 접속 중인 플레이어에게
+# 계속 반복 재생함. 여러 서버가 이 config.yml을 공유하니 기본값은 false로 두고,
+# 로비 서버 배포본에서만 true로 켜야 함(로비 서버가 아닌 곳에서 켜면 타운/야생에서도 나옴).
+lobby-bgm:
+  enabled: false
+  sound: "yeowool:lobby_bgm"
+  volume: 1.0
+  # 브금 파일 길이(초) - 다음 재생과 정확히 이어붙이기 위한 값이라, 브금을 바꾸면 같이 바꿔야 함.
+  duration-seconds: 176
