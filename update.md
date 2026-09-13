@@ -4,6 +4,18 @@
 
 ## 2026-09-14
 
+### MythicHUD가 화면에 아예 안 뜨던 문제 — 진짜 원인 발견 (ItemsAdder 자체 HUD 기능과 충돌)
+파티 HUD만이 아니라 **MythicHUD가 렌더링하는 모든 것(기본/칼 레이아웃 포함)이 화면에 전혀 안 뜨는** 문제였음. 여러 단계로 원인을 좁혀나감:
+1. `plugins/MythicHUD.jar`와 `plugins/MythicHUD-1.3.1-SNAPSHOT-all 76 .jar`이 완전히 동일한 파일로 중복 설치되어 있던 것 발견 → 중복 제거(`_disabled`로 이동). 효과 없었음(다른 원인이었음).
+2. `nexo-hook: true`(Nexo 미설치 상태에서 켜져 있던 설정) → `false`로 변경 시도. 효과 없었음.
+3. 서버가 실제로 배포 중인 리소스팩(`generated.zip`) 안의 `pack.mcmeta`가 압축 해제 시 오류가 나는 것 발견 — 진짜 원인 후보였으나, 사장님이 MythicHUD 공식 위키에서 **진짜 원인**을 찾아주심.
+4. **최종 원인**: ItemsAdder에 자체 HUD 기능(`huds.enabled: true`)이 있는데 이게 켜져 있어서 MythicHUD의 보스바 렌더링과 충돌하고 있었음. 두 가지 수정:
+   - [MythicHUD/config.yml](C:\YEOWOOL\lobby\plugins\MythicHUD\config.yml) — `copy-pack.enabled: true`, `path: ItemsAdder/contents/mythichud/resourcepack`로 설정해서 MythicHUD가 빌드한 리소스팩 에셋을 ItemsAdder 쪽으로 자동 내보내도록 함(지금까지는 이 자동화가 없어서 9/7에 수동으로 한 번 병합한 뒤로 전혀 갱신이 안 되고 있었음).
+   - [ItemsAdder/config.yml](C:\YEOWOOL\lobby\plugins\ItemsAdder\config.yml) — `huds.enabled: false`로 꺼서 MythicHUD와의 충돌 제거.
+
+로비 서버 **완전 재시작 필요** (ItemsAdder가 새 콘텐츠 인식 + huds 비활성화 둘 다 재시작 필요).
+
+
 ### MCPets 펫 모델 2종 추가 (Cubees Dragons / Space)
 구매하신 "Cubees" 팩 2개(`Cubees_v20-Dragons.zip`, `Cubees-Space.zip`)를 서버에 설치함. 각 zip 안에 ItemsAdder/Oraxen/Nexo 세 가지 버전이 같이 들어있었는데, 이 서버는 ItemsAdder를 쓰므로 **ItemsAdder 버전만 설치하고 Oraxen/Nexo는 건너뜀**.
 - [ItemsAdder/contents/cubees](C:\YEOWOOL\lobby\plugins\ItemsAdder\contents\cubees) — 아이콘 아이템 + 텍스처/사운드 (드래곤 8종 `dragons/`, 우주 8종 `space-i/`)
