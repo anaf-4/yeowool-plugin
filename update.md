@@ -8,7 +8,7 @@
 사장님이 만드신 브금(`yeowool_lobby.mp3`, 2분 56초)을 마인크래프트 리소스팩이 요구하는 OGG Vorbis로 변환(ffmpeg 없어서 winget으로 새로 설치 후 변환)해서 ItemsAdder 커스텀 사운드로 등록함([contents/yeowool_lobby_bgm](C:\YEOWOOL\lobby\plugins\ItemsAdder\contents\yeowool_lobby_bgm), `yeowool:lobby_bgm`).
 - 새 [LobbyBgmListener](yeowool-community/src/main/java/com/yeowool/community/ambience/LobbyBgmListener.java) — 접속 시 재생 시작, 곡 길이(176초)에 맞춘 반복 작업으로 이어붙여서 계속 틀어줌(네이티브 루프 기능이 없어서 매번 다시 트는 방식 — 루프 지점에서 아주 살짝 안 맞을 수 있음), 접속 종료 시 작업 정리.
 - `lobby-bgm.enabled`(기본 false, 여러 서버가 config.yml 공유)를 **로비 서버 배포본에서만 true로 설정** — 타운/야생에서는 안 나옴.
-- **참고**: 이 김에 로비 서버 config.yml을 보니 `server-name: 야생`으로 잘못 설정돼 있었음(탭리스트 등에 표시되는 서버 이름 — README 8절 `<servername>` 토큰) — 이번 작업과 무관해서 손대지 않았지만, 실제로 탭리스트에 "야생"이라고 잘못 표시되고 있을 가능성이 있어 참고차 남겨둠.
+- 이 김에 발견한 `server-name: 야생`(로비 서버인데 잘못 설정됨) → `로비`로 수정함.
 
 로비 서버에 yeowool-community jar 배포 완료, **재시작 필요**(새 리소스팩 콘텐츠 폴더는 재시작해야 인식됨).
 
