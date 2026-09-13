@@ -1,5 +1,6 @@
 package com.yeowool.teleport.playerwarp;
 
+import com.yeowool.core.util.OfflinePlayerResolver;
 import com.yeowool.teleport.model.PlayerWarp;
 import com.yeowool.teleport.util.PlayerWarpCurrency;
 import net.kyori.adventure.text.Component;
@@ -216,12 +217,7 @@ public final class PlayerWarpTextInput implements Listener {
                 ctx.messages().send(player, "playerwarp.edit-success");
                 new PlayerWarpEditGui(ctx, updated, this).open(player);
             }
-            case TRANSFER_TARGET -> {
-                var target = Bukkit.getOfflinePlayer(text);
-                if (target.getUniqueId() == null || (target.getName() == null && !target.hasPlayedBefore())) {
-                    ctx.messages().send(player, "playerwarp.player-not-found", Placeholder.unparsed("name", text));
-                    return;
-                }
+            case TRANSFER_TARGET -> OfflinePlayerResolver.resolve(plugin, text, target -> {
                 if (ctx.warps().nameTaken(target.getUniqueId(), warp.name())) {
                     ctx.messages().send(player, "playerwarp.create-name-taken", Placeholder.unparsed("name", warp.name()));
                     return;
@@ -232,7 +228,7 @@ public final class PlayerWarpTextInput implements Listener {
                 PlayerWarp transferred = warp.withOwner(target.getUniqueId());
                 ctx.warps().rekey(warp.owner(), warp.name(), transferred);
                 ctx.messages().send(player, "playerwarp.transfer-success", Placeholder.unparsed("name", warp.name()), Placeholder.unparsed("target", String.valueOf(target.getName())));
-            }
+            }, () -> ctx.messages().send(player, "playerwarp.player-not-found", Placeholder.unparsed("name", text)));
             default -> {
             }
         }

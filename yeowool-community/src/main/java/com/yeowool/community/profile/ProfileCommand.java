@@ -2,12 +2,12 @@ package com.yeowool.community.profile;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import com.yeowool.core.util.TabCompletions;
 import com.yeowool.community.title.TitleDefinition;
 import com.yeowool.community.title.TitleManager;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -47,20 +47,16 @@ public final class ProfileCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
-        if (target.getUniqueId() == null) {
-            messages.send(viewer, "profile.player-not-found");
-            return true;
-        }
-
-        core.playerData().load(target.getUniqueId(), args[0]).whenComplete((data, error) ->
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (error != null) {
-                        messages.send(viewer, "profile.player-not-found");
-                        return;
-                    }
-                    show(viewer, target.getUniqueId(), args[0]);
-                }));
+        OfflinePlayerResolver.resolve(plugin, args[0], target ->
+                core.playerData().load(target.getUniqueId(), args[0]).whenComplete((data, error) ->
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            if (error != null) {
+                                messages.send(viewer, "profile.player-not-found");
+                                return;
+                            }
+                            show(viewer, target.getUniqueId(), args[0]);
+                        })),
+                () -> messages.send(viewer, "profile.player-not-found"));
         return true;
     }
 

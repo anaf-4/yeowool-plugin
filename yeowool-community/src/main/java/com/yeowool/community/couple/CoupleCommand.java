@@ -2,6 +2,7 @@ package com.yeowool.community.couple;
 
 import com.yeowool.core.api.service.MessageService;
 import com.yeowool.core.util.DurationFormat;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import com.yeowool.core.util.TabCompletions;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -11,16 +12,19 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
 
 /** {@code /커플 신청|수락|거절|해제|정보} — a simpler pairing than full marriage: propose/accept/breakup, no ceremony. */
 public final class CoupleCommand implements CommandExecutor, TabCompleter {
 
+    private final JavaPlugin plugin;
     private final CoupleManager coupleManager;
     private final MessageService messages;
 
-    public CoupleCommand(CoupleManager coupleManager, MessageService messages) {
+    public CoupleCommand(JavaPlugin plugin, CoupleManager coupleManager, MessageService messages) {
+        this.plugin = plugin;
         this.coupleManager = coupleManager;
         this.messages = messages;
     }
@@ -112,8 +116,8 @@ public final class CoupleCommand implements CommandExecutor, TabCompleter {
             messages.send(viewer, "couple.info-usage");
             return;
         }
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-        info(viewer, target);
+        OfflinePlayerResolver.resolve(plugin, args[1], target -> info(viewer, target),
+                () -> messages.send(viewer, "couple.player-not-found"));
     }
 
     private void info(Player viewer, OfflinePlayer subject) {

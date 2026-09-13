@@ -1,10 +1,10 @@
 package com.yeowool.community.friend;
 
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import com.yeowool.core.util.TabCompletions;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -99,13 +99,10 @@ public final class FriendCommand implements CommandExecutor, TabCompleter {
             messages.send(player, "friend.remove-usage");
             return;
         }
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-        if (target.getUniqueId() == null) {
-            messages.send(player, "friend.player-not-found");
-            return;
-        }
-        friendManager.removeFriend(player.getUniqueId(), target.getUniqueId());
-        messages.send(player, "friend.remove-success", Placeholder.unparsed("target", args[1]));
+        OfflinePlayerResolver.resolve(plugin, args[1], target -> {
+            friendManager.removeFriend(player.getUniqueId(), target.getUniqueId());
+            messages.send(player, "friend.remove-success", Placeholder.unparsed("target", args[1]));
+        }, () -> messages.send(player, "friend.player-not-found"));
     }
 
     private void list(Player player) {

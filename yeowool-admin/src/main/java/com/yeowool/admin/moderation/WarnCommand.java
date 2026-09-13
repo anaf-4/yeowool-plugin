@@ -5,6 +5,7 @@ import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.model.PunishmentEntry;
 import com.yeowool.core.api.model.PunishmentType;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import com.yeowool.core.util.TabCompletions;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -22,9 +23,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
- * {@code /경고 지급|회수|기록} — unlike {@code /추방}/{@code /정지} (one row = one
+ * {@code /경고 지급|회수|기록}— unlike {@code /추방}/{@code /정지} (one row = one
  * effect), a warning's effect is its running point total: each 지급/회수 is its
  * own permanent row carrying a signed point delta (see {@link
  * com.yeowool.core.api.model.PunishmentEntry#points}), and the total across
@@ -83,11 +85,10 @@ public final class WarnCommand implements CommandExecutor, TabCompleter {
             messages.send(sender, "warn.grant-usage");
             return;
         }
-        OfflinePlayer target = resolveTarget(sender, args[1]);
-        if (target == null) {
-            return;
-        }
+        resolveTarget(sender, args[1], target -> grantResolved(sender, args, target));
+    }
 
+    private void grantResolved(CommandSender sender, String[] args, OfflinePlayer target) {
         // An optional trailing duration ("7d", "24h", "영구") after the count lets
         // staff set when this specific grant's points stop counting. A bare
         // number is never treated as a duration here (unlike DurationParser's
@@ -160,10 +161,10 @@ public final class WarnCommand implements CommandExecutor, TabCompleter {
             messages.send(sender, "warn.revoke-usage");
             return;
         }
-        OfflinePlayer target = resolveTarget(sender, args[1]);
-        if (target == null) {
-            return;
-        }
+        resolveTarget(sender, args[1], target -> revokeResolved(sender, args, target));
+    }
+
+    private void revokeResolved(CommandSender sender, String[] args, OfflinePlayer target) {
         int points = parsePositiveCount(sender, args[args.length - 1]);
         if (points < 0) {
             return;
@@ -228,10 +229,10 @@ public final class WarnCommand implements CommandExecutor, TabCompleter {
             messages.send(sender, "warn.history-usage");
             return;
         }
-        OfflinePlayer target = resolveTarget(sender, args[1]);
-        if (target == null) {
-            return;
-        }
+        resolveTarget(sender, args[1], target -> historyResolved(sender, args, target));
+    }
+
+    private void historyResolved(CommandSender sender, String[] args, OfflinePlayer target) {
         String targetName = args[1];
         UUID targetId = target.getUniqueId();
 
@@ -270,13 +271,8 @@ public final class WarnCommand implements CommandExecutor, TabCompleter {
                         })));
     }
 
-    private OfflinePlayer resolveTarget(CommandSender sender, String name) {
-        OfflinePlayer target = Bukkit.getOfflinePlayer(name);
-        if (target.getUniqueId() == null || (!target.hasPlayedBefore() && !target.isOnline())) {
-            messages.send(sender, "general.player-not-found");
-            return null;
-        }
-        return target;
+    private void resolveTarget(CommandSender sender, String name, Consumer<OfflinePlayer> onFound) {
+        OfflinePlayerResolver.resolve(plugin, name, onFound, () -> messages.send(sender, "general.player-not-found"));
     }
 
     /** Returns -1 (and already messaged the sender) if not a positive integer. */

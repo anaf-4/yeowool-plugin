@@ -1,12 +1,12 @@
 package com.yeowool.life.scrapyard;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import com.yeowool.core.util.TabCompletions;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -160,19 +160,16 @@ public final class ScrapyardAdminCommand implements CommandExecutor, TabComplete
             return;
         }
         String targetName = args[1];
-        OfflinePlayer target = Bukkit.getOfflinePlayer(targetName);
-        if (target.getUniqueId() == null) {
-            sender.sendMessage(Component.text("존재하지 않는 플레이어입니다: " + targetName, NamedTextColor.RED));
-            return;
-        }
-        core.playerData().load(target.getUniqueId(), targetName).thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
-            if (!sessionManager.isLockedToday(target.getUniqueId())) {
-                sender.sendMessage(Component.text(targetName + "님은 오늘 아직 폐기장에 입장하지 않았습니다.", NamedTextColor.RED));
-                return;
-            }
-            sessionManager.resetLockToday(core.playerData().getOnline(target.getUniqueId()));
-            sender.sendMessage(Component.text(targetName + "님의 오늘 폐기장 입장 기록을 초기화했습니다. 다시 입장할 수 있습니다.", NamedTextColor.GREEN));
-        }));
+        OfflinePlayerResolver.resolve(plugin, targetName, target ->
+                core.playerData().load(target.getUniqueId(), targetName).thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (!sessionManager.isLockedToday(target.getUniqueId())) {
+                        sender.sendMessage(Component.text(targetName + "님은 오늘 아직 폐기장에 입장하지 않았습니다.", NamedTextColor.RED));
+                        return;
+                    }
+                    sessionManager.resetLockToday(core.playerData().getOnline(target.getUniqueId()));
+                    sender.sendMessage(Component.text(targetName + "님의 오늘 폐기장 입장 기록을 초기화했습니다. 다시 입장할 수 있습니다.", NamedTextColor.GREEN));
+                })),
+                () -> sender.sendMessage(Component.text("존재하지 않는 플레이어입니다: " + targetName, NamedTextColor.RED)));
     }
 
     @Override

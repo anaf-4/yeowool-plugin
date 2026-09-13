@@ -42,24 +42,29 @@ public final class PlayerDataResolver {
             return;
         }
 
-        OfflinePlayer offline = Bukkit.getOfflinePlayer(name);
-        if (offline.getUniqueId() == null || !offline.hasPlayedBefore()) {
-            onNotFound.run();
-            return;
-        }
+        // Bukkit#getOfflinePlayer(String) blocks on a Mojang UUID lookup for any name not
+        // already cached locally — never do that on the main thread.
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            @SuppressWarnings("deprecation")
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(name);
+            if (offline.getUniqueId() == null || !offline.hasPlayedBefore()) {
+                Bukkit.getScheduler().runTask(plugin, onNotFound);
+                return;
+            }
 
-        core.playerData().load(offline.getUniqueId(), name).thenAccept(data ->
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    onResolved.accept(data, null);
-                    // The target may have logged in while that load was in flight — if so,
-                    // the normal join/quit lifecycle now owns this data, and unloading it
-                    // here would rip it out from under an actively-connected player (every
-                    // getOnline() caller — scoreboard, tablist, any GUI — breaks for them
-                    // until they relog). Only an offline target's data gets saved+unloaded.
-                    if (Bukkit.getPlayer(offline.getUniqueId()) != null) {
-                        return;
-                    }
-                    core.playerData().save(data).thenRun(() -> core.playerData().unload(offline.getUniqueId()));
-                }));
+            core.playerData().load(offline.getUniqueId(), name).thenAccept(data ->
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        onResolved.accept(data, null);
+                        // The target may have logged in while that load was in flight — if so,
+                        // the normal join/quit lifecycle now owns this data, and unloading it
+                        // here would rip it out from under an actively-connected player (every
+                        // getOnline() caller — scoreboard, tablist, any GUI — breaks for them
+                        // until they relog). Only an offline target's data gets saved+unloaded.
+                        if (Bukkit.getPlayer(offline.getUniqueId()) != null) {
+                            return;
+                        }
+                        core.playerData().save(data).thenRun(() -> core.playerData().unload(offline.getUniqueId()));
+                    }));
+        });
     }
 }

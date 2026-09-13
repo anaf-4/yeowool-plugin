@@ -2,6 +2,7 @@ package com.yeowool.land.command;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import com.yeowool.core.util.TabCompletions;
 import com.yeowool.land.LandManager;
 import com.yeowool.land.gui.LandListGui;
@@ -11,7 +12,6 @@ import com.yeowool.land.model.Land;
 import com.yeowool.land.model.LandPermission;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.Particle;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -250,23 +250,24 @@ public final class LandCommand implements CommandExecutor, TabCompleter {
         }
 
         Land land = ownLand.get();
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-        if (target.getUniqueId() == null || !land.isMember(target.getUniqueId()) || land.getOwner().equals(target.getUniqueId())) {
-            messages.send(player, "land.not-a-member");
-            return;
-        }
+        OfflinePlayerResolver.resolve(plugin, args[1], target -> {
+            if (!land.isMember(target.getUniqueId()) || land.getOwner().equals(target.getUniqueId())) {
+                messages.send(player, "land.not-a-member");
+                return;
+            }
 
-        Set<LandPermission> updated = new HashSet<>(land.getPermissions(target.getUniqueId()));
-        if (args[3].equals("켜기")) {
-            updated.add(permission);
-        } else {
-            updated.remove(permission);
-        }
-        landManager.setMemberPermissions(land, target.getUniqueId(), updated);
-        messages.send(player, "land.permission-updated",
-                Placeholder.unparsed("target", args[1]),
-                Placeholder.unparsed("permission", args[2]),
-                Placeholder.unparsed("state", args[3]));
+            Set<LandPermission> updated = new HashSet<>(land.getPermissions(target.getUniqueId()));
+            if (args[3].equals("켜기")) {
+                updated.add(permission);
+            } else {
+                updated.remove(permission);
+            }
+            landManager.setMemberPermissions(land, target.getUniqueId(), updated);
+            messages.send(player, "land.permission-updated",
+                    Placeholder.unparsed("target", args[1]),
+                    Placeholder.unparsed("permission", args[2]),
+                    Placeholder.unparsed("state", args[3]));
+        }, () -> messages.send(player, "land.not-a-member"));
     }
 
     private void kick(Player player, Optional<Land> ownLand, String[] args) {
@@ -278,14 +279,14 @@ public final class LandCommand implements CommandExecutor, TabCompleter {
             messages.send(player, "land.kick-usage");
             return;
         }
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-        if (target.getUniqueId() == null || !ownLand.get().isMember(target.getUniqueId())
-                || ownLand.get().getOwner().equals(target.getUniqueId())) {
-            messages.send(player, "land.not-a-member");
-            return;
-        }
-        landManager.removeMember(ownLand.get(), target.getUniqueId());
-        messages.send(player, "land.kick-success", Placeholder.unparsed("target", args[1]));
+        OfflinePlayerResolver.resolve(plugin, args[1], target -> {
+            if (!ownLand.get().isMember(target.getUniqueId()) || ownLand.get().getOwner().equals(target.getUniqueId())) {
+                messages.send(player, "land.not-a-member");
+                return;
+            }
+            landManager.removeMember(ownLand.get(), target.getUniqueId());
+            messages.send(player, "land.kick-success", Placeholder.unparsed("target", args[1]));
+        }, () -> messages.send(player, "land.not-a-member"));
     }
 
     private void disband(Player player, Optional<Land> ownLand) {
@@ -461,24 +462,20 @@ public final class LandCommand implements CommandExecutor, TabCompleter {
             messages.send(player, "land.admin-not-found");
             return;
         }
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[3]);
-        if (target.getUniqueId() == null || (!target.hasPlayedBefore() && !target.isOnline())) {
-            messages.send(player, "land.player-not-found");
-            return;
-        }
-
-        Land land = found.get();
-        UUID oldOwner = land.getOwner();
-        var result = landManager.transferOwnership(land, target.getUniqueId());
-        if (result == LandManager.TransferResult.TARGET_ALREADY_OWNS_LAND) {
-            messages.send(player, "land.admin-transfer-target-has-land");
-            return;
-        }
-        core.landStats().removeLandId(oldOwner, land.getId());
-        core.landStats().addLandId(target.getUniqueId(), land.getId());
-        messages.send(player, "land.admin-transfer-success",
-                Placeholder.unparsed("id", shortId(land)),
-                Placeholder.unparsed("target", args[3]));
+        OfflinePlayerResolver.resolve(plugin, args[3], target -> {
+            Land land = found.get();
+            UUID oldOwner = land.getOwner();
+            var result = landManager.transferOwnership(land, target.getUniqueId());
+            if (result == LandManager.TransferResult.TARGET_ALREADY_OWNS_LAND) {
+                messages.send(player, "land.admin-transfer-target-has-land");
+                return;
+            }
+            core.landStats().removeLandId(oldOwner, land.getId());
+            core.landStats().addLandId(target.getUniqueId(), land.getId());
+            messages.send(player, "land.admin-transfer-success",
+                    Placeholder.unparsed("id", shortId(land)),
+                    Placeholder.unparsed("target", args[3]));
+        }, () -> messages.send(player, "land.player-not-found"));
     }
 
     private String shortId(Land land) {

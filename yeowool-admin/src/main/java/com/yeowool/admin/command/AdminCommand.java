@@ -7,11 +7,11 @@ import com.yeowool.admin.starterkit.StarterKitEditorGui;
 import com.yeowool.admin.starterkit.StarterKitService;
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import com.yeowool.core.util.TabCompletions;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -93,18 +93,15 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
             messages.send(sender, "general.invalid-amount");
             return;
         }
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-        if (target.getUniqueId() == null) {
-            messages.send(sender, "general.player-not-found");
-            return;
-        }
-        core.playerData().load(target.getUniqueId(), args[1]).thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
-            core.economyData().modifyBalance(target.getUniqueId(), amount, "YeowoolAdmin",
-                    "관리자 지급 (" + sender.getName() + ")");
-            messages.send(sender, "admin.grant-success",
-                    Placeholder.unparsed("target", args[1]),
-                    Placeholder.unparsed("amount", String.valueOf(amount)));
-        }));
+        OfflinePlayerResolver.resolve(plugin, args[1], target ->
+                core.playerData().load(target.getUniqueId(), args[1]).thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
+                    core.economyData().modifyBalance(target.getUniqueId(), amount, "YeowoolAdmin",
+                            "관리자 지급 (" + sender.getName() + ")");
+                    messages.send(sender, "admin.grant-success",
+                            Placeholder.unparsed("target", args[1]),
+                            Placeholder.unparsed("amount", String.valueOf(amount)));
+                })),
+                () -> messages.send(sender, "general.player-not-found"));
     }
 
     private void announce(CommandSender sender, String[] args) {
@@ -185,11 +182,6 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
             messages.send(sender, "admin.logs-usage");
             return;
         }
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-        if (target.getUniqueId() == null || (!target.hasPlayedBefore() && !target.isOnline())) {
-            messages.send(sender, "general.player-not-found");
-            return;
-        }
         int limit = 200;
         if (args.length >= 3) {
             try {
@@ -199,21 +191,23 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
                 return;
             }
         }
-        String targetName = target.getName() != null ? target.getName() : args[1];
-
         int finalLimit = limit;
-        executor.execute(() -> {
-            try {
-                var rows = logQueryService.queryByActor(target.getUniqueId(), null, finalLimit);
-                var categories = rows.stream().map(LogQueryService.LogRow::category).distinct().sorted().toList();
-                Bukkit.getScheduler().runTask(plugin, () ->
-                        new LogViewerGui(targetName, rows, categories, "전체", 0).open(admin));
-            } catch (Exception e) {
-                plugin.getLogger().severe("로그 조회 실패: " + e.getMessage());
-                Bukkit.getScheduler().runTask(plugin, () ->
-                        messages.send(sender, "admin.logs-query-fail", Placeholder.unparsed("error", String.valueOf(e.getMessage()))));
-            }
-        });
+
+        OfflinePlayerResolver.resolve(plugin, args[1], target -> {
+            String targetName = target.getName() != null ? target.getName() : args[1];
+            executor.execute(() -> {
+                try {
+                    var rows = logQueryService.queryByActor(target.getUniqueId(), null, finalLimit);
+                    var categories = rows.stream().map(LogQueryService.LogRow::category).distinct().sorted().toList();
+                    Bukkit.getScheduler().runTask(plugin, () ->
+                            new LogViewerGui(targetName, rows, categories, "전체", 0).open(admin));
+                } catch (Exception e) {
+                    plugin.getLogger().severe("로그 조회 실패: " + e.getMessage());
+                    Bukkit.getScheduler().runTask(plugin, () ->
+                            messages.send(sender, "admin.logs-query-fail", Placeholder.unparsed("error", String.valueOf(e.getMessage()))));
+                }
+            });
+        }, () -> messages.send(sender, "general.player-not-found"));
     }
 
     private void mail(CommandSender sender, String[] args) {
@@ -230,17 +224,14 @@ public final class AdminCommand implements CommandExecutor, TabCompleter {
             messages.send(sender, "admin.mail-no-item");
             return;
         }
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
-        if (target.getUniqueId() == null || (!target.hasPlayedBefore() && !target.isOnline())) {
-            messages.send(sender, "general.player-not-found");
-            return;
-        }
         String note = args.length >= 3 ? String.join(" ", Arrays.copyOfRange(args, 2, args.length)) : "관리자 지급 (" + sender.getName() + ")";
 
-        ItemStack toSend = hand.clone();
-        player.getInventory().setItemInMainHand(null);
-        core.mailbox().deliverOrStore(target.getUniqueId(), toSend, "YeowoolAdmin", note);
-        messages.send(sender, "admin.mail-success", Placeholder.unparsed("target", args[1]));
+        OfflinePlayerResolver.resolve(plugin, args[1], target -> {
+            ItemStack toSend = hand.clone();
+            player.getInventory().setItemInMainHand(null);
+            core.mailbox().deliverOrStore(target.getUniqueId(), toSend, "YeowoolAdmin", note);
+            messages.send(sender, "admin.mail-success", Placeholder.unparsed("target", args[1]));
+        }, () -> messages.send(sender, "general.player-not-found"));
     }
 
     private void editStarterKit(CommandSender sender) {

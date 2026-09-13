@@ -3,9 +3,9 @@ package com.yeowool.admin.moderation;
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.model.PunishmentType;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -33,20 +33,17 @@ public final class UnmuteCommand implements CommandExecutor {
             messages.send(sender, "moderation.unmute-usage");
             return true;
         }
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
-        if (target.getUniqueId() == null) {
-            messages.send(sender, "general.player-not-found");
-            return true;
-        }
         UUID staff = sender instanceof Player player ? player.getUniqueId() : null;
-        core.punishments().revoke(target.getUniqueId(), PunishmentType.MUTE, staff).thenAccept(count ->
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (count > 0) {
-                        messages.send(sender, "moderation.unmute-success", Placeholder.unparsed("target", args[0]));
-                    } else {
-                        messages.send(sender, "moderation.unmute-not-active");
-                    }
-                }));
+        OfflinePlayerResolver.resolve(plugin, args[0], target ->
+                core.punishments().revoke(target.getUniqueId(), PunishmentType.MUTE, staff).thenAccept(count ->
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            if (count > 0) {
+                                messages.send(sender, "moderation.unmute-success", Placeholder.unparsed("target", args[0]));
+                            } else {
+                                messages.send(sender, "moderation.unmute-not-active");
+                            }
+                        })),
+                () -> messages.send(sender, "general.player-not-found"));
         return true;
     }
 }

@@ -2,9 +2,9 @@ package com.yeowool.community.nickname;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -39,24 +39,21 @@ public final class NicknameVoucherCommand implements CommandExecutor, TabComplet
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length >= 1) {
-            Player onlineTarget = Bukkit.getPlayerExact(args[0]);
-            if (onlineTarget != null) {
-                giveDirectly(onlineTarget);
-                messages.send(onlineTarget, "nickname.voucher-received");
-                if (sender != onlineTarget) {
-                    messages.send(sender, "nickname.voucher-given", Placeholder.unparsed("player", onlineTarget.getName()));
+            OfflinePlayerResolver.resolve(plugin, args[0], target -> {
+                Player onlineTarget = target.getPlayer();
+                if (onlineTarget != null) {
+                    giveDirectly(onlineTarget);
+                    messages.send(onlineTarget, "nickname.voucher-received");
+                    if (sender != onlineTarget) {
+                        messages.send(sender, "nickname.voucher-given", Placeholder.unparsed("player", onlineTarget.getName()));
+                    }
+                    return;
                 }
-                return true;
-            }
 
-            OfflinePlayer offline = Bukkit.getOfflinePlayer(args[0]);
-            if (offline.getUniqueId() == null || !offline.hasPlayedBefore()) {
-                messages.send(sender, "nickname.player-not-found");
-                return true;
-            }
-            core.mailbox().deliverOrStore(offline.getUniqueId(), NicknameVoucherItem.create(plugin, customItemId),
-                    "YeowoolCommunity", "한글 닉네임 설정권");
-            messages.send(sender, "nickname.voucher-given-mailbox", Placeholder.unparsed("player", args[0]));
+                core.mailbox().deliverOrStore(target.getUniqueId(), NicknameVoucherItem.create(plugin, customItemId),
+                        "YeowoolCommunity", "한글 닉네임 설정권");
+                messages.send(sender, "nickname.voucher-given-mailbox", Placeholder.unparsed("player", args[0]));
+            }, () -> messages.send(sender, "nickname.player-not-found"));
             return true;
         }
 

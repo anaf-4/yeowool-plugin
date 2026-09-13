@@ -156,7 +156,7 @@ public final class YeowoolAdmin extends JavaPlugin {
         bindCommand("관리자아이템", new AdminItemCatalogCommand(messages, CatalogConfigLoader.load(this)));
 
         // 플레이어 신고
-        var reportCommand = new ReportCommand(core, messages);
+        var reportCommand = new ReportCommand(this, core, messages);
         bindCommand("신고", reportCommand, reportCommand);
 
         // 모더레이션 (경고/추방/정지/음소거)
@@ -171,10 +171,10 @@ public final class YeowoolAdmin extends JavaPlugin {
         }
         var kickCommand = new KickCommand(core, messages);
         bindCommand("추방", kickCommand, kickCommand);
-        var banCommand = new BanCommand(core, messages);
+        var banCommand = new BanCommand(this, core, messages);
         bindCommand("정지", banCommand, banCommand);
         bindCommand("정지해제", new UnbanCommand(this, core, messages));
-        var muteCommand = new MuteCommand(core, messages);
+        var muteCommand = new MuteCommand(this, core, messages);
         bindCommand("음소거", muteCommand, muteCommand);
         bindCommand("음소거해제", new UnmuteCommand(this, core, messages));
         var punishmentHistoryCommand = new PunishmentHistoryCommand(this, core, messages);

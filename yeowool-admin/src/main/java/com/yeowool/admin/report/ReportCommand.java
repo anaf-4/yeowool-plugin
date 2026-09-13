@@ -2,14 +2,15 @@ package com.yeowool.admin.report;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Arrays;
 import java.util.List;
@@ -28,11 +29,13 @@ public final class ReportCommand implements CommandExecutor, TabCompleter {
 
     private static final long COOLDOWN_MILLIS = 60_000L;
 
+    private final JavaPlugin plugin;
     private final YeowoolCoreAPI core;
     private final MessageService messages;
     private final Map<UUID, Long> lastReportAt = new ConcurrentHashMap<>();
 
-    public ReportCommand(YeowoolCoreAPI core, MessageService messages) {
+    public ReportCommand(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages) {
+        this.plugin = plugin;
         this.core = core;
         this.messages = messages;
     }
@@ -56,27 +59,24 @@ public final class ReportCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
-        if (target.getUniqueId() == null || (!target.hasPlayedBefore() && !target.isOnline())) {
-            messages.send(player, "general.player-not-found");
-            return true;
-        }
         String reason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
 
-        lastReportAt.put(player.getUniqueId(), now);
-        messages.send(player, "report.submitted");
+        OfflinePlayerResolver.resolve(plugin, args[0], target -> {
+            lastReportAt.put(player.getUniqueId(), now);
+            messages.send(player, "report.submitted");
 
-        for (Player staff : Bukkit.getOnlinePlayers()) {
-            if (staff.hasPermission("yeowool.admin.alerts")) {
-                messages.send(staff, "report.staff-alert",
-                        Placeholder.unparsed("reporter", player.getName()),
-                        Placeholder.unparsed("target", args[0]),
-                        Placeholder.unparsed("reason", reason));
+            for (Player staff : Bukkit.getOnlinePlayers()) {
+                if (staff.hasPermission("yeowool.admin.alerts")) {
+                    messages.send(staff, "report.staff-alert",
+                            Placeholder.unparsed("reporter", player.getName()),
+                            Placeholder.unparsed("target", args[0]),
+                            Placeholder.unparsed("reason", reason));
+                }
             }
-        }
 
-        core.logs().log("YeowoolAdmin", "report.player-report", player.getUniqueId(),
-                "플레이어 신고: " + args[0], Map.of("target", args[0], "reason", reason));
+            core.logs().log("YeowoolAdmin", "report.player-report", player.getUniqueId(),
+                    "플레이어 신고: " + args[0], Map.of("target", args[0], "reason", reason));
+        }, () -> messages.send(player, "general.player-not-found"));
         return true;
     }
 

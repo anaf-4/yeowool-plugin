@@ -2,10 +2,10 @@ package com.yeowool.admin.command;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import com.yeowool.core.util.TabCompletions;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -47,33 +47,30 @@ public final class CashGrantCommand implements CommandExecutor, TabCompleter {
             messages.send(sender, "general.invalid-amount");
             return true;
         }
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
-        if (target.getUniqueId() == null) {
-            messages.send(sender, "general.player-not-found");
-            return true;
-        }
         String targetName = args[0];
-        core.playerData().load(target.getUniqueId(), targetName).thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
-            boolean success = core.economyData().modifyCashBalance(target.getUniqueId(), amount, "YeowoolAdmin",
-                    "관리자 " + (amount >= 0 ? "지급" : "차감") + " (" + sender.getName() + ")");
-            if (!success) {
-                messages.send(sender, "cash.insufficient", Placeholder.unparsed("target", targetName));
-                return;
-            }
-            messages.send(sender, "cash.success",
-                    Placeholder.unparsed("target", targetName),
-                    Placeholder.unparsed("amount", String.valueOf(amount)),
-                    Placeholder.unparsed("action", amount >= 0 ? "지급" : "차감"));
+        OfflinePlayerResolver.resolve(plugin, targetName, target ->
+                core.playerData().load(target.getUniqueId(), targetName).thenRun(() -> Bukkit.getScheduler().runTask(plugin, () -> {
+                    boolean success = core.economyData().modifyCashBalance(target.getUniqueId(), amount, "YeowoolAdmin",
+                            "관리자 " + (amount >= 0 ? "지급" : "차감") + " (" + sender.getName() + ")");
+                    if (!success) {
+                        messages.send(sender, "cash.insufficient", Placeholder.unparsed("target", targetName));
+                        return;
+                    }
+                    messages.send(sender, "cash.success",
+                            Placeholder.unparsed("target", targetName),
+                            Placeholder.unparsed("amount", String.valueOf(amount)),
+                            Placeholder.unparsed("action", amount >= 0 ? "지급" : "차감"));
 
-            // 콘솔(웹사이트 RCON 포함)에서 지급하든 관리자가 직접 명령어를 치든, 받는
-            // 쪽에는 항상 "관리진"이라는 일반화된 표현으로 안내한다 - 구체적으로 누가/
-            // 어디서 지급했는지는 받는 사람이 알 필요 없음.
-            Player onlineTarget = Bukkit.getPlayer(target.getUniqueId());
-            if (onlineTarget != null) {
-                messages.send(onlineTarget, amount >= 0 ? "cash.received" : "cash.deducted",
-                        Placeholder.unparsed("amount", String.format("%,d", Math.abs(amount))));
-            }
-        }));
+                    // 콘솔(웹사이트 RCON 포함)에서 지급하든 관리자가 직접 명령어를 치든, 받는
+                    // 쪽에는 항상 "관리진"이라는 일반화된 표현으로 안내한다 - 구체적으로 누가/
+                    // 어디서 지급했는지는 받는 사람이 알 필요 없음.
+                    Player onlineTarget = Bukkit.getPlayer(target.getUniqueId());
+                    if (onlineTarget != null) {
+                        messages.send(onlineTarget, amount >= 0 ? "cash.received" : "cash.deducted",
+                                Placeholder.unparsed("amount", String.format("%,d", Math.abs(amount))));
+                    }
+                })),
+                () -> messages.send(sender, "general.player-not-found"));
         return true;
     }
 

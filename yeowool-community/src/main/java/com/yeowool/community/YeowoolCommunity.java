@@ -406,7 +406,7 @@ public final class YeowoolCommunity extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CoupleJoinListener(coupleManager), this);
         var coupleCommand = getCommand("커플");
         if (coupleCommand != null) {
-            var executorCmd = new CoupleCommand(coupleManager, messages);
+            var executorCmd = new CoupleCommand(this, coupleManager, messages);
             coupleCommand.setExecutor(executorCmd);
             coupleCommand.setTabCompleter(executorCmd);
         }

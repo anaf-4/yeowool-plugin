@@ -2,10 +2,10 @@ package com.yeowool.admin.moderation;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.util.OfflinePlayerResolver;
 import com.yeowool.core.util.TabCompletions;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -38,11 +38,6 @@ public final class PunishmentHistoryCommand implements CommandExecutor, TabCompl
             messages.send(sender, "moderation.history-usage");
             return true;
         }
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[0]);
-        if (target.getUniqueId() == null) {
-            messages.send(sender, "general.player-not-found");
-            return true;
-        }
         int limit = 20;
         if (args.length >= 2) {
             try {
@@ -52,31 +47,33 @@ public final class PunishmentHistoryCommand implements CommandExecutor, TabCompl
                 return true;
             }
         }
-
         int finalLimit = limit;
-        core.punishments().history(target.getUniqueId(), finalLimit).thenAccept(entries ->
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (entries.isEmpty()) {
-                        messages.send(sender, "moderation.history-empty", Placeholder.unparsed("target", args[0]));
-                        return;
-                    }
-                    messages.send(sender, "moderation.history-header",
-                            Placeholder.unparsed("target", args[0]),
-                            Placeholder.unparsed("count", String.valueOf(entries.size())));
-                    for (var entry : entries) {
-                        String time = FORMAT.format(Instant.ofEpochMilli(entry.createdAt()));
-                        String staffName = entry.staff() == null ? "콘솔" : String.valueOf(Bukkit.getOfflinePlayer(entry.staff()).getName());
-                        String status = !entry.active() ? "해제됨" : (entry.isExpired() ? "만료됨" : "적용 중");
-                        String expiry = entry.isPermanent() ? "영구" : FORMAT.format(Instant.ofEpochMilli(entry.expiresAt()));
-                        messages.send(sender, "moderation.history-line",
-                                Placeholder.unparsed("time", time),
-                                Placeholder.unparsed("type", entry.type().toString()),
-                                Placeholder.unparsed("reason", entry.reason()),
-                                Placeholder.unparsed("staff", staffName),
-                                Placeholder.unparsed("expiry", expiry),
-                                Placeholder.unparsed("status", status));
-                    }
-                }));
+
+        OfflinePlayerResolver.resolve(plugin, args[0], target ->
+                core.punishments().history(target.getUniqueId(), finalLimit).thenAccept(entries ->
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            if (entries.isEmpty()) {
+                                messages.send(sender, "moderation.history-empty", Placeholder.unparsed("target", args[0]));
+                                return;
+                            }
+                            messages.send(sender, "moderation.history-header",
+                                    Placeholder.unparsed("target", args[0]),
+                                    Placeholder.unparsed("count", String.valueOf(entries.size())));
+                            for (var entry : entries) {
+                                String time = FORMAT.format(Instant.ofEpochMilli(entry.createdAt()));
+                                String staffName = entry.staff() == null ? "콘솔" : String.valueOf(Bukkit.getOfflinePlayer(entry.staff()).getName());
+                                String status = !entry.active() ? "해제됨" : (entry.isExpired() ? "만료됨" : "적용 중");
+                                String expiry = entry.isPermanent() ? "영구" : FORMAT.format(Instant.ofEpochMilli(entry.expiresAt()));
+                                messages.send(sender, "moderation.history-line",
+                                        Placeholder.unparsed("time", time),
+                                        Placeholder.unparsed("type", entry.type().toString()),
+                                        Placeholder.unparsed("reason", entry.reason()),
+                                        Placeholder.unparsed("staff", staffName),
+                                        Placeholder.unparsed("expiry", expiry),
+                                        Placeholder.unparsed("status", status));
+                            }
+                        })),
+                () -> messages.send(sender, "general.player-not-found"));
         return true;
     }
 
