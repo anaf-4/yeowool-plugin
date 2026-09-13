@@ -81,6 +81,8 @@ commands:
     description: 배틀패스를 확인합니다 (관리자는 보상설정/프리미엄지급 하위 명령어 사용 가능)
   메뉴:
     description: 통합 메뉴를 엽니다 (웅크린 채로 손 바꾸기 키를 눌러도 열림)
+  내설정:
+    description: 개인 설정(로비 배경음악 등)을 켜고 끕니다
 
 permissions:
   yeowool.event.manage:

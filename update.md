@@ -4,6 +4,14 @@
 
 ## 2026-09-14
 
+### `/내설정` — 개인 설정 GUI 신설 (yeowool-community)
+로비 브금은 클라이언트 음악 볼륨을 서버가 전혀 알 수 없어서, 볼륨을 0으로 줄였다가 다시 올려도 다음 재생 주기(최대 곡 길이만큼)까지 기다려야 하는 한계가 있었음 — 이를 해결하기 위해 서버가 직접 감지할 수 있는 온/오프 스위치를 `/내설정` GUI로 만듦. 켜면 즉시 재생 시작, 끄면 즉시 정지(`Player#stopSound`)해서 볼륨 슬라이더보다 훨씬 반응이 빠름. 설정값은 `PlayerData`에 저장되어 서버를 옮겨도 유지됨.
+- [PlayerSettingsGui](yeowool-community/src/main/java/com/yeowool/community/settings/PlayerSettingsGui.java)/[PlayerSettingsCommand](yeowool-community/src/main/java/com/yeowool/community/settings/PlayerSettingsCommand.java) 신설 — 지금은 로비 브금 토글 하나뿐이지만, 앞으로 다른 온/오프 설정이 생기면 여기 버튼만 추가하면 되는 구조로 만들어둠(공용 "설정 API"를 미리 만들지는 않음 — 아직 이거 하나뿐이라 과한 추상화라고 판단).
+- [LobbyBgmListener](yeowool-community/src/main/java/com/yeowool/community/ambience/LobbyBgmListener.java)에 `isEnabled`/`setEnabled` 추가 — 접속 시에도 꺼져있으면(설정이 `PlayerData`에 저장돼있으면) 아예 재생을 시작 안 함.
+
+로비 서버에 yeowool-community jar 배포 완료, **재시작 필요**. 사장님이 다른 온/오프 설정 원하시는 게 있으면 알려주시면 이 GUI에 계속 추가하겠습니다.
+
+
 ### 로비 배경음악 추가
 사장님이 만드신 브금(`yeowool_lobby.mp3`, 2분 56초)을 마인크래프트 리소스팩이 요구하는 OGG Vorbis로 변환(ffmpeg 없어서 winget으로 새로 설치 후 변환)해서 ItemsAdder 커스텀 사운드로 등록함([contents/yeowool_lobby_bgm](C:\YEOWOOL\lobby\plugins\ItemsAdder\contents\yeowool_lobby_bgm), `yeowool:lobby_bgm`).
 - 새 [LobbyBgmListener](yeowool-community/src/main/java/com/yeowool/community/ambience/LobbyBgmListener.java) — 접속 시 재생 시작, 곡 길이(176초)에 맞춘 반복 작업으로 이어붙여서 계속 틀어줌(네이티브 루프 기능이 없어서 매번 다시 트는 방식 — 루프 지점에서 아주 살짝 안 맞을 수 있음), 접속 종료 시 작업 정리.

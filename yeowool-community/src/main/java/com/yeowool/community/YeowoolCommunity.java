@@ -4,6 +4,7 @@ import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.message.MessageManager;
 import com.yeowool.core.util.ConfigMerger;
 import com.yeowool.community.ambience.LobbyBgmListener;
+import com.yeowool.community.settings.PlayerSettingsCommand;
 import com.yeowool.community.battlepass.BattlePassAmountListener;
 import com.yeowool.community.battlepass.BattlePassCommand;
 import com.yeowool.community.battlepass.BattlePassConfig;
@@ -200,11 +201,17 @@ public final class YeowoolCommunity extends JavaPlugin {
         }
 
         // 로비 브금 (lobby-bgm.enabled - 로비 서버 배포본 config.yml에서만 true)
+        LobbyBgmListener lobbyBgmListener = null;
         if (getConfig().getBoolean("lobby-bgm.enabled", false)) {
             String bgmSound = getConfig().getString("lobby-bgm.sound", "yeowool:lobby_bgm");
             float bgmVolume = (float) getConfig().getDouble("lobby-bgm.volume", 1.0);
             long bgmDurationSeconds = getConfig().getLong("lobby-bgm.duration-seconds", 176);
-            getServer().getPluginManager().registerEvents(new LobbyBgmListener(this, bgmSound, bgmVolume, bgmDurationSeconds), this);
+            lobbyBgmListener = new LobbyBgmListener(this, core, bgmSound, bgmVolume, bgmDurationSeconds);
+            getServer().getPluginManager().registerEvents(lobbyBgmListener, this);
+        }
+        var settingsCommand = getCommand("내설정");
+        if (settingsCommand != null) {
+            settingsCommand.setExecutor(new PlayerSettingsCommand(messages, lobbyBgmListener));
         }
 
         // 배틀패스 (FREE는 기본 열림, PREMIUM은 캐시 구매 또는 관리자 지급 전까지 잠김)
