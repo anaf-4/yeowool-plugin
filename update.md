@@ -4,6 +4,21 @@
 
 ## 2026-09-14
 
+### Portal Core 아이템 설명 한글화
+`[MythicMobs]` `packs/PortalCore/items/portals_portalcore.yml`의 Display/Lore가 원본(Nexo 팩) 그대로 영어였던 것을 한글로 변경 — "Portal Core" → "포탈 코어", 우클릭 안내 문구도 한글화. lobby/town/wild 세 서버 모두 반영.
+
+세 서버 모두 **재시작 필요**(또는 `/mm reload`).
+
+### 서버 이벤트(XP/작물 드랍 배율)를 운영자가 직접 켤 수 있도록 `/서버이벤트` 명령 추가
+기존 `/이벤트 시작 <이름> <배율> <분>`은 XP 배율만 지원하고 채팅 공지만 있었음. 이번에 추가:
+- `EventManager`에 이벤트 종류(XP/작물 드랍) 개념 추가, 작물 드랍 배율을 core에 새로 추가한 `LandStatService.setCropDropMultiplier`로 저장하고 [FarmingListener.java](yeowool-life/src/main/java/com/yeowool/life/farming/FarmingListener.java)의 `BlockDropItemEvent`에서 밀/당근/감자/비트/코코아/호박/수박/사탕수수 드랍량에 곱해서 적용.
+- 이벤트 진행 중에는 보스바(남은 시간 실시간 갱신)가 모든 플레이어 화면에 뜨도록 [EventManager.java](yeowool-community/src/main/java/com/yeowool/community/event/EventManager.java)에 추가.
+- 새 명령어 `/서버이벤트 <XP|작물드랍> <배율>` (예: `/서버이벤트 XP 2배`, `/서버이벤트 작물드랍 2배`) — 지속시간 1시간 고정, `/서버이벤트 종료`·`/서버이벤트 정보`도 지원. 플레이어 전용 체크가 없어서 **콘솔에서도 그대로 사용 가능**. [ServerEventCommand.java](yeowool-community/src/main/java/com/yeowool/community/event/ServerEventCommand.java) 신규 작성.
+- 기존 `/이벤트` 명령(이름/배율/분 자유 설정 + 보상받기)은 그대로 유지 — 두 명령이 같은 EventManager를 공유해서 한쪽으로 시작하면 다른 쪽 정보로도 조회됨.
+
+lobby/town/wild 세 서버 모두 배포함. 세 서버 모두 **재시작 필요**.
+
+
 ### Portal Core 아이템팩 — Nexo → ItemsAdder 변환 + DeluxeMenus 대신 자체 GUI로 구현
 구매하신 "Portals - The Portal Core" 아이템팩(`E:\라테르에 쓸것들\Portals The Portal Core`)을 우리 서버 구성으로 변환.
 - **리소스팩**: Nexo용 `Pack: {texture, custom_model_data}` 정의 7개(코어 아이템 + 화살표 2개 + 방향 아이콘 4개)를 ItemsAdder 콘텐츠 팩으로 변환 — `[ItemsAdder]` `plugins/ItemsAdder/contents/portals_portalcore/resourcepack/assets/minecraft/{textures/portals_texture, models/item}` 아래에 COAL 기반 vanilla model override(`coal.json`의 `overrides` 목록, CustomModelData 100001~100007은 원본과 동일하게 유지)로 배치. 메뉴 제목에 쓰이던 커스텀 글리프(폰트 이미지)는 우리 GUI가 일반 텍스트 제목을 쓰므로 변환하지 않고 생략.
@@ -13,6 +28,24 @@
 - **lobby/town/wild 세 서버 모두** 배포함.
 
 세 서버 모두 **재시작 필요** (ItemsAdder 리소스팩 재빌드 + MythicMobs/MythicCrucible 리로드).
+
+### Portal Core 텍스처가 흑자홍(누락 텍스처)으로 보이던 문제 수정
+재시작 후 아이템/GUI 화살표 아이콘이 전부 마인크래프트 기본 "텍스처 없음" 패턴(검정-보라 체크무늬)으로 보임. 원인은 1.21.4부터 바뀐 아이템 모델 시스템 — 예전 방식(`models/item/coal.json`의 `overrides` 목록)은 더 이상 읽히지 않고, `assets/minecraft/items/coal.json`에 새 `range_dispatch` 형식으로 정의해야 함. 이 서버에 이미 설치된 ModelEngine이 정확히 이 방식(`items/leather_horse_armor.json`)을 쓰고 있는 걸 확인하고 동일한 구조로 [ItemsAdder] `contents/portals_portalcore/resourcepack/assets/minecraft/items/coal.json`을 새로 작성(구식 `models/item/coal.json`은 삭제). lobby/town/wild 세 서버 모두 반영.
+
+세 서버 모두 **재시작 필요**(또는 `/iareload` → `/iazip` 후 리소스팩 재적용).
+
+### Portal Core 텍스처가 계속 깨지는 진짜 원인 — MythicMobs 자체 리소스팩 배포 기능과 충돌
+MythicMobs를 5.9.5 → 5.12.1로 올린 뒤부터 완전 재접속을 해도 텍스처가 다시 깨지길래 로그를 봤더니, MythicMobs/Crucible이 자체 리소스팩 생성·배포 기능(`config-generation.yml`의 `Generation.Deployment`)으로 mcpacks.dev에 자기 팩을 업로드하고 `AutoSend`로 플레이어에게 자동 전송하고 있었음 — 이게 ItemsAdder가 만든 우리 리소스팩과 같은 `assets/minecraft/items/coal.json` 경로를 두고 충돌해서, COAL 기반인 Portal Core 아이템/아이콘만 골라서 깨지고 있었던 것(다른 ItemsAdder 콘텐츠는 COAL을 안 써서 멀쩡했음). `[MythicMobs]` `config/config-generation.yml`의 `Generation.Deployment.Enabled: true → false`로 꺼서 자체 배포를 막음. lobby/town/wild 세 서버 모두 반영. (이 수정만으로는 해결 안 됨 — 아래 항목 참고)
+
+세 서버 모두 **재시작 필요**.
+
+### Portal Core 텍스처 정상 확인
+아틀라스 등록 수정 후 재시작 → 아이템/GUI 화살표 전부 정상 표시 확인됨. Portal Core 아이템팩 작업 완료.
+
+### Portal Core 텍스처가 계속 깨지던 진짜 원인 — 텍스처 아틀라스 미등록
+MythicMobs 배포 기능을 꺼도 여전히 깨져서 다시 확인해보니, 우리가 만든 팩에는 `assets/minecraft/atlases/blocks.json`(어떤 텍스처 폴더를 아틀라스에 포함시킬지 정하는 파일)이 아예 없었음. 바닐라 기본 아틀라스 설정은 `textures/item/`, `textures/block/` 같은 표준 폴더만 인식하는데, 텍스처를 임의로 만든 `textures/portals_texture/` 폴더에 넣어서 아틀라스에 전혀 등록이 안 되고 있었던 것 — 그래서 모델이 텍스처를 참조해도 찾지 못해 아이템/GUI 화살표 전부 깨진 텍스처로 보였음. `[ItemsAdder]` `contents/portals_portalcore/resourcepack/assets/minecraft/textures/portals_texture/` → 표준 폴더인 `textures/item/`으로 옮기고, 7개 모델 파일의 텍스처 참조도 그에 맞게 수정. lobby/town/wild 세 서버 모두 반영.
+
+세 서버 모두 **재시작 필요**.
 
 
 ### MythicHUD 플러그인 완전 비활성화 (파티 HUD 미표시 문제 — 대체 플러그인으로 전환)

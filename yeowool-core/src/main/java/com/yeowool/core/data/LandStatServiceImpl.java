@@ -14,6 +14,7 @@ public final class LandStatServiceImpl implements LandStatService {
 
     private final PlayerDataService playerDataService;
     private volatile double xpMultiplier = 1.0;
+    private volatile double cropDropMultiplier = 1.0;
 
     public LandStatServiceImpl(PlayerDataService playerDataService) {
         this.playerDataService = playerDataService;
@@ -55,6 +56,16 @@ public final class LandStatServiceImpl implements LandStatService {
     @Override
     public double getXpMultiplier() {
         return xpMultiplier;
+    }
+
+    @Override
+    public void setCropDropMultiplier(double multiplier) {
+        this.cropDropMultiplier = multiplier;
+    }
+
+    @Override
+    public double getCropDropMultiplier() {
+        return cropDropMultiplier;
     }
 
     @Override

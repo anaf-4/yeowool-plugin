@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.event.block.BlockGrowEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 
@@ -94,5 +95,22 @@ public final class FarmingListener implements Listener {
             playerData.addStatistic("life.farming.harvested", 1);
             playerData.addStatistic("dex.farming." + type.name(), 1);
         });
+    }
+
+    /** "이벤트 - 작물 드랍 2배" — scales the natural drop amounts for {@link #HARVEST_XP_MATERIALS} blocks. */
+    @EventHandler(ignoreCancelled = true)
+    public void onDrop(BlockDropItemEvent event) {
+        if (!HARVEST_XP_MATERIALS.contains(event.getBlockState().getType())) {
+            return;
+        }
+        double multiplier = core.landStats().getCropDropMultiplier();
+        if (multiplier == 1.0) {
+            return;
+        }
+        for (var item : event.getItems()) {
+            var stack = item.getItemStack();
+            int scaled = Math.max(1, (int) Math.round(stack.getAmount() * multiplier));
+            stack.setAmount(Math.min(stack.getMaxStackSize(), scaled));
+        }
     }
 }

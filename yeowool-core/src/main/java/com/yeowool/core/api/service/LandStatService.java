@@ -30,6 +30,14 @@ public interface LandStatService {
 
     double getXpMultiplier();
 
+    /**
+     * Server-wide multiplier applied to crop harvest drop amounts (1.0 =
+     * normal). Same "이벤트 - 작물 드랍 2배" purpose as {@link #setXpMultiplier}.
+     */
+    void setCropDropMultiplier(double multiplier);
+
+    double getCropDropMultiplier();
+
     Set<UUID> getLandIds(UUID uuid);
 
     void addLandId(UUID uuid, UUID landId);

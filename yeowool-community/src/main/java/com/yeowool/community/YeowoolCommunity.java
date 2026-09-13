@@ -45,6 +45,7 @@ import com.yeowool.community.display.SidebarScoreboardTask;
 import com.yeowool.community.display.TablistTask;
 import com.yeowool.community.event.EventCommand;
 import com.yeowool.community.event.EventManager;
+import com.yeowool.community.event.ServerEventCommand;
 import com.yeowool.community.event.MissionCollectListener;
 import com.yeowool.community.event.MissionEventManager;
 import com.yeowool.community.event.MissionScheduler;
@@ -353,6 +354,12 @@ public final class YeowoolCommunity extends JavaPlugin {
             var executor = new EventCommand(this, core, eventManager, missionManager);
             eventCommand.setExecutor(executor);
             eventCommand.setTabCompleter(executor);
+        }
+        var serverEventCommand = getCommand("서버이벤트");
+        if (serverEventCommand != null) {
+            var executor = new ServerEventCommand(eventManager);
+            serverEventCommand.setExecutor(executor);
+            serverEventCommand.setTabCompleter(executor);
         }
 
         var cosmeticCommand = getCommand("코스메틱");

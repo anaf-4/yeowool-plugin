@@ -158,7 +158,7 @@ public final class EventCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(Component.text("배율과 분은 0보다 커야 합니다.", NamedTextColor.RED));
             return;
         }
-        eventManager.start(args[1], multiplier, minutes);
+        eventManager.start(args[1], EventManager.Type.XP, multiplier, minutes);
     }
 
     private void stop(CommandSender sender) {
@@ -180,8 +180,9 @@ public final class EventCommand implements CommandExecutor, TabCompleter {
             return;
         }
         long remainingMs = active.get().endAtMillis() - System.currentTimeMillis();
-        sender.sendMessage(Component.text("이벤트: " + active.get().name() + " (경험치 " + active.get().multiplier()
-                + "배, 남은 시간: " + com.yeowool.core.util.DurationFormat.humanize(Math.max(0, remainingMs)) + ")", NamedTextColor.GOLD));
+        sender.sendMessage(Component.text("이벤트: " + active.get().name() + " (" + active.get().type().label() + " "
+                + active.get().multiplier() + "배, 남은 시간: "
+                + com.yeowool.core.util.DurationFormat.humanize(Math.max(0, remainingMs)) + ")", NamedTextColor.GOLD));
     }
 
     private void claim(CommandSender sender) {
