@@ -4,6 +4,14 @@
 
 ## 2026-09-14
 
+### MythicHUD 문제 — 진짜 마지막 원인: 옛날 수동 병합 폴더와 충돌
+`copy-pack` 활성화 후에도 여전히 안 떠서 로그를 다시 보니, 방금 자동 생성된 `ItemsAdder/contents/mythichud/`와 9/7에 수동으로 넣어뒀던 `ItemsAdder/contents/yeowool_party/`가 **완전히 같은 경로에 수백 개씩 "Duplicate found" 충돌**을 일으키고 있었음. 옛날 폴더엔 바닐라 유니코드 폰트 텍스처 256장을 통째로 덮어쓰는 파일까지 있어서, 이 충돌이 리소스팩 빌드 자체를 깨뜨려 아까 발견한 `pack.mcmeta` 손상까지 설명됨. 옛날 `yeowool_party` 폴더를 제거함(`_disabled`로 이동, 이제 자동 동기화되는 `mythichud` 폴더 하나만 남음).
+
+**정리하면 총 4가지 문제가 겹쳐 있었음**: ① MythicHUD.jar 중복 설치 ② `nexo-hook`이 미설치 플러그인을 가리키던 것 ③ ItemsAdder 자체 `huds` 기능과 충돌 ④ 옛날 수동 병합 폴더와 새 자동 동기화 폴더의 리소스팩 경로 충돌. 전부 수정 완료.
+
+로비 서버 **재시작 필요**.
+
+
 ### MythicHUD가 화면에 아예 안 뜨던 문제 — 진짜 원인 발견 (ItemsAdder 자체 HUD 기능과 충돌)
 파티 HUD만이 아니라 **MythicHUD가 렌더링하는 모든 것(기본/칼 레이아웃 포함)이 화면에 전혀 안 뜨는** 문제였음. 여러 단계로 원인을 좁혀나감:
 1. `plugins/MythicHUD.jar`와 `plugins/MythicHUD-1.3.1-SNAPSHOT-all 76 .jar`이 완전히 동일한 파일로 중복 설치되어 있던 것 발견 → 중복 제거(`_disabled`로 이동). 효과 없었음(다른 원인이었음).
