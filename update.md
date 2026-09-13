@@ -4,6 +4,31 @@
 
 ## 2026-09-13
 
+### 메인 스레드 블로킹 제거: 이름으로 오프라인 플레이어 찾는 곳 전부 비동기화
+`Bukkit.getOfflinePlayer(String 닉네임)`은 로컬 캐시에 없는 이름이면 Mojang API에 동기 HTTP 요청을 날려서, 접속한 적 없는 닉네임으로 `/정지`·`/음소거`·`/친구 추가`·`/토지 초대` 등을 실행하는 순간 서버 전체가 멈추는 문제가 있었음(TPS 급락). 새 공용 유틸 [OfflinePlayerResolver](yeowool-core/src/main/java/com/yeowool/core/util/OfflinePlayerResolver.java)(core)를 만들어서, 이 조회를 항상 비동기 스레드에서 하고 결과만 메인 스레드로 돌려주도록 통일함.
+- 기존 공용 리졸버 [PlayerDataResolver](yeowool-core/src/main/java/com/yeowool/core/util/PlayerDataResolver.java)도 똑같은 문제가 있었어서 근본적으로 고침 — 이걸 이미 쓰던 `TitleCommand`/`RankIconCommand`/`SeasonManager`도 같이 고쳐짐.
+- 직접 `Bukkit.getOfflinePlayer(String)`을 호출하던 20개 커맨드 클래스(정지/음소거/정지해제/음소거해제/경고/제재기록/여울관리/캐시지급/신고, 친구/커플/프로필/한글닉네임설정권, 토지 권한/추방/관리이전, 폐기장설정 초기화, 플레이어워프 소유권이전)를 전부 이 유틸로 교체.
+- `/캐시지급`도 포함됨 — 방금 연동한 Tebex 결제가 실제로 호출하는 명령어라 결제 흐름에 영향 없는지 재배포 후 확인 필요.
+
+### 저장소를 실제 배포 상태와 동기화 (git stash 복구)
+[이전 항목](#2026-09-13) 참고 — 폐기장/파티/플레이타임/서버간 인벤토리 동기화 등 37개 파일을 stash에서 복구해 커밋 완료.
+
+### 테스트 커버리지 추가 (enhance/market/community/discord/teleport)
+지금까지 테스트가 0개였던 5개 모듈에 순수 로직 위주로 단위 테스트 추가:
+- `EnhanceConfig`(강화 등급/성공확률/파괴위험 판정) — [yeowool-enhance](yeowool-enhance/src/test/java/com/yeowool/enhance/EnhanceConfigTest.java)
+- `AuctionListing`/`AuctionManager.minIncrement`(경매 최소 입찰가 계산) — [yeowool-market](yeowool-market/src/test/java/com/yeowool/market/auction/AuctionListingTest.java)
+- `BattlePassManager`의 CSV 직렬화(수령한 보상 목록 저장 형식) — [yeowool-community](yeowool-community/src/test/java/com/yeowool/community/battlepass/BattlePassManagerTest.java) (테스트 접근을 위해 `splitCsv`/`joinCsv`를 `private` → 패키지 전용으로 완화)
+- `ConfigCrypto`(디스코드 봇 토큰 암호화, AES-256-GCM) — [yeowool-discord](yeowool-discord/src/test/java/com/yeowool/discord/ConfigCryptoTest.java)
+- `RtpConfig`(무작위 순간이동 반경/쿨다운 설정 파싱) — [yeowool-teleport](yeowool-teleport/src/test/java/com/yeowool/teleport/rtp/RtpConfigTest.java)
+
+`./gradlew test` 전체 통과. yeowool-enhance/market/teleport는 `FileConfiguration`/`ItemStack` 등 Bukkit 타입을 테스트에서 써야 해서 `testImplementation`으로 paper-api(+core) 의존성 추가.
+
+### 권한 구조(`default: op`) 검토 — 코드 문제 아님, 조치 보류
+`yeowool.*` 권한 126개 노드 전부 `default: op`인 건 버그가 아니라 `luckperms-setup.txt`에 이미 명시된 의도된 설계(총관리진 제외 전원 deop + LuckPerms 그룹으로 등급 분리) — 코드에서 `default: op`를 지우면 지금 관리자 계정도 즉시 모든 명령어를 못 쓰게 되는 회귀라 손대지 않음. 실제 등급 분리는 운영 작업(LuckPerms 스크립트 적용 + deop) 필요, 사장님 확인 대기 중.
+
+로비 서버에 core/admin/community/land/life/teleport 6개 jar 배포 완료, **재시작 필요**.
+
+
 ### ModelEngine 4.1.0 ↔ ItemsAdder 충돌 근본 해결, 폐기장 보스를 ent_keeper로 복귀
 [config.yml:38-42](C:\YEOWOOL\lobby\plugins\ModelEngine\config.yml)의 `Model-Generator.Register-Post-Server`/`Assets-Post-Server`/`Compile-Post-Server`를 전부 `false`로 변경 — ModelEngine이 리소스팩 에셋을 서버 기동 후 비동기로 늦게 만들던 것을 기동 중 동기적으로 먼저 만들도록 바꿔서, ItemsAdder가 `ModelEngine/resource pack/assets/cosmetics`를 조립 시점에 못 찾던 경쟁 상태가 해소됨(사장님이 직접 재시작해서 확인). 이제 ModelEngine 4.1.0으로 올려도 ItemsAdder 리소스팩 파이프라인이 정상 동작하고, `ent_keeper` 보스 모델도 정상 소환/렌더링됨.
 - 폐기장 보스를 임시로 대체했던 `am_goblin_brute`에서 원래 계획한 `ent_keeper_boss`로 되돌림 (`scrapyard.boss.mob-id`, [yeowool-life/config.yml](yeowool-life/src/main/resources/config.yml) + 로비 서버 배포본 둘 다 수정).

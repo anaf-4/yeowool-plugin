@@ -4,4 +4,6 @@ dependencies {
     compileOnly(project(":yeowool-economy"))
     compileOnly("net.citizensnpcs:citizensapi:${rootProject.property("citizensVersion")}")
     compileOnly("com.github.LoneDev6:API-ItemsAdder:${rootProject.property("itemsAdderApiVersion")}")
+    testImplementation("io.papermc.paper:paper-api:${rootProject.property("paperApiVersion")}")
+    testImplementation(project(":yeowool-core"))
 }

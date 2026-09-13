@@ -145,7 +145,7 @@ public final class BattlePassManager {
         return ClaimResult.SUCCESS;
     }
 
-    private static Set<Integer> splitCsv(String raw) {
+    static Set<Integer> splitCsv(String raw) {
         Set<Integer> result = new LinkedHashSet<>();
         if (raw == null || raw.isBlank()) {
             return result;
@@ -160,7 +160,7 @@ public final class BattlePassManager {
         return result;
     }
 
-    private static String joinCsv(Set<Integer> values) {
+    static String joinCsv(Set<Integer> values) {
         StringBuilder builder = new StringBuilder();
         for (int value : values) {
             if (!builder.isEmpty()) {
