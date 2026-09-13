@@ -136,7 +136,7 @@ public final class LandCommand implements CommandExecutor, TabCompleter {
     }
 
     /** "이름없는 마을" fallback so ranking/info lines never show a blank name. */
-    static String displayName(Land land) {
+    public static String displayName(Land land) {
         return land.getName() != null && !land.getName().isBlank() ? land.getName() : "이름없는 마을";
     }
 

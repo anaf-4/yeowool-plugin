@@ -58,3 +58,15 @@ land:
   village-ranking-header: "<gold>=== 마을 랭킹 TOP <count> ===</gold>"
   village-ranking-line: "<yellow><rank>위.</yellow> <white><name></white> <gray>(소유자: <owner>, Lv.<level>, 멤버 <members>명, 청크 <chunks>개)</gray>"
   village-ranking-empty: "<gray>등록된 토지가 없습니다.</gray>"
+
+village-event:
+  usage: "<red>사용법: /마을대항 [시작 <분>|종료|정보]</red>"
+  start-usage: "<red>사용법: /마을대항 시작 <분></red>"
+  already-active: "<red>이미 마을대항 이벤트가 진행 중입니다.</red>"
+  not-active: "<gray>진행 중인 마을대항 이벤트가 없습니다.</gray>"
+  started: "<gold>=== 마을대항 이벤트 시작! (<minutes>분간) ===</gold>\n<yellow>이 시간 동안 토지 경험치를 가장 많이 모은 마을이 우승합니다. /마을대항 정보로 현황을 확인하세요.</yellow>"
+  ended-empty: "<gray>=== 마을대항 이벤트 종료 — 참여한 마을이 없어 보상이 지급되지 않았습니다. ===</gray>"
+  ended-winner: "<gold>=== 마을대항 이벤트 종료! ===</gold>\n<yellow>우승: <village> (소유자: <owner>) — 획득 경험치 <xp></yellow>\n<green>마을 은행에 보너스 <reward>온이 지급되었습니다!</green>"
+  info-header: "<gold>=== 마을대항 진행 중 (남은 시간: <minutes>분 <seconds>초) ===</gold>"
+  info-empty: "<gray>아직 집계된 참여 기록이 없습니다.</gray>"
+  info-line: "<yellow><rank>위.</yellow> <white><village></white> <gray>(소유자: <owner>, 경험치 <xp>)</gray>"

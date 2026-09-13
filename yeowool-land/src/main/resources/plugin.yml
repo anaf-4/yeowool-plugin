@@ -11,6 +11,8 @@ commands:
     description: 토지 관리 명령어
   마을랭킹:
     description: 토지 레벨 기준 마을 랭킹 TOP 10을 확인합니다
+  마을대항:
+    description: 마을간 경쟁 이벤트 시작/종료/현황 확인
   토지이동:
     description: 내 토지로 이동합니다 (다른 서버에 있으면 토지가 있는 서버로 먼저 이동)
 

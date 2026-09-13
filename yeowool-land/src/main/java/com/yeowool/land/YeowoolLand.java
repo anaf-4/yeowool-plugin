@@ -8,6 +8,9 @@ import com.yeowool.land.command.LandTeleportCommand;
 import com.yeowool.land.command.LandTeleportJoinListener;
 import com.yeowool.land.command.VillageRankingCommand;
 import com.yeowool.land.database.LandSchemaInitializer;
+import com.yeowool.land.villageevent.VillageEventCommand;
+import com.yeowool.land.villageevent.VillageEventManager;
+import com.yeowool.land.villageevent.VillageEventXpListener;
 import com.yeowool.land.level.LandLevelTable;
 import com.yeowool.land.listener.BarrelClaimListener;
 import com.yeowool.land.listener.LandEntryNotifyListener;
@@ -79,6 +82,16 @@ public final class YeowoolLand extends JavaPlugin {
         var villageRankingCommand = getCommand("마을랭킹");
         if (villageRankingCommand != null) {
             villageRankingCommand.setExecutor(new VillageRankingCommand(core, landManager, messages));
+        }
+
+        long villageEventReward = getConfig().getLong("village-event.reward-on", 50000);
+        VillageEventManager villageEventManager = new VillageEventManager(this, core, landManager, messages, villageEventReward);
+        getServer().getPluginManager().registerEvents(new VillageEventXpListener(villageEventManager), this);
+        var villageEventCommand = getCommand("마을대항");
+        if (villageEventCommand != null) {
+            var executorCmd = new VillageEventCommand(landManager, villageEventManager, messages);
+            villageEventCommand.setExecutor(executorCmd);
+            villageEventCommand.setTabCompleter(executorCmd);
         }
 
         String thisServerId = getConfig().getString("land-teleport.this-server-id", "lobby");

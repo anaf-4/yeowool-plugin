@@ -35,3 +35,9 @@ boundary-preview:
   particle: FLAME
   duration-seconds: 10
   interval-ticks: 10
+
+# /마을대항 — 정해진 시간(분) 동안 소유자의 토지 XP 획득량이 가장 많은 마을에게
+# 마을 은행으로 지급되는 보너스 온. 실제 토지 레벨/XP는 전혀 건드리지 않고
+# 이벤트 진행 중에만 메모리에서 별도로 집계함(/시즌랭킹과 같은 방식).
+village-event:
+  reward-on: 50000
