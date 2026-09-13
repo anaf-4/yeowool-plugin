@@ -4,6 +4,12 @@
 
 ## 2026-09-14
 
+### MythicHUD — "리소스팩 손상" 결론 철회, netty 패킷 주입 충돌로 방향 전환
+아까 zip 손상 결론은 철회함 — 리소스팩이 정말 깨졌다면 다른 ItemsAdder 콘텐츠(상점 아이템 등)도 다 안 보여야 하는데 그건 멀쩡했음(사장님이 직접 지적). 대신 **일반 보스몹(ent_keeper_boss)의 보스바는 정상적으로 보이는데 MythicHUD만 안 뜬다**는 걸 확인 — 표준 Bukkit BossBar API는 되는데 MythicHUD 고유 렌더링만 안 되는 것이므로, MythicHUD가 표준 API 대신 쓰는 저수준 netty 패킷 주입이 이 서버의 ProtocolLib과 충돌하고 있을 가능성으로 좁힘. [MythicHUD/config.yml](C:\YEOWOOL\lobby\plugins\MythicHUD\config.yml)의 `disable-netty-injection: false → true`로 변경해서 주입 방식을 꺼봄.
+
+로비 서버 **재시작 필요**.
+
+
 ### MythicHUD 문제 — 진짜 마지막 원인: 옛날 수동 병합 폴더와 충돌
 `copy-pack` 활성화 후에도 여전히 안 떠서 로그를 다시 보니, 방금 자동 생성된 `ItemsAdder/contents/mythichud/`와 9/7에 수동으로 넣어뒀던 `ItemsAdder/contents/yeowool_party/`가 **완전히 같은 경로에 수백 개씩 "Duplicate found" 충돌**을 일으키고 있었음. 옛날 폴더엔 바닐라 유니코드 폰트 텍스처 256장을 통째로 덮어쓰는 파일까지 있어서, 이 충돌이 리소스팩 빌드 자체를 깨뜨려 아까 발견한 `pack.mcmeta` 손상까지 설명됨. 옛날 `yeowool_party` 폴더를 제거함(`_disabled`로 이동, 이제 자동 동기화되는 `mythichud` 폴더 하나만 남음).
 
