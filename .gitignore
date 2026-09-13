@@ -15,3 +15,7 @@ webService.md
 *.env
 *.env.*
 !*.env.example
+
+# Third-party paid plugin jars kept locally only for compileOnly API access
+# (no public Maven artifact) — copy the matching jar from plugins/ before building.
+yeowool-life/libs/*.jar

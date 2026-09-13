@@ -4,6 +4,15 @@
 
 ## 2026-09-14
 
+### 작물 드랍 2배 이벤트를 CustomCrops(외부 플러그인)에도 적용, 요리/커스텀 작물 XP 추가
+- **작물 드랍 배율이 CustomCrops 플러그인 작물에도 적용**: 기존엔 바닐라 작물(밀/당근 등)에만 적용됐음. CustomCrops의 공식 API(`net.momirealms:custom-crops`, momirealms 저장소에서 가져옴)의 `DropItemActionEvent`를 새로 걸어서 [CustomCropsHarvestListener.java](yeowool-life/src/main/java/com/yeowool/life/farming/customcrops/CustomCropsHarvestListener.java)에서 같은 배율을 적용하도록 함.
+- **CustomCrops 작물도 이제 수확 시 XP를 줌**: 지금까지 계절 동기화만 있고 XP는 전혀 안 주고 있었음 — CustomCrops의 `CropBreakEvent`(플레이어가 직접 부순 + 다 자란 마지막 단계일 때만)로 새로 연결. `config.yml`에 `customcrops.xp-per-harvest: 5` 추가.
+- **요리(AddCook)도 XP를 주도록 추가**: 지금까지 요리는 XP를 전혀 안 주고 있었음(레시피 조회 GUI만 있었음) — AddCook의 `CookCompleteEvent`로 새로 연결한 [CookXpListener.java](yeowool-life/src/main/java/com/yeowool/life/cooking/addcook/CookXpListener.java) 추가. `config.yml`에 `cooking.xp-per-cook: 5` 추가. AddCook은 공개 Maven 저장소가 없는 유료 플러그인이라, 컴파일용으로 `yeowool-life/libs/AddCook-3.8.2.jar`(git에는 안 올라감, `.gitignore` 추가 — 빌드하려면 `plugins/AddCook-*.jar`을 그 경로에 복사해둬야 함)를 로컬 참조로 추가.
+- 참고: 우리 자체 ItemsAdder 기반 커스텀 작물 시스템(`custom-farming` 설정, [CustomFarmingListener.java](yeowool-life/src/main/java/com/yeowool/life/farming/custom/CustomFarmingListener.java))은 원래부터 수확 시 XP를 이미 주고 있었음 — 이번에 새로 손댄 건 CustomCrops(별도 외부 플러그인)와 AddCook 두 가지.
+
+세 서버 모두 배포함. 세 서버 모두 **재시작 필요**.
+
+
 ### Portal Core 아이템 설명 한글화
 `[MythicMobs]` `packs/PortalCore/items/portals_portalcore.yml`의 Display/Lore가 원본(Nexo 팩) 그대로 영어였던 것을 한글로 변경 — "Portal Core" → "포탈 코어", 우클릭 안내 문구도 한글화. lobby/town/wild 세 서버 모두 반영.
 

@@ -13,6 +13,10 @@ farming:
 
 logging:
   xp-per-log: 2
+
+# AddCook이 설치되어 있을 때만 활성화됨 (없으면 무시됩니다).
+cooking:
+  xp-per-cook: 5
   # 묘목이 나무로 자라기까지 걸리는 고정 시간 (바닐라 랜덤 성장 대신).
   # 단일 묘목도 자라도록 허용함 (정글/다크오크의 바닐라 2x2 요구사항 생략).
   sapling-growth-minutes: 15
@@ -27,6 +31,7 @@ customcrops:
   season-sync:
     enable: true
     check-interval-seconds: 60
+  xp-per-harvest: 5
 
 fishing:
   xp-per-catch: 3

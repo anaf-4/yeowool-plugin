@@ -28,7 +28,9 @@ import com.yeowool.life.farming.custom.CustomFarmingListener;
 import com.yeowool.life.farming.custom.CustomFarmingQualityConfig;
 import com.yeowool.life.farming.custom.database.CustomFarmingSchemaInitializer;
 import com.yeowool.life.farming.custom.repository.CustomCropRepository;
+import com.yeowool.life.farming.customcrops.CustomCropsHarvestListener;
 import com.yeowool.life.farming.customcrops.CustomCropsSeasonSyncTask;
+import com.yeowool.life.cooking.addcook.CookXpListener;
 import com.yeowool.life.cooking.addcook.MyRecipesCommand;
 import com.yeowool.life.farming.database.FarmingSchemaInitializer;
 import com.yeowool.life.farming.repository.CropRepository;
@@ -207,9 +209,13 @@ public final class YeowoolLife extends JavaPlugin {
         // CustomCrops의 계절은 서버(로비/타운/야생)마다 따로 흘러서 방치하면 어긋남 —
         // 실제 시각 기준으로 계절을 계산해서 주기적으로 맞춰줌(서버 간 통신 불필요, 각자
         // 같은 공식으로 계산하니 자연히 일치함).
-        if (config.getBoolean("customcrops.season-sync.enable", true) && Bukkit.getPluginManager().isPluginEnabled("CustomCrops")) {
-            long intervalTicks = config.getLong("customcrops.season-sync.check-interval-seconds", 60) * 20L;
-            new CustomCropsSeasonSyncTask(this).runTaskTimer(this, 100L, intervalTicks);
+        if (Bukkit.getPluginManager().isPluginEnabled("CustomCrops")) {
+            if (config.getBoolean("customcrops.season-sync.enable", true)) {
+                long intervalTicks = config.getLong("customcrops.season-sync.check-interval-seconds", 60) * 20L;
+                new CustomCropsSeasonSyncTask(this).runTaskTimer(this, 100L, intervalTicks);
+            }
+            getServer().getPluginManager().registerEvents(
+                    new CustomCropsHarvestListener(core, config.getLong("customcrops.xp-per-harvest", 5)), this);
         }
 
         List<FishRarity> fishRarities = loadRarities();
@@ -306,8 +312,12 @@ public final class YeowoolLife extends JavaPlugin {
         }
 
         var myRecipesCommand = getCommand("레시피");
-        if (myRecipesCommand != null && Bukkit.getPluginManager().isPluginEnabled("AddCook")) {
-            myRecipesCommand.setExecutor(new MyRecipesCommand(messages));
+        if (Bukkit.getPluginManager().isPluginEnabled("AddCook")) {
+            if (myRecipesCommand != null) {
+                myRecipesCommand.setExecutor(new MyRecipesCommand(messages));
+            }
+            getServer().getPluginManager().registerEvents(
+                    new CookXpListener(core, config.getLong("cooking.xp-per-cook", 5)), this);
         }
 
         // 직업 시스템 (연금술사/대장장이/건축가/도굴꾼/인챈터/농부/어부/사냥꾼/광부/목수 - 동시에 하나만 활성화 가능)
