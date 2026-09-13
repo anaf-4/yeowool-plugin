@@ -24,6 +24,8 @@ commands:
     description: 받은 순간이동 요청을 거절합니다
   rtp:
     description: 무작위 위치로 순간이동합니다
+  포탈코어:
+    description: 포탈 코어 아이템의 메뉴를 엽니다
 
 permissions:
   yeowool.teleport.warp.manage:

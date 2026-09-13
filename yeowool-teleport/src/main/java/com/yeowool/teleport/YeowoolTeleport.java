@@ -15,6 +15,7 @@ import com.yeowool.teleport.playerwarp.PlayerWarpFavoriteManager;
 import com.yeowool.teleport.playerwarp.PlayerWarpManager;
 import com.yeowool.teleport.playerwarp.PlayerWarpRatingManager;
 import com.yeowool.teleport.playerwarp.PlayerWarpTextInput;
+import com.yeowool.teleport.portalcore.PortalCoreCommand;
 import com.yeowool.teleport.repository.HomeRepository;
 import com.yeowool.teleport.repository.PlayerWarpFavoriteRepository;
 import com.yeowool.teleport.repository.PlayerWarpRatingRepository;
@@ -154,6 +155,9 @@ public final class YeowoolTeleport extends JavaPlugin {
         bindCommand("tpahere", new TpaRequestCommand(tpaManager, TpaManager.Kind.HERE, messages));
         bindCommand("tpaccept", new TpaAcceptCommand(tpaManager, teleportService, messages));
         bindCommand("tpdeny", new TpaDenyCommand(tpaManager, messages));
+
+        // 포탈 코어 (Portal Core 아이템 메뉴)
+        bindCommand("포탈코어", new PortalCoreCommand());
 
         getLogger().info("YeowoolTeleport가 활성화되었습니다.");
     }

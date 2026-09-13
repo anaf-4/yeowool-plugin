@@ -4,6 +4,23 @@
 
 ## 2026-09-14
 
+### Portal Core 아이템팩 — Nexo → ItemsAdder 변환 + DeluxeMenus 대신 자체 GUI로 구현
+구매하신 "Portals - The Portal Core" 아이템팩(`E:\라테르에 쓸것들\Portals The Portal Core`)을 우리 서버 구성으로 변환.
+- **리소스팩**: Nexo용 `Pack: {texture, custom_model_data}` 정의 7개(코어 아이템 + 화살표 2개 + 방향 아이콘 4개)를 ItemsAdder 콘텐츠 팩으로 변환 — `[ItemsAdder]` `plugins/ItemsAdder/contents/portals_portalcore/resourcepack/assets/minecraft/{textures/portals_texture, models/item}` 아래에 COAL 기반 vanilla model override(`coal.json`의 `overrides` 목록, CustomModelData 100001~100007은 원본과 동일하게 유지)로 배치. 메뉴 제목에 쓰이던 커스텀 글리프(폰트 이미지)는 우리 GUI가 일반 텍스트 제목을 쓰므로 변환하지 않고 생략.
+- **아이템/스킬**: `[MythicMobs]` `plugins/MythicMobs/packs/PortalCore/` 그대로 이식(아이템 정의는 Nexo와 무관하게 raw CustomModelData라 수정 불필요). 메뉴를 여는 스킬(`Portals_Core_MenuOpen`)만 `dm open portals_portalcore_menu`(DeluxeMenus) → `포탈코어`(우리 명령어)로 변경.
+- **GUI**: DeluxeMenus가 서버에 없어서(원본 GUI는 DeluxeMenus 전용) 새로 설치하는 대신, 기존 `YeowoolGui`/`GuiButton` 프레임워크로 [PortalCoreGui.java](yeowool-teleport/src/main/java/com/yeowool/teleport/portalcore/PortalCoreGui.java) + [PortalCoreCommand.java](yeowool-teleport/src/main/java/com/yeowool/teleport/portalcore/PortalCoreCommand.java)를 새로 작성, `yeowool-teleport`에 `/포탈코어` 명령으로 추가. 원본 구성 그대로 5페이지(1페이지는 다음만, 2~4페이지는 이전/다음만 있는 빈 틀, 5페이지는 이전만) — 2~4페이지는 원본 템플릿부터 내용이 비어 있어 그대로 유지.
+- MythicCrucible은 사장님이 직접 다운로드해서 설치하기로 함(현재 `plugins/MythicCrucible-5.12.0.jar`는 이미 있으나 아직 구동된 적 없어 설정 폴더 미생성 — 재시작하면 생성됨).
+- **lobby/town/wild 세 서버 모두** 배포함.
+
+세 서버 모두 **재시작 필요** (ItemsAdder 리소스팩 재빌드 + MythicMobs/MythicCrucible 리로드).
+
+
+### MythicHUD 플러그인 완전 비활성화 (파티 HUD 미표시 문제 — 대체 플러그인으로 전환)
+netty 패킷 주입 비활성화까지 해봤지만 여전히 화면에 아무것도 안 떠서, MythicHUD 자체의 문제로 결론 내리고 플러그인을 껐음. **[MythicHUD]** `plugins/MythicHUD-1.3.1-SNAPSHOT-all 76 .jar` → `plugins/_disabled/MythicHUD-1.3.1-SNAPSHOT-all 76 .jar.bak`로 이동, 설정 폴더 `plugins/MythicHUD/` → `plugins/_disabled/MythicHUD_config/`로 이동. **lobby/town/wild 세 서버 모두** 적용함 (앞으로 빌드/배포/제거는 세 서버 모두에 적용하기로 함). ItemsAdder의 `huds.enabled: false`는 lobby에서만 MythicHUD 전용 충돌 방지로 꺼뒀던 설정이라 그대로 둠(town/wild는 원래 true였고 그대로 둬도 충돌 없음). 파티 HUD는 다른 플러그인으로 대체 예정(다음 작업).
+
+세 서버 모두 **재시작 필요**.
+
+
 ### MythicHUD — "리소스팩 손상" 결론 철회, netty 패킷 주입 충돌로 방향 전환
 아까 zip 손상 결론은 철회함 — 리소스팩이 정말 깨졌다면 다른 ItemsAdder 콘텐츠(상점 아이템 등)도 다 안 보여야 하는데 그건 멀쩡했음(사장님이 직접 지적). 대신 **일반 보스몹(ent_keeper_boss)의 보스바는 정상적으로 보이는데 MythicHUD만 안 뜬다**는 걸 확인 — 표준 Bukkit BossBar API는 되는데 MythicHUD 고유 렌더링만 안 되는 것이므로, MythicHUD가 표준 API 대신 쓰는 저수준 netty 패킷 주입이 이 서버의 ProtocolLib과 충돌하고 있을 가능성으로 좁힘. [MythicHUD/config.yml](C:\YEOWOOL\lobby\plugins\MythicHUD\config.yml)의 `disable-netty-injection: false → true`로 변경해서 주입 방식을 꺼봄.
 
