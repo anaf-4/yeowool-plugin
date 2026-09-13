@@ -42,6 +42,10 @@ public final class TradeManager {
             messages.send(requester, "trade.cannot-trade-self");
             return;
         }
+        if ("true".equals(core.playerData().getOnline(target.getUniqueId()).getSetting("block.trade", "false"))) {
+            messages.send(requester, "trade.request-blocked", Placeholder.unparsed("target", target.getName()));
+            return;
+        }
         if (isBusy(requester.getUniqueId()) || isBusy(target.getUniqueId())) {
             messages.send(requester, "trade.already-in-trade");
             return;

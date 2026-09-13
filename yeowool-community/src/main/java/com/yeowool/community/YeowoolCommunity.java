@@ -211,7 +211,7 @@ public final class YeowoolCommunity extends JavaPlugin {
         }
         var settingsCommand = getCommand("내설정");
         if (settingsCommand != null) {
-            settingsCommand.setExecutor(new PlayerSettingsCommand(messages, lobbyBgmListener));
+            settingsCommand.setExecutor(new PlayerSettingsCommand(core, messages, lobbyBgmListener));
         }
 
         // 배틀패스 (FREE는 기본 열림, PREMIUM은 캐시 구매 또는 관리자 지급 전까지 잠김)

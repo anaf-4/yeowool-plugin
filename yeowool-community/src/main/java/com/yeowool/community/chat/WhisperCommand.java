@@ -62,6 +62,10 @@ public final class WhisperCommand implements CommandExecutor, TabCompleter {
 
     /** Also used by {@link ReplyCommand} so both paths share the same mute check and delivery. */
     public void sendWhisper(Player from, Player to, String message) {
+        if ("true".equals(core.playerData().getOnline(to.getUniqueId()).getSetting("block.whisper", "false"))) {
+            messages.send(from, "chat.whisper-blocked", Placeholder.unparsed("target", to.getName()));
+            return;
+        }
         core.punishments().activeMute(from.getUniqueId()).thenAccept(mute ->
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     if (mute.isPresent()) {

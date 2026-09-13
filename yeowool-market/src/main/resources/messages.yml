@@ -20,6 +20,7 @@ trade:
   usage: "<red>사용법: /거래 [닉네임] 또는 /거래 수락</red>"
   player-not-found: "<red>플레이어를 찾을 수 없습니다.</red>"
   cannot-trade-self: "<red>자기 자신과는 거래할 수 없습니다.</red>"
+  request-blocked: "<red><target>님이 거래 요청을 차단해서 보낼 수 없습니다.</red>"
   already-in-trade: "<red>이미 거래 중입니다.</red>"
   request-sent: "<green><target>님에게 거래를 요청했습니다.</green>"
   request-received: "<gold><requester>님이 거래를 요청했습니다. /거래 수락 으로 수락하세요. (30초 후 만료)</gold>"

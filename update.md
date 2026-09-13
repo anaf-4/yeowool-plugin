@@ -4,6 +4,16 @@
 
 ## 2026-09-14
 
+### `/내설정`에 귓속말 차단 / 거래 요청 차단 추가
+[PlayerSettingsGui](yeowool-community/src/main/java/com/yeowool/community/settings/PlayerSettingsGui.java)에 두 토글 추가 — `PlayerData`에 `block.whisper`/`block.trade`로 저장하고, 실제 발송 지점에서 확인:
+- [WhisperCommand.sendWhisper](yeowool-community/src/main/java/com/yeowool/community/chat/WhisperCommand.java) — `/귓속말`·`/답장` 둘 다 이 메서드를 거치므로 한 곳만 고치면 됨.
+- [TradeManager.sendRequest](yeowool-market/src/main/java/com/yeowool/market/trade/TradeManager.java) — `/거래 <닉네임>` 요청 시점에 확인.
+
+**파티 초대 차단은 뺐습니다** — `/파티 가입 <이름>`은 승인 없이 자유 가입하는 구조라 애초에 "초대"라는 개념이 없어서(README 8절에도 명시됨), 차단할 대상이 없습니다. 확인 후 진행 필요.
+
+로비 서버에 yeowool-community/yeowool-market jar 배포 완료, **재시작 필요**.
+
+
 ### `/내설정` — 개인 설정 GUI 신설 (yeowool-community)
 로비 브금은 클라이언트 음악 볼륨을 서버가 전혀 알 수 없어서, 볼륨을 0으로 줄였다가 다시 올려도 다음 재생 주기(최대 곡 길이만큼)까지 기다려야 하는 한계가 있었음 — 이를 해결하기 위해 서버가 직접 감지할 수 있는 온/오프 스위치를 `/내설정` GUI로 만듦. 켜면 즉시 재생 시작, 끄면 즉시 정지(`Player#stopSound`)해서 볼륨 슬라이더보다 훨씬 반응이 빠름. 설정값은 `PlayerData`에 저장되어 서버를 옮겨도 유지됨.
 - [PlayerSettingsGui](yeowool-community/src/main/java/com/yeowool/community/settings/PlayerSettingsGui.java)/[PlayerSettingsCommand](yeowool-community/src/main/java/com/yeowool/community/settings/PlayerSettingsCommand.java) 신설 — 지금은 로비 브금 토글 하나뿐이지만, 앞으로 다른 온/오프 설정이 생기면 여기 버튼만 추가하면 되는 구조로 만들어둠(공용 "설정 API"를 미리 만들지는 않음 — 아직 이거 하나뿐이라 과한 추상화라고 판단).
