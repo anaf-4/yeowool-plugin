@@ -4,6 +4,16 @@
 
 ## 2026-09-14
 
+### MCPets 펫 모델 2종 추가 (Cubees Dragons / Space)
+구매하신 "Cubees" 팩 2개(`Cubees_v20-Dragons.zip`, `Cubees-Space.zip`)를 서버에 설치함. 각 zip 안에 ItemsAdder/Oraxen/Nexo 세 가지 버전이 같이 들어있었는데, 이 서버는 ItemsAdder를 쓰므로 **ItemsAdder 버전만 설치하고 Oraxen/Nexo는 건너뜀**.
+- [ItemsAdder/contents/cubees](C:\YEOWOOL\lobby\plugins\ItemsAdder\contents\cubees) — 아이콘 아이템 + 텍스처/사운드 (드래곤 8종 `dragons/`, 우주 8종 `space-i/`)
+- [MCPets/Pets](C:\YEOWOOL\lobby\plugins\MCPets\Pets) — "Cubee v20 Dragons"(8마리), "Cubee Space I"(8마리) 펫 정의, [MCPets/Categories](C:\YEOWOOL\lobby\plugins\MCPets\Categories)에 각각 카테고리 등록
+- [ModelEngine/blueprints/Cubees](C:\YEOWOOL\lobby\plugins\ModelEngine\blueprints\Cubees) — 3D 모델 블루프린트
+- [MythicMobs/packs](C:\YEOWOOL\lobby\plugins\MythicMobs\packs) — `Cubees-MainConfig`(두 팩이 공유하는 이동/상호작용 스킬, 한 번만 설치) + 팩별 몹 정의
+
+로비 서버 **재시작 필요**(새 콘텐츠 폴더라 리로드로는 인식 안 됨 — 이 프로젝트에서 계속 봐온 패턴과 동일).
+
+
 ### 파티 생성 시 자유가입/신청승인 선택 가능
 지금까지 `/파티 가입 <이름>`은 항상 승인 없이 즉시 가입되는 방식뿐이었는데, 파티를 만들 때 가입 방식을 고를 수 있게 함:
 - **GUI**: `/파티 생성` → 이름(모루) → 인원 선택 → **새로 추가된 가입방식 선택**(자유가입/신청승인) 순서로 진행.
