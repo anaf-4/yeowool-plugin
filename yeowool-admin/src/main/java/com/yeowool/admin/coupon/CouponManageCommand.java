@@ -117,15 +117,21 @@ public final class CouponManageCommand implements CommandExecutor, TabCompleter 
             messages.send(sender, "coupon.manage-edit-item-player-only");
             return;
         }
-        var newItems = CouponInventoryPayload.take(player);
-        if (newItems.isEmpty()) {
-            messages.send(sender, "coupon.manage-edit-item-no-item");
+        var coupon = couponManager.findByCode(code);
+        if (coupon.isEmpty()) {
+            messages.send(sender, "coupon.not-found", Placeholder.unparsed("code", code));
             return;
         }
-        couponManager.updateRewardItems(code, newItems);
-        messages.send(sender, "coupon.manage-edit-item-success",
-                Placeholder.unparsed("code", code),
-                Placeholder.unparsed("item", describeItems(newItems)));
+        new CouponRewardGui(coupon.get().rewardItems(), newItems -> {
+            if (newItems.isEmpty()) {
+                messages.send(player, "coupon.manage-edit-item-no-item");
+                return;
+            }
+            couponManager.updateRewardItems(code, newItems);
+            messages.send(player, "coupon.manage-edit-item-success",
+                    Placeholder.unparsed("code", code),
+                    Placeholder.unparsed("item", describeItems(newItems)));
+        }).open(player);
     }
 
     private static String describeItems(List<ItemStack> items) {

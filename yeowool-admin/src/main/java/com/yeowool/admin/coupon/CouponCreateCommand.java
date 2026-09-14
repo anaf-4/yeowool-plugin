@@ -11,13 +11,10 @@ import org.bukkit.inventory.ItemStack;
 import java.util.List;
 
 /**
- * {@code /쿠폰생성 <이름> <만료일(yyyy-MM-dd)>} — the reward is every non-empty
- * stack in the admin's main inventory (hotbar + 27 slots, not armor/off-hand)
- * at creation time, so one coupon can pay out several different items (same
- * "held item = payload" convention as {@code /여울관리 우편}, just generalized
- * from one slot to the whole inventory grid). Those slots are cleared once
- * the coupon is created, same as the old single-item version consumed the
- * held item. The coupon stays valid through the end of the given date.
+ * {@code /쿠폰생성 <이름> <만료일(yyyy-MM-dd)>} — opens a 54-slot
+ * {@link CouponRewardGui}; whatever's in it when the admin closes it becomes
+ * the coupon's reward list, so one coupon can pay out several different
+ * items. The coupon stays valid through the end of the given date.
  */
 public final class CouponCreateCommand implements CommandExecutor {
 
@@ -39,9 +36,9 @@ public final class CouponCreateCommand implements CommandExecutor {
             messages.send(sender, "coupon.create-usage");
             return true;
         }
-        List<ItemStack> rewardItems = CouponInventoryPayload.take(player);
-        if (rewardItems.isEmpty()) {
-            messages.send(sender, "coupon.create-no-item");
+        String code = args[0];
+        if (couponManager.findByCode(code).isPresent()) {
+            messages.send(sender, "coupon.already-exists", Placeholder.unparsed("code", code));
             return true;
         }
         long expiresAt = CouponDateParser.parseExpiryMillis(args[1]);
@@ -54,16 +51,27 @@ public final class CouponCreateCommand implements CommandExecutor {
             return true;
         }
 
-        var result = couponManager.create(args[0], rewardItems, expiresAt);
-        if (result == CouponManager.CreateResult.ALREADY_EXISTS) {
-            CouponInventoryPayload.giveBack(player, rewardItems);
-            messages.send(sender, "coupon.already-exists", Placeholder.unparsed("code", args[0]));
-            return true;
-        }
-        messages.send(sender, "coupon.create-success",
-                Placeholder.unparsed("code", args[0]),
-                Placeholder.unparsed("expiry", args[1]),
-                Placeholder.unparsed("count", String.valueOf(rewardItems.size())));
+        new CouponRewardGui(List.of(), rewardItems -> {
+            if (rewardItems.isEmpty()) {
+                messages.send(player, "coupon.create-no-item");
+                return;
+            }
+            var result = couponManager.create(code, rewardItems, expiresAt);
+            if (result == CouponManager.CreateResult.ALREADY_EXISTS) {
+                giveBack(player, rewardItems);
+                messages.send(player, "coupon.already-exists", Placeholder.unparsed("code", code));
+                return;
+            }
+            messages.send(player, "coupon.create-success",
+                    Placeholder.unparsed("code", code),
+                    Placeholder.unparsed("expiry", args[1]),
+                    Placeholder.unparsed("count", String.valueOf(rewardItems.size())));
+        }).open(player);
         return true;
+    }
+
+    private static void giveBack(Player player, List<ItemStack> items) {
+        var leftover = player.getInventory().addItem(items.toArray(new ItemStack[0]));
+        leftover.values().forEach(extra -> player.getWorld().dropItemNaturally(player.getLocation(), extra));
     }
 }
