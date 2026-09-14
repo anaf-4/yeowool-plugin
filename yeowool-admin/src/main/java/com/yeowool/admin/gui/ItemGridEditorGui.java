@@ -1,4 +1,4 @@
-package com.yeowool.admin.coupon;
+package com.yeowool.admin.gui;
 
 import com.yeowool.core.api.gui.YeowoolGui;
 import net.kyori.adventure.text.Component;
@@ -11,17 +11,18 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * {@code /쿠폰생성}/{@code /쿠폰관리 [이름] 수정 아이템} — a plain 54-slot
- * editable inventory (every slot free-edit, see {@link YeowoolGui#setEditableSlot(int)}),
- * same pattern as {@code StarterKitEditorGui}. Whatever's left in it when the
- * admin closes the window becomes the coupon's reward list, in slot order.
+ * A plain 54-slot editable inventory (every slot free-edit, see
+ * {@link YeowoolGui#setEditableSlot(int)}) for "admin drops items in, closes
+ * the window, that becomes the saved list" flows — coupon rewards, cash
+ * package contents, and any future one like them. Whatever's left when the
+ * admin closes it is passed to {@code onSave} in slot order.
  */
-public final class CouponRewardGui extends YeowoolGui {
+public final class ItemGridEditorGui extends YeowoolGui {
 
     private final Consumer<List<ItemStack>> onSave;
 
-    public CouponRewardGui(List<ItemStack> existingItems, Consumer<List<ItemStack>> onSave) {
-        super(54, Component.text("쿠폰 보상 설정 (닫으면 저장됩니다)", NamedTextColor.GOLD));
+    public ItemGridEditorGui(String title, List<ItemStack> existingItems, Consumer<List<ItemStack>> onSave) {
+        super(54, Component.text(title, NamedTextColor.GOLD));
         this.onSave = onSave;
 
         for (int slot = 0; slot < 54; slot++) {

@@ -1,5 +1,6 @@
 package com.yeowool.admin.coupon;
 
+import com.yeowool.admin.gui.ItemGridEditorGui;
 import com.yeowool.core.api.service.MessageService;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.command.Command;
@@ -12,7 +13,7 @@ import java.util.List;
 
 /**
  * {@code /쿠폰생성 <이름> <만료일(yyyy-MM-dd)>} — opens a 54-slot
- * {@link CouponRewardGui}; whatever's in it when the admin closes it becomes
+ * {@link ItemGridEditorGui}; whatever's in it when the admin closes it becomes
  * the coupon's reward list, so one coupon can pay out several different
  * items. The coupon stays valid through the end of the given date.
  */
@@ -51,7 +52,7 @@ public final class CouponCreateCommand implements CommandExecutor {
             return true;
         }
 
-        new CouponRewardGui(List.of(), rewardItems -> {
+        new ItemGridEditorGui("쿠폰 보상 설정 (닫으면 저장됩니다)", List.of(), rewardItems -> {
             if (rewardItems.isEmpty()) {
                 messages.send(player, "coupon.create-no-item");
                 return;

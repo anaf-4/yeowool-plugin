@@ -1,5 +1,6 @@
 package com.yeowool.admin.coupon;
 
+import com.yeowool.admin.gui.ItemGridEditorGui;
 import com.yeowool.core.api.service.MessageService;
 import com.yeowool.core.util.TabCompletions;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -122,7 +123,7 @@ public final class CouponManageCommand implements CommandExecutor, TabCompleter 
             messages.send(sender, "coupon.not-found", Placeholder.unparsed("code", code));
             return;
         }
-        new CouponRewardGui(coupon.get().rewardItems(), newItems -> {
+        new ItemGridEditorGui("쿠폰 보상 설정 (닫으면 저장됩니다)", coupon.get().rewardItems(), newItems -> {
             if (newItems.isEmpty()) {
                 messages.send(player, "coupon.manage-edit-item-no-item");
                 return;

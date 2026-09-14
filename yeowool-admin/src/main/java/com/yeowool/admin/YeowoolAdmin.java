@@ -15,6 +15,12 @@ import com.yeowool.admin.catalog.CatalogConfigLoader;
 import com.yeowool.admin.check.CheckCommand;
 import com.yeowool.admin.check.CheckRedeemListener;
 import com.yeowool.admin.command.AdminCommand;
+import com.yeowool.admin.cashpackage.CashPackageCreateCommand;
+import com.yeowool.admin.cashpackage.CashPackageGiveCommand;
+import com.yeowool.admin.cashpackage.CashPackageManageCommand;
+import com.yeowool.admin.cashpackage.CashPackageManager;
+import com.yeowool.admin.cashpackage.database.CashPackageSchemaInitializer;
+import com.yeowool.admin.cashpackage.repository.CashPackageRepository;
 import com.yeowool.admin.command.CashGrantCommand;
 import com.yeowool.admin.coupon.CouponCommand;
 import com.yeowool.admin.coupon.CouponCreateCommand;
@@ -210,6 +216,27 @@ public final class YeowoolAdmin extends JavaPlugin {
         // 캐시 지급/차감 (콘솔에서도 사용 가능 - 추후 결제 대행사 웹훅을 콘솔 명령으로 연동할 때 이 명령어를 그대로 사용)
         var cashGrantCommand = new CashGrantCommand(this, core, messages);
         bindCommand("캐시지급", cashGrantCommand, cashGrantCommand);
+
+        // 캐시 패키지 (여러 아이템을 묶어서 하나의 캐시상점 상품으로 판매 - 무기/방어구 세트 등)
+        try {
+            CashPackageSchemaInitializer.initialize(core.dataSource());
+        } catch (Exception e) {
+            getLogger().severe("캐시 패키지 데이터베이스 초기화 실패: " + e.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        CashPackageRepository cashPackageRepository = new CashPackageRepository(core.dataSource());
+        CashPackageManager cashPackageManager = new CashPackageManager(this, cashPackageRepository, executor);
+        try {
+            cashPackageManager.loadAll();
+        } catch (Exception e) {
+            getLogger().severe("캐시 패키지 데이터 로드 실패: " + e.getMessage());
+        }
+        bindCommand("패키지생성", new CashPackageCreateCommand(messages, cashPackageManager));
+        var cashPackageManageCommand = new CashPackageManageCommand(messages, cashPackageManager);
+        bindCommand("패키지관리", cashPackageManageCommand, cashPackageManageCommand);
+        var cashPackageGiveCommand = new CashPackageGiveCommand(this, core, messages, cashPackageManager);
+        bindCommand("패키지지급", cashPackageGiveCommand, cashPackageGiveCommand);
 
         // 아이템밴 / 조합밴
         try {

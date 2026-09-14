@@ -76,6 +76,27 @@ coupon:
   manage-edit-duration-usage: "<red>사용법: /쿠폰관리 [이름] 수정 기간 [만료일] (예: 2026-08-23)</red>"
   manage-edit-duration-success: "<green>쿠폰 [<code>]의 만료일을 <expiry>(으)로 변경했습니다.</green>"
 
+cashpackage:
+  create-player-only: "<red>플레이어만 사용할 수 있습니다. (GUI에 아이템을 넣어 구성합니다)</red>"
+  create-usage: "<red>사용법: /패키지생성 [이름] — GUI가 열리면 패키지에 담을 아이템을 넣고 닫으세요</red>"
+  create-no-item: "<red>아이템을 하나도 넣지 않아 패키지가 생성되지 않았습니다.</red>"
+  already-exists: "<red>이미 존재하는 패키지 이름입니다: <name></red>"
+  create-success: "<green>패키지 [<name>]을(를) 생성했습니다. (아이템 <count>종)</green>"
+  not-found: "<red>존재하지 않는 패키지입니다: <name></red>"
+  manage-usage: "<red>사용법: /패키지관리 [목록] 또는 /패키지관리 [이름] [정보|삭제|수정]</red>"
+  manage-sub-usage: "<red>사용법: /패키지관리 [이름] [정보|삭제|수정]</red>"
+  manage-list-empty: "<gray>등록된 패키지가 없습니다.</gray>"
+  manage-list-header: "<gold>=== 캐시 패키지 목록 (<count>개) ===</gold>"
+  manage-list-line: "<gray>- <name> (<item>)</gray>"
+  manage-info: "<gold>패키지: <name></gold>\n<gray>구성: <item></gray>"
+  manage-remove-success: "<green>패키지 [<name>]을(를) 삭제했습니다.</green>"
+  manage-edit-player-only: "<red>플레이어만 사용할 수 있습니다. (GUI에 아이템을 넣어 교체합니다)</red>"
+  manage-edit-no-item: "<red>아이템을 하나도 넣지 않아 구성이 변경되지 않았습니다.</red>"
+  manage-edit-success: "<green>패키지 [<name>]의 구성을 변경했습니다. (<item>)</green>"
+  give-usage: "<red>사용법: /패키지지급 [닉네임] [패키지이름]</red>"
+  give-success: "<green><target>님에게 패키지 [<name>]을(를) 지급했습니다.</green>"
+  give-received: "<green>패키지 [<name>]을(를) 받았습니다!</green>"
+
 itemtool:
   need-item-in-hand: "<red>손에 아이템을 들어주세요.</red>"
   bound-set: "<green>아이템을 귀속시켰습니다.</green>"
