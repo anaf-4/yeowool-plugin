@@ -7,6 +7,8 @@ dependencies {
     // No public Maven artifact for AddCook (paid plugin) — drop the matching jar from
     // plugins/AddCook-*.jar into libs/ locally before building (see .gitignore).
     compileOnly(files("libs/AddCook-3.8.2.jar"))
+    // Same story for MCPets — drop plugins/MCPets*.jar into libs/ locally before building.
+    compileOnly(files("libs/MCPets-4.1.6.jar"))
     testImplementation("io.papermc.paper:paper-api:${rootProject.property("paperApiVersion")}")
     testImplementation(project(":yeowool-core"))
 }

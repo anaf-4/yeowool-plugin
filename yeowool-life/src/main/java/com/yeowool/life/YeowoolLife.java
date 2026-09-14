@@ -32,6 +32,7 @@ import com.yeowool.life.farming.customcrops.CustomCropsHarvestListener;
 import com.yeowool.life.farming.customcrops.CustomCropsSeasonSyncTask;
 import com.yeowool.life.cooking.addcook.CookXpListener;
 import com.yeowool.life.cooking.addcook.MyRecipesCommand;
+import com.yeowool.life.pets.MCPetsXpListener;
 import com.yeowool.life.farming.database.FarmingSchemaInitializer;
 import com.yeowool.life.farming.repository.CropRepository;
 import com.yeowool.life.dex.DexCommand;
@@ -318,6 +319,11 @@ public final class YeowoolLife extends JavaPlugin {
             }
             getServer().getPluginManager().registerEvents(
                     new CookXpListener(core, config.getLong("cooking.xp-per-cook", 5)), this);
+        }
+
+        if (Bukkit.getPluginManager().isPluginEnabled("MCPets")) {
+            getServer().getPluginManager().registerEvents(new MCPetsXpListener(core,
+                    config.getLong("pets.xp-per-tame", 20), config.getLong("pets.xp-per-levelup", 5)), this);
         }
 
         // 직업 시스템 (연금술사/대장장이/건축가/도굴꾼/인챈터/농부/어부/사냥꾼/광부/목수 - 동시에 하나만 활성화 가능)

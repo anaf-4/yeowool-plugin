@@ -3,7 +3,7 @@ version: '${version}'
 main: com.yeowool.community.YeowoolCommunity
 api-version: '1.21'
 author: Yeowool
-description: 커뮤니티 (채팅, 프로필, 칭호/업적, 이벤트, 코스메틱)
+description: 커뮤니티 (채팅, 프로필, 칭호/업적, 이벤트)
 depend: [YeowoolCore]
 softdepend: [PlaceholderAPI, ItemsAdder]
 
@@ -30,8 +30,6 @@ commands:
     description: 서버 이벤트 시작/종료/정보/보상
   서버이벤트:
     description: XP/작물드랍 배율 이벤트를 1시간 동안 시작합니다 (콘솔 사용 가능)
-  코스메틱:
-    description: 코스메틱 상점을 엽니다
   친구:
     description: 친구 추가/수락/거절/삭제/목록
   파티:

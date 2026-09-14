@@ -2,19 +2,22 @@ package com.yeowool.admin.coupon;
 
 import com.yeowool.core.api.service.MessageService;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.List;
+
 /**
- * {@code /쿠폰생성 <이름> <만료일(yyyy-MM-dd)>} — the reward is whatever's in
- * the admin's main hand at creation time (same "held item = payload"
- * convention as {@code /여울관리 우편}), so this stays a 2-argument command
- * exactly as asked rather than needing an inline item description. The
- * coupon stays valid through the end of the given date.
+ * {@code /쿠폰생성 <이름> <만료일(yyyy-MM-dd)>} — the reward is every non-empty
+ * stack in the admin's main inventory (hotbar + 27 slots, not armor/off-hand)
+ * at creation time, so one coupon can pay out several different items (same
+ * "held item = payload" convention as {@code /여울관리 우편}, just generalized
+ * from one slot to the whole inventory grid). Those slots are cleared once
+ * the coupon is created, same as the old single-item version consumed the
+ * held item. The coupon stays valid through the end of the given date.
  */
 public final class CouponCreateCommand implements CommandExecutor {
 
@@ -36,8 +39,8 @@ public final class CouponCreateCommand implements CommandExecutor {
             messages.send(sender, "coupon.create-usage");
             return true;
         }
-        ItemStack hand = player.getInventory().getItemInMainHand();
-        if (hand.getType() == Material.AIR) {
+        List<ItemStack> rewardItems = CouponInventoryPayload.take(player);
+        if (rewardItems.isEmpty()) {
             messages.send(sender, "coupon.create-no-item");
             return true;
         }
@@ -51,15 +54,16 @@ public final class CouponCreateCommand implements CommandExecutor {
             return true;
         }
 
-        var result = couponManager.create(args[0], hand, expiresAt);
+        var result = couponManager.create(args[0], rewardItems, expiresAt);
         if (result == CouponManager.CreateResult.ALREADY_EXISTS) {
+            CouponInventoryPayload.giveBack(player, rewardItems);
             messages.send(sender, "coupon.already-exists", Placeholder.unparsed("code", args[0]));
             return true;
         }
         messages.send(sender, "coupon.create-success",
                 Placeholder.unparsed("code", args[0]),
                 Placeholder.unparsed("expiry", args[1]),
-                Placeholder.unparsed("item", hand.getType().toString()));
+                Placeholder.unparsed("count", String.valueOf(rewardItems.size())));
         return true;
     }
 }

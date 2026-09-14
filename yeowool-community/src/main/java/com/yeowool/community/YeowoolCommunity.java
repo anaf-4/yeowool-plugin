@@ -23,7 +23,6 @@ import com.yeowool.community.chat.ChatListener;
 import com.yeowool.community.chat.CrossServerChatBridge;
 import com.yeowool.community.chat.ReplyCommand;
 import com.yeowool.community.chat.WhisperCommand;
-import com.yeowool.community.cosmetic.CosmeticCommand;
 import com.yeowool.community.quest.AttendanceCheckCommand;
 import com.yeowool.community.quest.AttendanceManager;
 import com.yeowool.community.quest.AttendanceRewardAmountListener;
@@ -37,8 +36,6 @@ import com.yeowool.community.quest.QuestBoardCommand;
 import com.yeowool.community.quest.QuestContext;
 import com.yeowool.community.quest.QuestLeaderboardQuery;
 import com.yeowool.community.quest.QuestManager;
-import com.yeowool.community.cosmetic.CosmeticManager;
-import com.yeowool.community.cosmetic.ParticleTrailTask;
 import com.yeowool.community.display.PlayerIdentityJoinListener;
 import com.yeowool.community.display.PlayerIdentityService;
 import com.yeowool.community.display.SidebarScoreboardTask;
@@ -97,8 +94,8 @@ import java.util.concurrent.Executors;
 
 /**
  * 커뮤니티 (기획서 9절 + 10절): 채팅, 프로필, 칭호+업적(하나의 통계 기반
- * 시스템으로 통합), 이벤트(XP 배율 + 참가 보상), 코스메틱(파티클/채팅 색상
- * 판매), 친구 시스템. PlaceholderAPI 확장과 사이드바/탭리스트도 여기서 관리한다.
+ * 시스템으로 통합), 이벤트(XP 배율 + 참가 보상), 친구 시스템. PlaceholderAPI
+ * 확장과 사이드바/탭리스트도 여기서 관리한다.
  */
 public final class YeowoolCommunity extends JavaPlugin {
 
@@ -117,7 +114,6 @@ public final class YeowoolCommunity extends JavaPlugin {
         migrateChangedDefaults();
         MessageManager messages = new MessageManager(this);
         TitleManager titleManager = new TitleManager(this, core);
-        CosmeticManager cosmeticManager = new CosmeticManager(this, core);
         RankIconManager rankIconManager = new RankIconManager(this, core);
         QuestManager questManager = new QuestManager(this, core);
 
@@ -255,7 +251,7 @@ public final class YeowoolCommunity extends JavaPlugin {
         int localRadius = getConfig().getInt("chat.local-radius", 100);
         String proxyServerId = getConfig().getString("proxy-server-id", "lobby");
         CrossServerChatBridge crossServerBridge = new CrossServerChatBridge(this, proxyServerId);
-        ChatChannelService channelService = new ChatChannelService(core, cosmeticManager, identityService, localRadius, crossServerBridge);
+        ChatChannelService channelService = new ChatChannelService(core, identityService, localRadius, crossServerBridge);
         getServer().getPluginManager().registerEvents(
                 new ChatListener(core, channelService, messages, cooldownMillis), this);
 
@@ -361,14 +357,6 @@ public final class YeowoolCommunity extends JavaPlugin {
             serverEventCommand.setExecutor(executor);
             serverEventCommand.setTabCompleter(executor);
         }
-
-        var cosmeticCommand = getCommand("코스메틱");
-        if (cosmeticCommand != null) {
-            var executor = new CosmeticCommand(core, cosmeticManager);
-            cosmeticCommand.setExecutor(executor);
-            cosmeticCommand.setTabCompleter(executor);
-        }
-        new ParticleTrailTask(core, cosmeticManager).runTaskTimer(this, 20L, 10L);
 
         new PlaytimeTracker(core).runTaskTimer(this, 20L * 60, 20L * 60);
         new AchievementCheckTask(this, titleManager, messages, core.sounds()).runTaskTimer(this, 20L * 30, 20L * 60 * 5);

@@ -344,42 +344,90 @@ tablist:
 
 # 랭크 아이콘 (/랭크아이콘 목록|부여|제거) - ItemsAdder의 font_images 기능으로
 # 채팅/탭리스트/네임태그 옆에 아이콘을 표시한다. 전투력/경제력과 무관한 순수
-# 표시용이며, 관리자가 /랭크아이콘 부여로 직접 지급한다 (칭호/코스메틱처럼
-# 플레이어가 스스로 해금하는 방식이 아님). id는 rank-icon 리소스팩의
-# beautiful_ranks.yml에 있는 font_images 키와 정확히 일치해야 한다
-# (예: ":owner_icon:" 플레이스홀더 -> id: owner_icon).
+# 표시용이며, 관리자가 /랭크아이콘 부여로 직접 지급한다 (칭호처럼 플레이어가
+# 스스로 해금하는 방식이 아님). id는 rank-icon 리소스팩의 beautiful_ranks.yml에
+# 있는 font_images 키와 정확히 일치해야 한다 (예: ":owner_icon:" 플레이스홀더
+# -> id: owner_icon). beautiful_ranks.yml의 "exemple" 키는 팩 제작사의 튜토리얼용
+# 샘플이라 제외 - 그 외 모든 키(각 랭크의 기본형+"_icon"형, 유튜브/트위치/틱톡
+# 크리에이터 뱃지까지)를 전부 등록해둠.
 # rank-icon-default-id: 아무 아이콘도 부여받지 않은 일반 플레이어에게
 # 기본으로 붙는 아이콘 id. 빈 문자열로 두면 기본 아이콘 없이 표시됨.
 rank-icon-default-id: "player_icon"
 rank-icons:
   - id: owner_icon
     display: "오너"
+  - id: owner
+    display: "오너 (베이직)"
   - id: admin_icon
     display: "관리자"
+  - id: admin
+    display: "관리자 (베이직)"
   - id: manager_icon
     display: "매니저"
+  - id: manager
+    display: "매니저 (베이직)"
   - id: dev_icon
     display: "개발자"
+  - id: dev
+    display: "개발자 (베이직)"
   - id: builder_icon
     display: "빌더"
+  - id: builder
+    display: "빌더 (베이직)"
   - id: graphiste_icon
     display: "그래픽 디자이너"
+  - id: graphiste
+    display: "그래픽 디자이너 (베이직)"
   - id: mod_icon
     display: "모더레이터"
+  - id: mod
+    display: "모더레이터 (베이직)"
   - id: helper_icon
     display: "헬퍼"
+  - id: helper
+    display: "헬퍼 (베이직)"
   - id: staff_icon
     display: "스태프"
+  - id: staff
+    display: "스태프 (베이직)"
   - id: vip_icon
     display: "VIP"
+  - id: vip
+    display: "VIP (베이직)"
   - id: vip_plus_icon
     display: "VIP+"
+  - id: vip_plus
+    display: "VIP+ (베이직)"
   - id: mvp_icon
     display: "MVP"
+  - id: mvp
+    display: "MVP (베이직)"
   - id: mvp_plus_icon
     display: "MVP+"
+  - id: mvp_plus
+    display: "MVP+ (베이직)"
   - id: player_icon
     display: "플레이어"
+  - id: player
+    display: "플레이어 (베이직)"
+  - id: ytb_icon
+    display: "유튜버"
+  - id: ytb
+    display: "유튜버 (베이직)"
+  - id: ytb_v2
+    display: "유튜버 (V2)"
+  - id: twitch_icon
+    display: "트위치 스트리머"
+  - id: twitch
+    display: "트위치 스트리머 (베이직)"
+  - id: twitch_v2
+    display: "트위치 스트리머 (V2)"
+  - id: tiktok_icon
+    display: "틱톡커"
+  - id: tiktok
+    display: "틱톡커 (베이직)"
+  - id: tiktok_v2
+    display: "틱톡커 (V2)"
 
 # 한글 닉네임 (/한글닉네임설정권) - OP가 지급한 설정권 아이템을 우클릭하면
 # 가상 모루가 열려 한글 닉네임을 입력할 수 있다. 설정한 닉네임은 채팅/
@@ -458,35 +506,6 @@ mission:
       target: DIAMOND
       goal: 50
       minutes: 30
-
-# /코스메틱 상점 (기획서 10.2) - 전투력/경제력과 무관한 순수 장식.
-# type: PARTICLE (value=파티클 이름) 또는 CHAT_COLOR (value=색상 이름 또는 #hex)
-cosmetics:
-  - id: particle_flame
-    type: PARTICLE
-    display: "<red>불꽃 오라</red>"
-    price: 20000
-    value: FLAME
-  - id: particle_heart
-    type: PARTICLE
-    display: "<light_purple>하트 오라</light_purple>"
-    price: 20000
-    value: HEART
-  - id: particle_note
-    type: PARTICLE
-    display: "<green>음표 오라</green>"
-    price: 15000
-    value: NOTE
-  - id: chatcolor_gold
-    type: CHAT_COLOR
-    display: "<gold>황금빛 이름</gold>"
-    price: 30000
-    value: gold
-  - id: chatcolor_aqua
-    type: CHAT_COLOR
-    display: "<aqua>청록빛 이름</aqua>"
-    price: 30000
-    value: aqua
 
 # /배틀패스 - FREE 트랙은 기본 열려있고, PREMIUM 트랙은 캐시로 구매(또는
 # /배틀패스 프리미엄지급 으로 관리자가 무상 지급)해야 열림. 포인트는

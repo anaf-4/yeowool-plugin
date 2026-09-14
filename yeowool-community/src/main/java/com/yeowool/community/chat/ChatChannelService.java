@@ -1,7 +1,5 @@
 package com.yeowool.community.chat;
 
-import com.yeowool.community.cosmetic.CosmeticDefinition;
-import com.yeowool.community.cosmetic.CosmeticManager;
 import com.yeowool.community.display.PlayerIdentityService;
 import com.yeowool.core.api.YeowoolCoreAPI;
 import net.kyori.adventure.text.Component;
@@ -43,16 +41,13 @@ public final class ChatChannelService {
     private static final String CHANNEL_SETTING_KEY = "chat.channel";
 
     private final YeowoolCoreAPI core;
-    private final CosmeticManager cosmeticManager;
     private final PlayerIdentityService identityService;
     private final int localRadius;
     private final CrossServerChatBridge crossServerBridge;
 
-    public ChatChannelService(YeowoolCoreAPI core, CosmeticManager cosmeticManager,
-                               PlayerIdentityService identityService, int localRadius,
+    public ChatChannelService(YeowoolCoreAPI core, PlayerIdentityService identityService, int localRadius,
                                CrossServerChatBridge crossServerBridge) {
         this.core = core;
-        this.cosmeticManager = cosmeticManager;
         this.identityService = identityService;
         this.localRadius = localRadius;
         this.crossServerBridge = crossServerBridge;
@@ -77,11 +72,7 @@ public final class ChatChannelService {
 
     /** Formats and delivers one chat message on the given channel to exactly the players (+ console) who should see it. */
     public void send(Player sender, Channel channel, String plainMessage) {
-        var data = core.playerData().getIfLoaded(sender.getUniqueId());
-        TextColor nameColor = data.flatMap(d -> cosmeticManager.equipped(d, CosmeticDefinition.Type.CHAT_COLOR))
-                .map(CosmeticDefinition::value)
-                .map(this::parseColor)
-                .orElse(NamedTextColor.WHITE);
+        TextColor nameColor = NamedTextColor.WHITE;
 
         Component channelTag = switch (channel) {
             case LOCAL -> Component.text("[지역] ", NamedTextColor.AQUA);
@@ -129,14 +120,5 @@ public final class ChatChannelService {
                         .toList();
             }
         };
-    }
-
-    private TextColor parseColor(String value) {
-        TextColor named = NamedTextColor.NAMES.value(value.toLowerCase());
-        if (named != null) {
-            return named;
-        }
-        TextColor hex = TextColor.fromHexString(value);
-        return hex != null ? hex : NamedTextColor.WHITE;
     }
 }

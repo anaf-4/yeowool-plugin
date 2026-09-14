@@ -2,6 +2,7 @@ package com.yeowool.admin.coupon.repository;
 
 import com.yeowool.admin.coupon.Coupon;
 import com.yeowool.core.util.ItemStackSerializer;
+import org.bukkit.inventory.ItemStack;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -9,6 +10,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -33,7 +35,7 @@ public final class CouponRepository {
                 String code = rs.getString("code");
                 coupons.put(code, new Coupon(
                         rs.getString("display_code"),
-                        ItemStackSerializer.deserialize(rs.getString("item_data")),
+                        List.of(ItemStackSerializer.deserializeArray(rs.getString("item_data"))),
                         rs.getLong("created_at"),
                         rs.getLong("expires_at")
                 ));
@@ -63,7 +65,7 @@ public final class CouponRepository {
                              + "created_at = VALUES(created_at), expires_at = VALUES(expires_at)")) {
             upsert.setString(1, normalizedCode);
             upsert.setString(2, coupon.code());
-            upsert.setString(3, ItemStackSerializer.serialize(coupon.rewardItem()));
+            upsert.setString(3, ItemStackSerializer.serializeArray(coupon.rewardItems().toArray(new ItemStack[0])));
             upsert.setLong(4, coupon.createdAt());
             upsert.setLong(5, coupon.expiresAt());
             upsert.executeUpdate();

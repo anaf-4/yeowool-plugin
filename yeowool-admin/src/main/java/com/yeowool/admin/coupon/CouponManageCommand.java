@@ -3,7 +3,6 @@ package com.yeowool.admin.coupon;
 import com.yeowool.core.api.service.MessageService;
 import com.yeowool.core.util.TabCompletions;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -67,7 +66,7 @@ public final class CouponManageCommand implements CommandExecutor, TabCompleter 
             String status = coupon.isExpired() ? "만료됨" : "사용 가능";
             messages.send(sender, "coupon.manage-list-line",
                     Placeholder.unparsed("code", coupon.code()),
-                    Placeholder.unparsed("item", coupon.rewardItem().getType().toString()),
+                    Placeholder.unparsed("item", describeItems(coupon.rewardItems())),
                     Placeholder.unparsed("status", status),
                     Placeholder.unparsed("expiry", FORMAT.format(Instant.ofEpochMilli(coupon.expiresAt()))));
         }
@@ -81,9 +80,7 @@ public final class CouponManageCommand implements CommandExecutor, TabCompleter 
         }
         var c = coupon.get();
         messages.send(sender, "coupon.manage-info-name", Placeholder.unparsed("code", c.code()));
-        messages.send(sender, "coupon.manage-info-reward",
-                Placeholder.unparsed("item", c.rewardItem().getType().toString()),
-                Placeholder.unparsed("amount", String.valueOf(c.rewardItem().getAmount())));
+        messages.send(sender, "coupon.manage-info-reward", Placeholder.unparsed("item", describeItems(c.rewardItems())));
         messages.send(sender, "coupon.manage-info-created",
                 Placeholder.unparsed("created", FORMAT.format(Instant.ofEpochMilli(c.createdAt()))));
         messages.send(sender, "coupon.manage-info-expiry",
@@ -120,15 +117,23 @@ public final class CouponManageCommand implements CommandExecutor, TabCompleter 
             messages.send(sender, "coupon.manage-edit-item-player-only");
             return;
         }
-        ItemStack hand = player.getInventory().getItemInMainHand();
-        if (hand.getType() == Material.AIR) {
+        var newItems = CouponInventoryPayload.take(player);
+        if (newItems.isEmpty()) {
             messages.send(sender, "coupon.manage-edit-item-no-item");
             return;
         }
-        couponManager.updateRewardItem(code, hand);
+        couponManager.updateRewardItems(code, newItems);
         messages.send(sender, "coupon.manage-edit-item-success",
                 Placeholder.unparsed("code", code),
-                Placeholder.unparsed("item", hand.getType().toString()));
+                Placeholder.unparsed("item", describeItems(newItems)));
+    }
+
+    private static String describeItems(List<ItemStack> items) {
+        if (items.size() == 1) {
+            var item = items.get(0);
+            return item.getType() + " x" + item.getAmount();
+        }
+        return items.size() + "종";
     }
 
     private void editDuration(CommandSender sender, String code, String[] args) {

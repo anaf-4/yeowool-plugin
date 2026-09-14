@@ -6,6 +6,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -53,15 +54,19 @@ public final class CouponManager {
 
     public enum CreateResult { SUCCESS, ALREADY_EXISTS }
 
-    public CreateResult create(String code, ItemStack rewardItem, long expiresAt) {
+    public CreateResult create(String code, List<ItemStack> rewardItems, long expiresAt) {
         String key = normalize(code);
         if (coupons.containsKey(key)) {
             return CreateResult.ALREADY_EXISTS;
         }
-        Coupon coupon = new Coupon(code, rewardItem.clone(), System.currentTimeMillis(), expiresAt);
+        Coupon coupon = new Coupon(code, cloneAll(rewardItems), System.currentTimeMillis(), expiresAt);
         coupons.put(key, coupon);
         persist(key, coupon);
         return CreateResult.SUCCESS;
+    }
+
+    private static List<ItemStack> cloneAll(List<ItemStack> items) {
+        return items.stream().map(ItemStack::clone).toList();
     }
 
     public boolean delete(String code) {
@@ -80,13 +85,13 @@ public final class CouponManager {
         return true;
     }
 
-    public boolean updateRewardItem(String code, ItemStack newItem) {
+    public boolean updateRewardItems(String code, List<ItemStack> newItems) {
         String key = normalize(code);
         Coupon existing = coupons.get(key);
         if (existing == null) {
             return false;
         }
-        Coupon updated = existing.withRewardItem(newItem.clone());
+        Coupon updated = existing.withRewardItems(cloneAll(newItems));
         coupons.put(key, updated);
         persist(key, updated);
         return true;

@@ -57,14 +57,19 @@ public final class CouponRedeemListener implements Listener {
         event.setResult(previewItem(coupon.get()));
     }
 
+    /** The anvil result slot only ever holds one stack, so multi-item coupons preview their first item and note the rest in lore. */
     private ItemStack previewItem(Coupon coupon) {
-        ItemStack preview = coupon.rewardItem().clone();
+        ItemStack preview = coupon.rewardItems().get(0).clone();
         ItemMeta meta = preview.getItemMeta();
         List<Component> lore = new ArrayList<>();
         if (meta.hasLore() && meta.lore() != null) {
             lore.addAll(meta.lore());
         }
         lore.add(Component.text("쿠폰: " + coupon.code(), NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+        if (coupon.rewardItems().size() > 1) {
+            lore.add(Component.text("외 " + (coupon.rewardItems().size() - 1) + "종 아이템 추가 지급", NamedTextColor.YELLOW)
+                    .decoration(TextDecoration.ITALIC, false));
+        }
         lore.add((coupon.isExpired()
                 ? Component.text("만료된 쿠폰입니다", NamedTextColor.RED)
                 : Component.text("클릭하여 쿠폰 사용", NamedTextColor.GREEN)).decoration(TextDecoration.ITALIC, false));
@@ -104,14 +109,15 @@ public final class CouponRedeemListener implements Listener {
         }
 
         couponManager.markRedeemed(coupon.get().code(), player.getUniqueId());
-        giveReward(player, coupon.get().rewardItem());
+        giveReward(player, coupon.get().rewardItems());
         messages.send(player, "coupon.redeem-success", Placeholder.unparsed("code", coupon.get().code()));
 
         Bukkit.getScheduler().runTask(plugin, () -> player.closeInventory());
     }
 
-    private void giveReward(Player player, ItemStack rewardItem) {
-        var leftover = player.getInventory().addItem(rewardItem.clone());
+    private void giveReward(Player player, List<ItemStack> rewardItems) {
+        ItemStack[] clones = rewardItems.stream().map(ItemStack::clone).toArray(ItemStack[]::new);
+        var leftover = player.getInventory().addItem(clones);
         leftover.values().forEach(extra -> player.getWorld().dropItemNaturally(player.getLocation(), extra));
     }
 

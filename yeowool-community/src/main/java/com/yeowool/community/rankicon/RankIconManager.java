@@ -15,7 +15,7 @@ import java.util.Optional;
 
 /**
  * Rank icons are admin-assigned (not purchased/unlocked), so unlike
- * {@code TitleManager}/{@code CosmeticManager} there is no "unlocked ids"
+ * {@code TitleManager} there is no "unlocked ids"
  * set — just a single equipped id per player, stored the same way via
  * {@link PlayerData#setSetting}. Players with nothing explicitly assigned
  * fall back to {@link #resolveIconId}'s configured default (e.g.

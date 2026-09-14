@@ -5,7 +5,7 @@ api-version: '1.21'
 author: Yeowool
 description: 생활 콘텐츠 (농사, 벌목, 목축, 낚시, 채광)
 depend: [YeowoolCore]
-softdepend: [ItemsAdder, CustomFishing, CustomCrops, AddCook]
+softdepend: [ItemsAdder, CustomFishing, CustomCrops, AddCook, MCPets]
 
 commands:
   도감:

@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 
 /**
  * Stores each player's chosen Korean nickname the same way
- * {@code TitleManager}/{@code CosmeticManager}/{@code RankIconManager} store
+ * {@code TitleManager}/{@code RankIconManager} store
  * their per-player state — a single {@link PlayerData} setting, no separate
  * table needed. Only holds/validates the nickname itself; applying it to
  * chat/tab-list/nametag is {@code PlayerIdentityService}'s job, and

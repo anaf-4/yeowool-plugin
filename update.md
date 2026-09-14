@@ -4,6 +4,31 @@
 
 ## 2026-09-14
 
+### 감사(audit) 결과 후속 조치 — 폐기장 몹, 코스메틱 제거, 랭크아이콘 전체화, 쿠폰 다중보상, MCPets 연동
+지난 감사에서 나온 항목들을 처리함.
+
+- **[YeowoolLife] 폐기장 일반 몹 설정**: `scrapyard.mob.ids`가 빈 배열이었는데, 로비 `MythicMobs/packs/goblin_mobs-amonde/`에 이미 있던 고블린 5종(am_goblin_brute/mage/melee/ranger/whip)으로 채움. repo 기본값 + lobby 라이브 config.yml 둘 다 반영.
+- **[YeowoolCommunity] `/코스메틱` 완전 제거**: 파티클 오라 3종 + 채팅색 2종짜리 자체 상점(`cosmetic` 패키지 전체, `CosmeticCommand/Manager/Definition/ShopGui/ParticleTrailTask`)을 삭제. 채팅 이름색을 코스메틱에서 가져오던 `ChatChannelService`의 로직도 제거하고 기본 흰색으로 되돌림. plugin.yml/config.yml의 관련 항목도 제거 (repo 기본값 + 세 서버 라이브 config.yml 전부). CosmeticsCore(설치는 돼있지만 우리 코드와 무관한 별도 플러그인)는 그대로 둠 — 이번엔 우리 자체 미니 코스메틱 상점만 없앤 것.
+- **[YeowoolCommunity] 랭크아이콘 전체 목록화**: `rank-icons`가 beautiful_ranks.yml의 "_icon" 계열 14개만 있었는데, "exemple"(팩 제작사 튜토리얼용)을 제외한 전체 — 기본형 14개 + 유튜브/트위치/틱톡 크리에이터 뱃지 9개까지 총 37개로 늘림. repo 기본값 + 세 서버 라이브 config.yml 전부 반영.
+- **[YeowoolAdmin] 쿠폰 다중 보상 지원**: 지금까지 `/쿠폰생성`이 주손 아이템 1개만 등록 가능했는데, 이제 **인벤토리(핫바+27칸)에 든 아이템 전부**를 보상으로 등록/수정할 수 있도록 [Coupon.java](yeowool-admin/src/main/java/com/yeowool/admin/coupon/Coupon.java) 등 관련 클래스 전체(`CouponManager`, `CouponRepository`, `CouponCreateCommand`, `CouponManageCommand`, `CouponRedeemListener`)를 `ItemStack` → `List<ItemStack>`로 변경. DB 저장은 기존 `ItemStackSerializer.serializeArray`(cross-server 인벤토리 동기화에 이미 쓰던 것) 재사용이라 스키마 변경 없음. 모루 미리보기는 한 칸만 있어서 첫 번째 아이템만 보여주고 "외 N종 추가 지급" 문구를 붙임.
+- **[YeowoolLife] MCPets 연동**: 길들이기(`PetTamedByPlayerEvent`)와 레벨업(`PetLevelUpEvent`) 시 land XP 지급하도록 [MCPetsXpListener.java](yeowool-life/src/main/java/com/yeowool/life/pets/MCPetsXpListener.java) 신규 작성 (`pets.xp-per-tame: 20`, `pets.xp-per-levelup: 5`). AddCook과 마찬가지로 MCPets도 공개 Maven 저장소가 없어서 `yeowool-life/libs/MCPets-4.1.6.jar`을 로컬 참조로 추가(gitignore 처리, 빌드 전 `plugins/MCPets*.jar` 복사 필요).
+- **커스텀 작물(ItemsAdder) 연동은 보류**: `custom-farming.crops`에 실제로 등록할 수 있는 "성장 단계가 있는 심는 작물" 콘텐츠가 서버에 전혀 없음(moafarm_items는 성장 없는 단순 보상용 아이템, customcrops 폴더는 별도 CustomCrops 플러그인용 리소스팩). 실제 자산이 생기면 등록 가능 — 코드는 이미 완성되어 있음.
+- SkBee(사장님이 아직 Sk 스크립트 안 만드심)와 NPC 상점(추후 예정)은 이번엔 손대지 않음.
+
+lobby/town/wild 세 서버 모두 배포함. 세 서버 모두 **재시작 필요**.
+
+
+### 야생 서버 — 커스텀 광물(W6 Custom Mining) 자연 스폰 활성화
+`/광석소환`으로 수동 소환은 됐지만 자연 스폰이 전혀 안 되던 문제. 원인은 `[MythicMobs]` `config/config-spawning.yml`의 `RandomSpawning.GenerateSpawnPoints: false` — 이게 꺼져 있으면 `randomspawns/workshop_six/w6_custom_mining_spawns.yml`에 광물 몹 스폰 규칙(석탄/구리/철/금/다이아/에메랄드/청금석/레드스톤/자수정/쿼츠/네더라이트, 총 11종)이 이미 다 있어도 MythicMobs가 스폰 위치 생성 자체를 안 함. `GenerateSpawnPoints: true`로 켜고, 기존 설정이 쓰던 필드(SpawnRadiusPerPlayer 등)에 맞는 생성 방식인 `Generator: LEGACY`로 지정(MythicMobs JAR 안 `GeneratorType` enum 확인: NONE/CLUSTER/REGIONAL/LEGACY 중 기존 필드 구성과 일치하는 값). **야생 서버에만** 적용(사장님이 야생만 요청).
+
+야생 서버 **재시작 필요**.
+
+### 야생 서버 — 네더라이트/석영 광물은 자연 스폰에서 제외
+`[MythicMobs]` `randomspawns/workshop_six/w6_custom_mining_spawns.yml`에서 `quartz_ore`/`netherite_ore` 항목을 주석 처리해서 자연 스폰 목록에서 뺌(나머지 9종은 그대로 자연 스폰). `/광석소환 석영`, `/광석소환 네더라이트`로 수동 소환은 그대로 가능.
+
+야생 서버 **재시작 필요**.
+
+
 ### 작물 드랍 2배 이벤트를 CustomCrops(외부 플러그인)에도 적용, 요리/커스텀 작물 XP 추가
 - **작물 드랍 배율이 CustomCrops 플러그인 작물에도 적용**: 기존엔 바닐라 작물(밀/당근 등)에만 적용됐음. CustomCrops의 공식 API(`net.momirealms:custom-crops`, momirealms 저장소에서 가져옴)의 `DropItemActionEvent`를 새로 걸어서 [CustomCropsHarvestListener.java](yeowool-life/src/main/java/com/yeowool/life/farming/customcrops/CustomCropsHarvestListener.java)에서 같은 배율을 적용하도록 함.
 - **CustomCrops 작물도 이제 수확 시 XP를 줌**: 지금까지 계절 동기화만 있고 XP는 전혀 안 주고 있었음 — CustomCrops의 `CropBreakEvent`(플레이어가 직접 부순 + 다 자란 마지막 단계일 때만)로 새로 연결. `config.yml`에 `customcrops.xp-per-harvest: 5` 추가.
