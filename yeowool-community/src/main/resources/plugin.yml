@@ -84,7 +84,9 @@ commands:
   내설정:
     description: 개인 설정(로비 배경음악 등)을 켜고 끕니다
   명예의전당:
-    description: 돈/마을/접속시간 순위 TOP 10을 확인합니다 (관리자는 동상설정 하위 명령어 사용 가능)
+    description: 순위 1~3위 동상 위치를 설정합니다 (관리자 전용, Citizens 설치 시에만 동작)
+    permission: yeowool.community.ranking.manage
+    default: op
 
 permissions:
   yeowool.event.manage:

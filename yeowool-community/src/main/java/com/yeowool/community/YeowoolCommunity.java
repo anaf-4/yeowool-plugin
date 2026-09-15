@@ -390,7 +390,7 @@ public final class YeowoolCommunity extends JavaPlugin {
         rankingManager.refreshRepeating(20L * 60 * getConfig().getLong("ranking.refresh-interval-minutes", 5));
         var rankingCommand = getCommand("명예의전당");
         if (rankingCommand != null) {
-            var rankingCommandExecutor = new RankingCommand(messages, rankingManager, finalStatueManager);
+            var rankingCommandExecutor = new RankingCommand(messages, finalStatueManager);
             rankingCommand.setExecutor(rankingCommandExecutor);
             rankingCommand.setTabCompleter(rankingCommandExecutor);
         }
