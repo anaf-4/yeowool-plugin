@@ -79,13 +79,15 @@ public final class VerifyRepository {
         }
     }
 
-    public void enqueueRoleGrant(String discordId, String roleId) throws SQLException {
+    /** {@code minecraftUsername} lets the bot include the account name in the "연동 완료" DM it sends after granting the role. */
+    public void enqueueRoleGrant(String discordId, String roleId, String minecraftUsername) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement insert = connection.prepareStatement(
-                     "INSERT INTO yw_discord_role_grant_queue (discord_id, role_id, created_at) VALUES (?, ?, ?)")) {
+                     "INSERT INTO yw_discord_role_grant_queue (discord_id, role_id, minecraft_username, created_at) VALUES (?, ?, ?, ?)")) {
             insert.setString(1, discordId);
             insert.setString(2, roleId);
-            insert.setLong(3, System.currentTimeMillis());
+            insert.setString(3, minecraftUsername);
+            insert.setLong(4, System.currentTimeMillis());
             insert.executeUpdate();
         }
     }

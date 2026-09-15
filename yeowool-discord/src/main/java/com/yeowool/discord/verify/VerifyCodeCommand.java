@@ -64,7 +64,7 @@ public final class VerifyCodeCommand implements CommandExecutor {
                 }
                 repository.link(player.getUniqueId(), pending.get().discordId(), player.getName());
                 repository.markCodeUsed(code);
-                repository.enqueueRoleGrant(pending.get().discordId(), verifyRoleId);
+                repository.enqueueRoleGrant(pending.get().discordId(), verifyRoleId, player.getName());
                 Bukkit.getScheduler().runTask(plugin, () -> player.sendMessage(
                         "§a디스코드 계정(§f" + pending.get().discordUsername() + "§a) 연동이 완료되었습니다! 잠시 후 역할이 지급됩니다."));
             } catch (SQLException e) {

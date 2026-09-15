@@ -88,6 +88,7 @@ public final class DiscordSchemaInitializer {
                 id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 discord_id VARCHAR(32) NOT NULL,
                 role_id VARCHAR(32) NOT NULL,
+                minecraft_username VARCHAR(16) NOT NULL DEFAULT '',
                 created_at BIGINT NOT NULL,
                 processed_at BIGINT NULL,
                 result VARCHAR(255) NULL,
@@ -109,6 +110,9 @@ public final class DiscordSchemaInitializer {
             // 이 테이블이 action 컬럼 없이 이미 만들어져 있던 서버를 위한 추가 마이그레이션
             // (경고 회수 기능을 나중에 추가하면서 생김).
             addColumnIfMissing(connection, "yw_discord_warn_queue", "action", "VARCHAR(16) NOT NULL DEFAULT 'GRANT'");
+            // 이 테이블이 minecraft_username 컬럼 없이 이미 만들어져 있던 서버를 위한 추가
+            // 마이그레이션 (역할 지급 완료 DM에 계정 이름을 넣기 위해 나중에 추가됨).
+            addColumnIfMissing(connection, "yw_discord_role_grant_queue", "minecraft_username", "VARCHAR(16) NOT NULL DEFAULT ''");
         }
     }
 
