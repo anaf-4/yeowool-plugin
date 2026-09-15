@@ -68,6 +68,31 @@ public final class DiscordSchemaInitializer {
                 result VARCHAR(255) NULL,
                 INDEX idx_unprocessed (processed_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            // 디스코드 /인증 슬래시 명령어가 써두는 1회용 코드. 게임의 /인증코드가 이걸
+            // 확인해서 yw_account_links에 연동을 기록한다 - see VerifyCommand.
+            """
+            CREATE TABLE IF NOT EXISTS yw_discord_verify_codes (
+                code CHAR(4) NOT NULL PRIMARY KEY,
+                discord_id VARCHAR(32) NOT NULL,
+                discord_username VARCHAR(64) NOT NULL,
+                created_at BIGINT NOT NULL,
+                expires_at BIGINT NOT NULL,
+                used_at BIGINT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            // 게임 → 디스코드 방향: /인증코드로 연동이 확정되면 여기에 역할 부여 요청을
+            // 남기고, JS 봇이 폴링해서 실제로 역할을 지급한다 (warn_queue와 같은 패턴).
+            """
+            CREATE TABLE IF NOT EXISTS yw_discord_role_grant_queue (
+                id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                discord_id VARCHAR(32) NOT NULL,
+                role_id VARCHAR(32) NOT NULL,
+                created_at BIGINT NOT NULL,
+                processed_at BIGINT NULL,
+                result VARCHAR(255) NULL,
+                INDEX idx_unprocessed (processed_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """
     );
 

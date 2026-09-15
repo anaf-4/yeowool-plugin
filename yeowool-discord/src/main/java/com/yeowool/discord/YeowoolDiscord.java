@@ -3,6 +3,8 @@ package com.yeowool.discord;
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.util.ConfigMerger;
 import com.yeowool.discord.database.DiscordSchemaInitializer;
+import com.yeowool.discord.verify.VerifyCodeCommand;
+import com.yeowool.discord.verify.VerifyRepository;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -23,6 +25,10 @@ import java.util.concurrent.Executors;
  *     <li>Polls {@code yw_discord_warn_queue} ({@link DiscordWarnQueuePoller})
  *     for 경고 requests the bot's {@code /경고} slash command queued, and
  *     applies them through the real {@code /경고 지급} code path.</li>
+ *     <li>{@code /인증코드} ({@link VerifyCodeCommand}) consumes a code the
+ *     bot's {@code /인증} slash command generated, links the account in
+ *     {@code yw_account_links}, and queues a role grant for the bot to
+ *     actually apply (only it can call the Discord API).</li>
  * </ol>
  * The game→Discord direction (경고 log relay, 공지 relay) needs no code here
  * at all — {@code /경고 지급} already writes to {@code yw_punishments}, and
@@ -61,6 +67,14 @@ public final class YeowoolDiscord extends JavaPlugin {
         var reloadCommand = getCommand("디스코드리로드");
         if (reloadCommand != null) {
             reloadCommand.setExecutor(reloadExecutor(core));
+        }
+
+        // /인증(디스코드) ↔ /인증코드(게임) 계정 연동
+        String verifyRoleId = getConfig().getString("verify-role-id", "");
+        var verifyRepository = new VerifyRepository(core.dataSource());
+        var verifyCommand = getCommand("인증코드");
+        if (verifyCommand != null) {
+            verifyCommand.setExecutor(new VerifyCodeCommand(this, verifyRepository, executor, verifyRoleId));
         }
 
         int autoBanThreshold = getConfig().getInt("moderation.auto-ban-threshold", 10);

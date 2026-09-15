@@ -11,3 +11,5 @@ commands:
     description: 디스코드 설정(config.yml)을 DB에 다시 반영합니다
     permission: yeowool.discord.reload
     default: op
+  인증코드:
+    description: 디스코드에서 /인증으로 받은 4자리 코드를 입력해 계정을 연동합니다

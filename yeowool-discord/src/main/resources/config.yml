@@ -30,6 +30,9 @@ announcement-channel-id: ""
 # /경고, 티켓 처리 등 운영 명령어를 쓸 수 있는 역할(Role) ID.
 staff-role-id: ""
 
+# 디스코드에서 /인증 → 게임에서 /인증코드로 계정 연동을 마치면 부여할 역할(Role) ID.
+verify-role-id: ""
+
 # 티켓 유형별로 채널이 생성될 카테고리. /티켓 실행 시 여기 등록된 유형들이 드롭다운으로
 # 나타나고, 고른 유형에 맞는 카테고리 밑에 채널이 생성됩니다.
 ticket-categories:
