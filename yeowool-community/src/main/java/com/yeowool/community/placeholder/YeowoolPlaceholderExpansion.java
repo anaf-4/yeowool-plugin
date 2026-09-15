@@ -2,9 +2,12 @@ package com.yeowool.community.placeholder;
 
 import com.yeowool.community.party.PartyManager;
 import com.yeowool.community.profile.PlaytimeTracker;
+import com.yeowool.community.ranking.RankingCategory;
+import com.yeowool.community.ranking.RankingManager;
 import com.yeowool.community.title.TitleDefinition;
 import com.yeowool.community.title.TitleManager;
 import com.yeowool.core.api.YeowoolCoreAPI;
+import com.yeowool.core.util.DurationFormat;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -23,12 +26,14 @@ public final class YeowoolPlaceholderExpansion extends PlaceholderExpansion {
     private final YeowoolCoreAPI core;
     private final TitleManager titleManager;
     private final PartyManager partyManager;
+    private final RankingManager rankingManager;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
-    public YeowoolPlaceholderExpansion(YeowoolCoreAPI core, TitleManager titleManager, PartyManager partyManager) {
+    public YeowoolPlaceholderExpansion(YeowoolCoreAPI core, TitleManager titleManager, PartyManager partyManager, RankingManager rankingManager) {
         this.core = core;
         this.titleManager = titleManager;
         this.partyManager = partyManager;
+        this.rankingManager = rankingManager;
     }
 
     @Override
@@ -53,6 +58,9 @@ public final class YeowoolPlaceholderExpansion extends PlaceholderExpansion {
 
     @Override
     public String onRequest(OfflinePlayer player, String params) {
+        if (params.startsWith("rank_")) {
+            return rankingPlaceholder(params);
+        }
         if (player == null) {
             return switch (params) {
                 case "online" -> String.valueOf(Bukkit.getOnlinePlayers().size());
@@ -92,6 +100,43 @@ public final class YeowoolPlaceholderExpansion extends PlaceholderExpansion {
                     .flatMap(titleManager::find)
                     .map(TitleDefinition::display)
                     .orElse("");
+            default -> null;
+        };
+    }
+
+    /**
+     * {@code %yeowool_rank_<money|land|playtime>_<1-10>_<name|value>%} — no
+     * player context needed (server-wide leaderboard), so a sign/hologram
+     * plugin can use it directly. Out-of-range or empty ranks resolve to
+     * {@code ""}/{@code "0"} the same way {@link #partySlotPlaceholder} does.
+     */
+    private String rankingPlaceholder(String params) {
+        String[] parts = params.split("_", 4);
+        if (parts.length != 4) {
+            return null;
+        }
+        RankingCategory category = RankingCategory.byPlaceholderKeyword(parts[1]);
+        int position;
+        try {
+            position = Integer.parseInt(parts[2]);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        if (category == null || position < 1 || position > 10) {
+            return null;
+        }
+        var top = rankingManager.top(category);
+        if (position > top.size()) {
+            return parts[3].equals("name") ? "" : "0";
+        }
+        var entry = top.get(position - 1);
+        return switch (parts[3]) {
+            case "name" -> entry.username();
+            case "value" -> switch (category) {
+                case MONEY -> String.format("%,d", entry.value());
+                case LAND -> String.valueOf(entry.value());
+                case PLAYTIME -> DurationFormat.humanize(entry.value() * 60_000L);
+            };
             default -> null;
         };
     }

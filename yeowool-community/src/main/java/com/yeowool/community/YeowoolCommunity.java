@@ -68,6 +68,12 @@ import com.yeowool.community.party.PartyPresenceTask;
 import com.yeowool.community.party.PartyRepository;
 import com.yeowool.community.party.PartySchemaInitializer;
 import com.yeowool.community.placeholder.YeowoolPlaceholderExpansion;
+import com.yeowool.community.ranking.RankingCommand;
+import com.yeowool.community.ranking.RankingManager;
+import com.yeowool.community.ranking.RankingRepository;
+import com.yeowool.community.ranking.statue.RankingStatueManager;
+import com.yeowool.community.ranking.statue.RankingStatueRepository;
+import com.yeowool.community.ranking.statue.RankingStatueSchemaInitializer;
 import com.yeowool.community.playtime.PlaytimeCommand;
 import com.yeowool.community.playtime.PlaytimeManager;
 import com.yeowool.community.playtime.PlaytimeRewardAmountListener;
@@ -361,8 +367,36 @@ public final class YeowoolCommunity extends JavaPlugin {
         new PlaytimeTracker(core).runTaskTimer(this, 20L * 60, 20L * 60);
         new AchievementCheckTask(this, titleManager, messages, core.sounds()).runTaskTimer(this, 20L * 30, 20L * 60 * 5);
 
+        // 명예의 전당 (/명예의전당) - 돈/마을/접속시간 순위, Citizens 설치 시 1~3위 동상 표시
+        RankingRepository rankingRepository = new RankingRepository(core.dataSource());
+        RankingManager rankingManager = new RankingManager(this, rankingRepository, executor);
+        RankingStatueManager rankingStatueManager = null;
+        if (Bukkit.getPluginManager().isPluginEnabled("Citizens")) {
+            try {
+                RankingStatueSchemaInitializer.initialize(core.dataSource());
+                RankingStatueRepository statueRepository = new RankingStatueRepository(core.dataSource());
+                rankingStatueManager = new RankingStatueManager(this, statueRepository, executor);
+                rankingStatueManager.loadAndSpawn();
+            } catch (Exception e) {
+                getLogger().severe("명예의 전당 동상 데이터베이스 초기화 실패: " + e.getMessage());
+            }
+        }
+        RankingStatueManager finalStatueManager = rankingStatueManager;
+        rankingManager.onRefreshed(category -> {
+            if (finalStatueManager != null) {
+                finalStatueManager.onRankingRefreshed(category, rankingManager.top(category));
+            }
+        });
+        rankingManager.refreshRepeating(20L * 60 * getConfig().getLong("ranking.refresh-interval-minutes", 5));
+        var rankingCommand = getCommand("명예의전당");
+        if (rankingCommand != null) {
+            var rankingCommandExecutor = new RankingCommand(messages, rankingManager, finalStatueManager);
+            rankingCommand.setExecutor(rankingCommandExecutor);
+            rankingCommand.setTabCompleter(rankingCommandExecutor);
+        }
+
         if (getServer().getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            new YeowoolPlaceholderExpansion(core, titleManager, partyManager).register();
+            new YeowoolPlaceholderExpansion(core, titleManager, partyManager, rankingManager).register();
             getLogger().info("PlaceholderAPI 확장을 등록했습니다. (%yeowool_...%)");
         }
 

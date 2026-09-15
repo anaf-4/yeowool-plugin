@@ -5,7 +5,7 @@ api-version: '1.21'
 author: Yeowool
 description: 커뮤니티 (채팅, 프로필, 칭호/업적, 이벤트)
 depend: [YeowoolCore]
-softdepend: [PlaceholderAPI, ItemsAdder]
+softdepend: [PlaceholderAPI, ItemsAdder, Citizens]
 
 commands:
   프로필:
@@ -83,6 +83,8 @@ commands:
     description: 통합 메뉴를 엽니다 (웅크린 채로 손 바꾸기 키를 눌러도 열림)
   내설정:
     description: 개인 설정(로비 배경음악 등)을 켜고 끕니다
+  명예의전당:
+    description: 돈/마을/접속시간 순위 TOP 10을 확인합니다 (관리자는 동상설정 하위 명령어 사용 가능)
 
 permissions:
   yeowool.event.manage:
@@ -105,4 +107,7 @@ permissions:
     default: op
   yeowool.community.battlepass.manage:
     description: 배틀패스 보상을 직접 수정하거나 프리미엄을 무상 지급할 수 있는 권한
+    default: op
+  yeowool.community.ranking.manage:
+    description: 명예의 전당 동상 위치를 설정할 수 있는 권한
     default: op

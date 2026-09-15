@@ -352,6 +352,12 @@ tablist:
 # 크리에이터 뱃지까지)를 전부 등록해둠.
 # rank-icon-default-id: 아무 아이콘도 부여받지 않은 일반 플레이어에게
 # 기본으로 붙는 아이콘 id. 빈 문자열로 두면 기본 아이콘 없이 표시됨.
+# 명예의 전당 (/명예의전당) - 돈(온 지갑+은행)/마을(토지 레벨)/접속시간 순위 TOP 10.
+# OP 권한을 가진 플레이어는 순위에서 제외됨. 1~3위 동상은 Citizens가 설치되어
+# 있을 때만 동작 (/명예의전당 동상설정으로 위치 등록).
+ranking:
+  refresh-interval-minutes: 5
+
 rank-icon-default-id: "player_icon"
 rank-icons:
   - id: owner_icon

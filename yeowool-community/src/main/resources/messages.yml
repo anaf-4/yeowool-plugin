@@ -162,6 +162,13 @@ rankicon:
   assign-success: "<green><player>님에게 랭크 아이콘 <icon>을(를) 부여했습니다.</green>"
   clear-success: "<green><player>님의 랭크 아이콘을 제거했습니다.</green>"
 
+ranking:
+  usage: "<red>사용법: /명예의전당 [돈|마을|접속시간]</red>"
+  empty: "<gray><category> 순위 데이터가 아직 없습니다.</gray>"
+  statue-unavailable: "<red>Citizens 플러그인이 설치되어 있지 않아 동상 기능을 사용할 수 없습니다.</red>"
+  statue-usage: "<red>사용법: /명예의전당 동상설정 [돈|마을|접속시간] [1|2|3] (지금 서 있는 위치에 등록됩니다)</red>"
+  statue-success: "<green><category> 순위 <position>위 동상 위치를 현재 위치로 등록했습니다.</green>"
+
 nickname:
   player-not-found: "<red>플레이어를 찾을 수 없습니다. (온라인 상태여야 합니다)</red>"
   voucher-received: "<gold>한글 닉네임 설정권을 받았습니다. 우클릭하여 사용하세요.</gold>"
