@@ -1,0 +1,25 @@
+name: YeowoolQuest
+version: '${version}'
+main: com.yeowool.quest.YeowoolQuest
+api-version: '1.21'
+author: Yeowool
+description: Citizens NPC 퀘스트 (대사/수락/거절, 몹처치·아이템수집 목표, 아이템 보상)
+depend: [YeowoolCore, Citizens]
+softdepend: [PlaceholderAPI, BetterHud]
+
+commands:
+  퀘스트:
+    description: 퀘스트 생성/대사/목표/보상/삭제 (관리자, 시티즌 NPC 선택 필요)
+    permission: yeowool.quest.manage
+    default: op
+  퀘스트수락:
+    description: 대사 중 제시된 퀘스트를 수락합니다
+  퀘스트거절:
+    description: 대사 중 제시된 퀘스트를 거절합니다
+  퀘스트대사다음:
+    description: 퀘스트 대사를 다음 줄로 진행합니다
+
+permissions:
+  yeowool.quest.manage:
+    description: 퀘스트를 생성/수정/삭제할 수 있는 권한
+    default: op

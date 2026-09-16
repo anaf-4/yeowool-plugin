@@ -1,0 +1,4 @@
+betterhud:
+  # BetterHud 설치 후 이 이름으로 팝업(YAML) 파일을 만들어주세요.
+  dialogue-popup: yeowool_quest_dialogue
+  decision-popup: yeowool_quest_decision

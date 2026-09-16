@@ -12,5 +12,6 @@ include(
     "yeowool-teleport",
     "yeowool-proxy",
     "yeowool-discord",
-    "yeowool-enhance"
+    "yeowool-enhance",
+    "yeowool-quest"
 )

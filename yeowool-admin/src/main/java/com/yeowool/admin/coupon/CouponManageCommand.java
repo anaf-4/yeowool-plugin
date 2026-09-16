@@ -1,6 +1,6 @@
 package com.yeowool.admin.coupon;
 
-import com.yeowool.admin.gui.ItemGridEditorGui;
+import com.yeowool.core.api.gui.ItemGridEditorGui;
 import com.yeowool.core.api.service.MessageService;
 import com.yeowool.core.util.TabCompletions;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;

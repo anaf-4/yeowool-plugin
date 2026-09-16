@@ -1,6 +1,5 @@
-package com.yeowool.admin.gui;
+package com.yeowool.core.api.gui;
 
-import com.yeowool.core.api.gui.YeowoolGui;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
@@ -12,10 +11,10 @@ import java.util.function.Consumer;
 
 /**
  * A plain 54-slot editable inventory (every slot free-edit, see
- * {@link YeowoolGui#setEditableSlot(int)}) for "admin drops items in, closes
- * the window, that becomes the saved list" flows — coupon rewards, cash
- * package contents, and any future one like them. Whatever's left when the
- * admin closes it is passed to {@code onSave} in slot order.
+ * {@link #setEditableSlot(int)}) for "admin drops items in, closes the
+ * window, that becomes the saved list" flows — coupon rewards, cash package
+ * contents, quest rewards, and any future one like them. Whatever's left
+ * when the admin closes it is passed to {@code onSave} in slot order.
  */
 public final class ItemGridEditorGui extends YeowoolGui {
 

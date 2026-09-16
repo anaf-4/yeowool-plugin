@@ -4,6 +4,18 @@
 
 ## 2026-09-16
 
+### Citizens 연동 퀘스트 시스템 신규 추가 (YeowoolQuest)
+유튜브 영상(BetterHud + Citizens 조합)을 참고해서 요청주신 퀘스트 시스템을 새 모듈 `yeowool-quest`로 만듦. 원래는 Skript 스크립트로 구상하셨지만 "플러그인 형식으로 만들어 줘도 돼"라고 하셔서 순수 Java 플러그인으로 구현.
+- NPC를 우클릭하면 그 NPC가 가진 퀘스트 목록이 뜨고(1개면 바로 시작, 여러 개면 GUI 목록), 대사가 순서대로 나온 뒤 수락/거절 선택. 대사 줄 수 제한 없음.
+- 목표 종류: **몹 처치**, **아이템 수집**, **대사만 있고 목표 없음**(즉시 완료) — 요청하신 3가지 그대로.
+- 보상은 아이템만 (기존 쿠폰/캐시패키지에서 쓰던 54칸 GUI 아이템 편집기 재사용 — `ItemGridEditorGui`를 `yeowool-core`로 옮겨서 3번째로 공용화함).
+- 관리자 명령어: `/퀘스트 생성|대사|대사초기화|목표|보상|목록|정보|삭제` (Citizens에서 NPC를 먼저 선택해야 `생성` 가능), `/퀘스트수락`, `/퀘스트거절`, `/퀘스트대사다음`.
+- 플레이스홀더(`%yeowool_quest_이름/대사/진행도%` 등) 제공 — BetterHud 팝업 설정에서 이 값들을 읽어서 화면에 그리는 용도.
+- **BetterHud 연동은 절반만 자동화됨**: 대사/수락선택 타이밍마다 BetterHud의 `CustomPopupEvent`를 쏴주는 것까지는 만들어놨지만(리플렉션으로 호출해서 BetterHud 없어도 플러그인은 정상 동작 — 안 깔려있으면 채팅으로만 표시됨), 그 팝업이 실제로 어떻게 생겼는지(대사창 UI, "SHIFT▷ 계속" 표시, 수락/거절 버튼)는 BetterHud를 직접 설치하신 뒤 BetterHud 자체 설정 파일(`config.yml`의 `betterhud.dialogue-popup`/`decision-popup`에 적힌 이름의 팝업 2개)로 사장님이 만드셔야 함. 버튼 입력은 `/퀘스트대사다음`, `/퀘스트수락`, `/퀘스트거절` 명령어를 실행하도록 걸어주시면 됨. BetterHud가 없는 지금 상태에서도 대사/수락/거절/목표진행은 채팅으로 전부 정상 동작.
+- Citizens는 필수 의존(`depend`) — 세 서버 모두 이미 설치되어 있는 것 확인함.
+
+lobby, town, wild 세 곳 모두 `yeowool-quest` 신규 jar + `yeowool-core`/`yeowool-admin` jar(ItemGridEditorGui 이동으로 같이 바뀜) 배포 완료. **재시작 필요** (신규 테이블 `yw_quests`/`yw_quest_dialogue`/`yw_quest_progress` 생성).
+
 ### 디스코드 인증 완료 DM 추가
 역할 지급이 끝나면 봇이 개인 DM으로 "인증이 완료되었습니다. 마인크래프트 계정(닉네임)과 연동이 되었습니다."를 보내도록 함. `yw_discord_role_grant_queue`에 `minecraft_username` 컬럼 추가(기존 서버는 자동 마이그레이션). JS 봇 쪽 변경은 파일로 안 보내고 메시지로 diff만 전달함(사장님 요청).
 
