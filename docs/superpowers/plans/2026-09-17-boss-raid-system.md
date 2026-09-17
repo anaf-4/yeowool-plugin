@@ -2311,6 +2311,7 @@ git commit -m "Add /레이드 admin command"
 package com.yeowool.raid;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
+import com.yeowool.core.util.ConfigMerger;
 import com.yeowool.raid.database.RaidDefinitionRepository;
 import com.yeowool.raid.database.RaidInstanceRepository;
 import com.yeowool.raid.database.RaidSchemaInitializer;
@@ -2344,7 +2345,7 @@ public final class YeowoolRaid extends JavaPlugin {
             return;
         }
 
-        saveDefaultConfig();
+        ConfigMerger.mergeDefaults(this, "config.yml");
         this.executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "YeowoolRaid-Worker");
             thread.setDaemon(true);
@@ -2399,7 +2400,7 @@ public final class YeowoolRaid extends JavaPlugin {
 }
 ```
 
-Check `saveDefaultConfig()`'s interaction with this codebase's established `ConfigMerger.mergeDefaults(this, "config.yml")` pattern (used by `yeowool-quest`'s `YeowoolQuest.onEnable()` instead of the vanilla Paper `saveDefaultConfig()`) — use `ConfigMerger.mergeDefaults` here too for consistency, not the vanilla method shown above; this plan's Step 1 code uses the vanilla call as a placeholder for what should be the established idiom, fix before compiling.
+`ConfigMerger.mergeDefaults(this, "config.yml")` (`yeowool-core/src/main/java/com/yeowool/core/util/ConfigMerger.java`, signature `static void mergeDefaults(JavaPlugin, String)`) is this codebase's established config-loading idiom — `yeowool-quest`'s `YeowoolQuest.onEnable()` already uses it instead of Paper's vanilla `saveDefaultConfig()`, and the code above follows the same pattern.
 
 - [ ] **Step 2: Build the whole module**
 
