@@ -77,18 +77,38 @@ public final class RaidEntryService {
             raidManager.releaseReservedSlot(raid.id(), slotIndex);
             return;
         }
+        RaidInstanceSlot s = slot.get();
+        if (s.entry() == null || s.bossSpawn() == null || s.exit() == null || s.boundMin() == null || s.boundMax() == null) {
+            plugin.getLogger().severe("레이드 " + raid.name() + " 슬롯 " + slotIndex + " 좌표가 아직 다 설정되지 않았습니다.");
+            raidManager.releaseReservedSlot(raid.id(), slotIndex);
+            leader.sendMessage(Component.text("이 레이드의 인스턴스 좌표가 아직 다 설정되지 않았습니다. 관리자에게 문의하세요.", NamedTextColor.RED));
+            return;
+        }
+
+        io.lumine.mythic.core.mobs.ActiveMob activeMob;
+        try {
+            activeMob = mythicMob.get().spawn(io.lumine.mythic.bukkit.BukkitAdapter.adapt(s.bossSpawn()), 1.0);
+        } catch (Exception e) {
+            plugin.getLogger().log(java.util.logging.Level.SEVERE, "레이드 " + raid.name() + " 보스 소환 실패", e);
+            raidManager.releaseReservedSlot(raid.id(), slotIndex);
+            leader.sendMessage(Component.text("보스를 소환하지 못했습니다. 관리자에게 문의하세요.", NamedTextColor.RED));
+            return;
+        }
+        if (activeMob == null) {
+            plugin.getLogger().severe("레이드 " + raid.name() + " 보스 소환 실패 (ActiveMob == null)");
+            raidManager.releaseReservedSlot(raid.id(), slotIndex);
+            leader.sendMessage(Component.text("보스를 소환하지 못했습니다. 관리자에게 문의하세요.", NamedTextColor.RED));
+            return;
+        }
+        UUID bossEntityId = activeMob.getUniqueId();
 
         RaidTicketUtil.remove(leader, raid.ticketItemId(), raid.ticketAmount());
         for (UUID memberId : party.members()) {
             Player member = Bukkit.getPlayer(memberId);
             if (member != null) {
-                member.teleport(slot.get().entry());
+                member.teleport(s.entry());
             }
         }
-
-        var activeMob = mythicMob.get().spawn(
-                io.lumine.mythic.bukkit.BukkitAdapter.adapt(slot.get().bossSpawn()), 1.0);
-        UUID bossEntityId = activeMob.getUniqueId();
 
         raidManager.startSession(raid.id(), slotIndex, party.partyId(), party.members(), bossEntityId, raid.sharedLives());
     }

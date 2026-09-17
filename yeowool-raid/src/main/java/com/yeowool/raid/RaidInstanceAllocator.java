@@ -30,4 +30,8 @@ public final class RaidInstanceAllocator {
     public synchronized boolean isFull() {
         return occupied.cardinality() >= slotCount;
     }
+
+    public int slotCount() {
+        return slotCount;
+    }
 }

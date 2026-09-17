@@ -39,16 +39,33 @@ public final class RaidInstanceRepository {
                         rs.getLong("id"),
                         raidId,
                         rs.getInt("slot_index"),
-                        new Location(world, rs.getDouble("entry_x"), rs.getDouble("entry_y"), rs.getDouble("entry_z"), rs.getFloat("entry_yaw"), rs.getFloat("entry_pitch")),
-                        new Location(world, rs.getDouble("boss_spawn_x"), rs.getDouble("boss_spawn_y"), rs.getDouble("boss_spawn_z")),
-                        new Location(world, rs.getDouble("exit_x"), rs.getDouble("exit_y"), rs.getDouble("exit_z"), rs.getFloat("exit_yaw"), rs.getFloat("exit_pitch")),
-                        new Location(world, rs.getDouble("bound_min_x"), rs.getDouble("bound_min_y"), rs.getDouble("bound_min_z")),
-                        new Location(world, rs.getDouble("bound_max_x"), rs.getDouble("bound_max_y"), rs.getDouble("bound_max_z"))
+                        locationOrNull(rs, world, "entry", true),
+                        locationOrNull(rs, world, "boss_spawn", false),
+                        locationOrNull(rs, world, "exit", true),
+                        locationOrNull(rs, world, "bound_min", false),
+                        locationOrNull(rs, world, "bound_max", false)
                 );
                 result.computeIfAbsent(raidId, k -> new ArrayList<>()).add(slot);
             }
         }
         return result;
+    }
+
+    /** Null when the prefix's x column is SQL NULL — i.e. this location was never actually set by an
+     * admin — rather than silently resolving to (0, 0, 0). */
+    private static Location locationOrNull(ResultSet rs, org.bukkit.World world, String prefix, boolean hasYawPitch) throws SQLException {
+        double x = rs.getDouble(prefix + "_x");
+        if (rs.wasNull()) {
+            return null;
+        }
+        double y = rs.getDouble(prefix + "_y");
+        double z = rs.getDouble(prefix + "_z");
+        if (hasYawPitch) {
+            float yaw = rs.getFloat(prefix + "_yaw");
+            float pitch = rs.getFloat(prefix + "_pitch");
+            return new Location(world, x, y, z, yaw, pitch);
+        }
+        return new Location(world, x, y, z);
     }
 
     /** field is one of "entry", "boss_spawn", "exit", "bound_min", "bound_max". */

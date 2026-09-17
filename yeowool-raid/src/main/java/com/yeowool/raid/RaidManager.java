@@ -42,13 +42,30 @@ public final class RaidManager {
         this.executor = executor;
     }
 
+    /**
+     * Safe to call again after the initial {@code onEnable} load (e.g. a "새로고침" admin command) to
+     * pick up edits made on another server sharing the same database. Only replaces an allocator when
+     * it's missing or its raid's instanceCount actually changed with no active sessions in progress —
+     * otherwise a reload would reset occupied-slot bookkeeping out from under running sessions.
+     */
     public void loadAll() throws SQLException {
         definitions.putAll(definitionRepository.loadAll());
         instanceSlots.putAll(instanceRepository.loadAll());
         for (RaidDefinition definition : definitions.values()) {
-            allocators.put(definition.id(), new RaidInstanceAllocator(definition.instanceCount()));
+            RaidInstanceAllocator existing = allocators.get(definition.id());
+            if (existing == null) {
+                allocators.put(definition.id(), new RaidInstanceAllocator(definition.instanceCount()));
+            } else if (existing.slotCount() != definition.instanceCount() && !hasActiveSession(definition.id())) {
+                allocators.put(definition.id(), new RaidInstanceAllocator(definition.instanceCount()));
+            }
         }
         plugin.getLogger().info("보스 레이드 " + definitions.size() + "개를 불러왔습니다.");
+    }
+
+    /** True if any in-progress session currently belongs to this raid. */
+    private boolean hasActiveSession(long raidId) {
+        return sessionsByPartyId.values().stream()
+                .anyMatch(session -> session.getState() == RaidSessionState.IN_PROGRESS && session.getRaidId() == raidId);
     }
 
     // ---- definitions ----
@@ -141,11 +158,15 @@ public final class RaidManager {
         });
     }
 
-    /** Blocking — call off the main thread. Also resizes the in-memory allocator (existing sessions in
-     * now-removed slots keep running; the smaller pool takes effect for the next entry). */
+    /** Blocking — call off the main thread. Refuses (returns false) while the raid has any session
+     * in progress, since replacing the allocator mid-run would drop its occupied-slot bookkeeping and
+     * risk double-assigning an arena to two parties. */
     public boolean setInstanceCount(String name, int count) throws SQLException {
         var definition = find(name);
         if (definition.isEmpty()) {
+            return false;
+        }
+        if (hasActiveSession(definition.get().id())) {
             return false;
         }
         definitionRepository.updateInstanceCount(definition.get().id(), count);
@@ -247,6 +268,24 @@ public final class RaidManager {
 
     public void endSession(RaidSession session, RaidSessionState finalState) {
         session.setState(finalState);
+
+        RaidInstanceSlot slot = instanceSlotsFor(session.getRaidId()).stream()
+                .filter(s -> s.slotIndex() == session.getSlotIndex())
+                .findFirst()
+                .orElse(null);
+        if (slot != null && slot.exit() != null) {
+            for (UUID memberId : session.getPartyMembers()) {
+                org.bukkit.entity.Player member = org.bukkit.Bukkit.getPlayer(memberId);
+                if (member != null) {
+                    member.teleport(slot.exit());
+                }
+            }
+        }
+        var boss = org.bukkit.Bukkit.getEntity(session.getBossEntityId());
+        if (boss != null) {
+            boss.remove();
+        }
+
         allocators.computeIfAbsent(session.getRaidId(), id -> new RaidInstanceAllocator(1)).release(session.getSlotIndex());
         sessionsByPartyId.values().remove(session);
     }

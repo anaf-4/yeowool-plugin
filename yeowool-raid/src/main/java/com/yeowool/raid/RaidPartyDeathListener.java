@@ -19,6 +19,12 @@ public final class RaidPartyDeathListener implements org.bukkit.event.Listener {
         if (session.isEmpty()) {
             return;
         }
+        var slot = raidManager.instanceSlotsFor(session.get().getRaidId()).stream()
+                .filter(s -> s.slotIndex() == session.get().getSlotIndex())
+                .findFirst();
+        if (slot.isEmpty() || !slot.get().contains(event.getEntity().getLocation())) {
+            return;
+        }
         int remaining = session.get().decrementLives();
         if (remaining <= 0) {
             hudService.notifyResult(session.get(), false);

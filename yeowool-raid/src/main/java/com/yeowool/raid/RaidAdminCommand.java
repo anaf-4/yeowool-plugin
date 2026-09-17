@@ -18,7 +18,7 @@ public final class RaidAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
             "생성", "npc설정", "몹설정", "티켓설정", "인원설정", "제한시간설정", "부활횟수설정",
-            "보상설정", "인스턴스설정", "목록", "정보", "삭제");
+            "보상설정", "인스턴스설정", "인스턴스개수설정", "목록", "정보", "삭제", "새로고침");
     private static final List<String> SLOT_FIELDS = List.of("입장", "보스스폰", "퇴장", "경계1", "경계2");
 
     private final JavaPlugin plugin;
@@ -34,7 +34,7 @@ public final class RaidAdminCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage("§c사용법: /레이드 <생성|몹설정|티켓설정|인원설정|제한시간설정|부활횟수설정|보상설정|인스턴스설정|목록|정보|삭제>");
+            sender.sendMessage("§c사용법: /레이드 <생성|몹설정|티켓설정|인원설정|제한시간설정|부활횟수설정|보상설정|인스턴스설정|인스턴스개수설정|목록|정보|삭제|새로고침>");
             return true;
         }
         switch (args[0]) {
@@ -47,9 +47,11 @@ public final class RaidAdminCommand implements CommandExecutor, TabCompleter {
             case "부활횟수설정" -> handleSetSharedLives(sender, args);
             case "보상설정" -> handleSetRewards(sender, args);
             case "인스턴스설정" -> handleSetInstance(sender, args);
+            case "인스턴스개수설정" -> handleSetInstanceCount(sender, args);
             case "목록" -> handleList(sender);
             case "정보" -> handleInfo(sender, args);
             case "삭제" -> handleDelete(sender, args);
+            case "새로고침" -> handleReload(sender);
             default -> sender.sendMessage("§c알 수 없는 하위 명령어입니다.");
         }
         return true;
@@ -219,6 +221,43 @@ public final class RaidAdminCommand implements CommandExecutor, TabCompleter {
                         updated ? "§a부활 횟수를 설정했습니다." : "§c존재하지 않는 레이드입니다: " + name));
             } catch (java.sql.SQLException e) {
                 plugin.getLogger().severe("부활 횟수 설정 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleSetInstanceCount(CommandSender sender, String[] args) {
+        if (args.length != 3) {
+            sender.sendMessage("§c사용법: /레이드 인스턴스개수설정 <이름> <개수>");
+            return;
+        }
+        String name = args[1];
+        int count;
+        try {
+            count = Integer.parseInt(args[2]);
+        } catch (NumberFormatException e) {
+            sender.sendMessage("§c개수는 숫자여야 합니다.");
+            return;
+        }
+        int finalCount = count;
+        executor.execute(() -> {
+            try {
+                boolean updated = raidManager.setInstanceCount(name, finalCount);
+                Bukkit.getScheduler().runTask(plugin, () -> sender.sendMessage(
+                        updated ? "§a인스턴스 개수를 설정했습니다." : "§c먼저 진행 중인 레이드가 모두 끝난 후 다시 시도해주세요."));
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("인스턴스 개수 설정 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleReload(CommandSender sender) {
+        executor.execute(() -> {
+            try {
+                raidManager.loadAll();
+                Bukkit.getScheduler().runTask(plugin, () -> sender.sendMessage("§a레이드 데이터를 새로고침했습니다."));
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("레이드 새로고침 실패: " + e.getMessage());
+                Bukkit.getScheduler().runTask(plugin, () -> sender.sendMessage("§c새로고침 중 오류가 발생했습니다."));
             }
         });
     }
