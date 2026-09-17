@@ -1,0 +1,19 @@
+name: YeowoolRaid
+version: '${version}'
+main: com.yeowool.raid.YeowoolRaid
+api-version: '1.21'
+author: Yeowool
+description: 파티 단위 보스 레이드 (고정 인스턴스, 티켓 입장, MythicMobs 연동)
+depend: [YeowoolCore, Citizens, MythicMobs]
+softdepend: [PlaceholderAPI, BetterHud, ItemsAdder]
+
+commands:
+  레이드:
+    description: 레이드 정의 생성/설정/삭제 (관리자, 시티즌 NPC 필요 없음)
+    permission: yeowool.raid.manage
+    default: op
+
+permissions:
+  yeowool.raid.manage:
+    description: 레이드를 생성/수정/삭제할 수 있는 권한
+    default: op

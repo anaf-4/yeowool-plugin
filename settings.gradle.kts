@@ -13,5 +13,6 @@ include(
     "yeowool-proxy",
     "yeowool-discord",
     "yeowool-enhance",
-    "yeowool-quest"
+    "yeowool-quest",
+    "yeowool-raid"
 )
