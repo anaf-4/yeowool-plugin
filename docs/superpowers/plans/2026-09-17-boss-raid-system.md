@@ -1827,8 +1827,7 @@ public final class RaidEntryService {
         }
 
         var activeMob = mythicMob.get().spawn(
-                io.lumine.mythic.bukkit.BukkitAdapter.adapt(slot.get().bossSpawn()), 1.0,
-                io.lumine.mythic.api.mobs.entities.SpawnReason.CUSTOM);
+                io.lumine.mythic.bukkit.BukkitAdapter.adapt(slot.get().bossSpawn()), 1.0);
         UUID bossEntityId = activeMob.getUniqueId();
 
         raidManager.startSession(raid.id(), slotIndex, party.partyId(), party.members(), bossEntityId, raid.sharedLives());
@@ -1846,7 +1845,7 @@ public final class RaidEntryService {
 }
 ```
 
-The MythicMobs calls above (`MythicBukkit.inst().getMobManager().getMythicMob(String)`, `MythicMob#spawn(AbstractLocation, double, SpawnReason)`, `ActiveMob#getUniqueId()`) were verified by decompiling the actual `MythicMobs-5.12.1.jar` installed on lobby (`javap -p` against `io.lumine.mythic.api.mobs.MobManager`, `io.lumine.mythic.api.mobs.MythicMob`, and `io.lumine.mythic.core.mobs.ActiveMob`) while writing this plan — not guessed. There is no public `spawnMob(String, Location)`-shaped convenience method on `MobManager`; the real path is look up the `MythicMob` by id, then call `.spawn(...)` on it directly, which is what Step 2 does. `MythicMobDeathEvent#getEntity()` (used in Task 7) was verified the same way and returns a plain `org.bukkit.entity.Entity` directly, confirming `event.getEntity().getUniqueId()` in `RaidBossDeathListener` is correct as written.
+The MythicMobs calls above (`MythicBukkit.inst().getMobManager().getMythicMob(String)`, `MythicMob#spawn(AbstractLocation, double)`, `ActiveMob#getUniqueId()`) were verified by decompiling the actual `MythicMobs-5.12.1.jar` installed on lobby (`javap -p` against `io.lumine.mythic.api.mobs.MobManager`, `io.lumine.mythic.api.mobs.MythicMob`, and `io.lumine.mythic.core.mobs.ActiveMob`) while writing this plan — not guessed. There is no public `spawnMob(String, Location)`-shaped convenience method on `MobManager`; the real path is look up the `MythicMob` by id, then call `.spawn(...)` on it directly, which is what Step 2 does. This uses the 2-arg `spawn(AbstractLocation, double)` default method rather than the 3-arg `spawn(AbstractLocation, double, SpawnReason)` overload — a plan-writing verification gap meant the plan originally called the 3-arg overload with a nonexistent `SpawnReason.CUSTOM` constant; re-decompiling `MythicMob.class`'s bytecode showed the 2-arg default method itself internally calls the 3-arg one with `SpawnReason.OTHER` (`getstatic SpawnReason.OTHER` feeding the 3-arg `spawn` call directly in the default method's bytecode), so calling the 2-arg overload produces identical behavior with one fewer argument and no `SpawnReason` import needed. `MythicMobDeathEvent#getEntity()` (used in Task 7) was verified the same way and returns a plain `org.bukkit.entity.Entity` directly, confirming `event.getEntity().getUniqueId()` in `RaidBossDeathListener` is correct as written.
 
 - [ ] **Step 3: Write `RaidNpcListener.java`**
 
