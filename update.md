@@ -16,6 +16,13 @@
 
 세 서버 다 **재시작 필요**(신규 테이블 `yw_raid_definition`/`yw_raid_instance` 생성 + 새 MythicMobs/ModelEngine 콘텐츠 로드).
 
+### 자수정 드래곤 탑승 몬스터 추가 (AmethystDragonMount)
+보내주신 `AmethystDragonMount-1.4` 팩을 세 서버 다 설치함 — MCPets 탑승 펫으로 소환/승마 가능.
+- MythicMobs 몹(`AmethystDragonPet`), MCPets 펫 정의, ModelEngine 모델(`amethystdragon.bbmodel`) 설치 완료.
+- `/mcpets` 메뉴에 뜨게 하려고 새 카테고리(`amethystdragon-category.yml`)도 같이 만들어둠 — 안 만들면 아까 호버라이드 때처럼 메뉴에 안 뜸.
+- 리소스팩 쪽은 이 팩에 같이 들어있던 자수정 무기/방어구 스킨(`amethystweaponsguide.txt`에 있던 부분)은 **일부러 제외**했습니다 — 넷헤라이트 도구/활/방패/낚싯대/가죽방어구처럼 서버에서 이미 다른 기능들이 쓰고 있는 아이템의 모델을 덮어씌울 위험이 있어서, 드래곤 탑승 기능에 필요한 부분(몹 텍스처, 사운드, 소환 이펙트, 신호봉 아이콘)만 설치했습니다. 무기/방어구 스킨은 따로 검토가 필요합니다.
+- **확인 필요**: ModelEngine 모델이 실제로 인게임에서 제대로 보이는지는 재시작 후 직접 확인해봐야 합니다 — 이 플러그인이 리소스팩에 텍스처를 정확히 어떤 경로로 반영하는지 100% 검증하지 못했습니다(aloc_boss도 마찬가지 상황).
+
 ## 2026-09-16
 
 ### Citizens 연동 퀘스트 시스템 신규 추가 (YeowoolQuest)
