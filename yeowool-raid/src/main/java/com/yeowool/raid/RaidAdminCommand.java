@@ -1,6 +1,7 @@
 package com.yeowool.raid;
 
 import com.yeowool.core.api.gui.ItemGridEditorGui;
+import dev.lone.itemsadder.api.CustomStack;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
@@ -8,6 +9,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
@@ -123,19 +125,33 @@ public final class RaidAdminCommand implements CommandExecutor, TabCompleter {
     }
 
     private void handleSetTicket(CommandSender sender, String[] args) {
-        if (args.length != 4) {
-            sender.sendMessage("§c사용법: /레이드 티켓설정 <이름> <아이템즈어더ID> <수량>");
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§c플레이어만 사용할 수 있습니다.");
+            return;
+        }
+        if (args.length != 3) {
+            sender.sendMessage("§c사용법: 입장권 아이템을 손에 들고 /레이드 티켓설정 <이름> <수량>");
             return;
         }
         String name = args[1];
-        String ticketItemId = args[2];
         int amount;
         try {
-            amount = Integer.parseInt(args[3]);
+            amount = Integer.parseInt(args[2]);
         } catch (NumberFormatException e) {
             sender.sendMessage("§c수량은 숫자여야 합니다.");
             return;
         }
+        ItemStack hand = player.getInventory().getItemInMainHand();
+        if (hand.getType().isAir()) {
+            sender.sendMessage("§c손에 입장권으로 지정할 아이템을 들어주세요.");
+            return;
+        }
+        CustomStack custom = CustomStack.byItemStack(hand);
+        if (custom == null) {
+            sender.sendMessage("§c손에 든 아이템이 아이템즈어더 아이템이 아닙니다.");
+            return;
+        }
+        String ticketItemId = custom.getNamespacedID();
         int finalAmount = amount;
         executor.execute(() -> {
             try {
