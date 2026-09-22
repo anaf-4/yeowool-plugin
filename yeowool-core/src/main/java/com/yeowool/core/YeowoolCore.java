@@ -1,6 +1,7 @@
 package com.yeowool.core;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
+import com.yeowool.core.applink.AppLinkCommand;
 import com.yeowool.core.command.CoreCommand;
 import com.yeowool.core.config.CoreConfig;
 import com.yeowool.core.data.EconomyDataServiceImpl;
@@ -110,6 +111,11 @@ public final class YeowoolCore extends JavaPlugin {
         if (mailboxCommand != null) {
             int mailboxBackgroundOffsetPx = getConfig().getInt("mailbox.gui-background-offset", -8);
             mailboxCommand.setExecutor(new MailboxCommand(this, mailboxManager, messageManager, mailboxBackgroundOffsetPx));
+        }
+
+        var appLinkCommand = getCommand("앱연동");
+        if (appLinkCommand != null) {
+            appLinkCommand.setExecutor(new AppLinkCommand(this, databaseManager.getDataSource(), databaseManager.getExecutor()));
         }
 
         var helpCommand = getCommand("여울도움말");

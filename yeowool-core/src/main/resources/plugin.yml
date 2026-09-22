@@ -20,6 +20,8 @@ commands:
     usage: /<command> reload
   우편함:
     description: 받지 못한 아이템을 확인하고 수령합니다
+  앱연동:
+    description: 서버 동반 앱에 내 계정을 연동할 일회용 코드를 발급합니다
   여울도움말:
     aliases: [도움말]
     description: 전체 명령어 목록을 카테고리별로 확인합니다
