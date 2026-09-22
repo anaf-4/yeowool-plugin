@@ -2,10 +2,9 @@ package com.yeowool.market.citizens;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
-import net.citizensnpcs.api.CitizensAPI;
-import net.citizensnpcs.api.npc.NPC;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -17,16 +16,17 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 /**
- * {@code /상점이동} — teleports the player to the shop NPC's current location instead of opening
- * the shop GUI directly (unlike {@code /상점}), so players still have to walk up and right-click
- * the NPC themselves. Looks the NPC up live via {@link CitizensAPI} each time rather than caching
- * a location, so moving the NPC later doesn't require touching this command.
+ * {@code /상점이동} — teleports the player to the shop district's fixed
+ * coordinates ({@code npc-shop.location.*} in config.yml), no NPC lookup
+ * involved (unlike per-shop teleports, see {@link ShopNpcTeleporter}).
  *
- * <p>The NPC only physically exists on one backend server ({@code npc-shop.npc-server-id}, lobby
- * by default). Running this on a different server sends the player there first via Velocity's
- * BungeeCord-compatible "Connect" plugin channel and marks {@link #PENDING_SETTING_KEY} on their
- * {@link com.yeowool.core.api.model.PlayerData}; {@link ShopTeleportJoinListener} — registered
- * only on the NPC's own server — finishes the teleport once they actually join there.
+ * <p>That location only physically exists on one backend server
+ * ({@code npc-shop.npc-server-id}, lobby by default). Running this on a
+ * different server sends the player there first via Velocity's
+ * BungeeCord-compatible "Connect" plugin channel and marks
+ * {@link #PENDING_SETTING_KEY} on their {@link com.yeowool.core.api.model.PlayerData};
+ * {@link ShopTeleportJoinListener} — registered only on that server — finishes
+ * the teleport once they actually join there.
  */
 public final class ShopLocationCommand implements CommandExecutor {
 
@@ -35,16 +35,14 @@ public final class ShopLocationCommand implements CommandExecutor {
     private final JavaPlugin plugin;
     private final YeowoolCoreAPI core;
     private final MessageService messages;
-    private final int npcId;
     private final String npcServerId;
     private final String thisServerId;
 
     public ShopLocationCommand(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages,
-                                int npcId, String npcServerId, String thisServerId) {
+                                String npcServerId, String thisServerId) {
         this.plugin = plugin;
         this.core = core;
         this.messages = messages;
-        this.npcId = npcId;
         this.npcServerId = npcServerId;
         this.thisServerId = thisServerId;
         Bukkit.getMessenger().registerOutgoingPluginChannel(plugin, "BungeeCord");
@@ -61,28 +59,36 @@ public final class ShopLocationCommand implements CommandExecutor {
             sendToServer(player, npcServerId);
             return true;
         }
-        teleportToNpc(player);
+        teleportToDistrict(player);
         return true;
     }
 
-    /** Package-private so {@link ShopTeleportJoinListener} (on the NPC's own server) reuses the exact same lookup. */
-    void teleportToNpc(Player player) {
-        if (npcId < 0) {
-            messages.send(player, "npcshop.location-not-set");
-            return;
-        }
-        NPC npc = CitizensAPI.getNPCRegistry().getById(npcId);
-        if (npc == null || !npc.isSpawned()) {
-            messages.send(player, "npcshop.location-not-set");
-            return;
-        }
-        Location location = npc.getStoredLocation();
+    /** Package-private so {@link ShopTeleportJoinListener} reuses the exact same lookup. */
+    void teleportToDistrict(Player player) {
+        Location location = districtLocation();
         if (location == null) {
             messages.send(player, "npcshop.location-not-set");
             return;
         }
         player.teleportAsync(location);
         messages.send(player, "npcshop.teleported");
+    }
+
+    private Location districtLocation() {
+        String worldName = plugin.getConfig().getString("npc-shop.location.world");
+        if (worldName == null || worldName.isBlank()) {
+            return null;
+        }
+        World world = Bukkit.getWorld(worldName);
+        if (world == null) {
+            return null;
+        }
+        double x = plugin.getConfig().getDouble("npc-shop.location.x");
+        double y = plugin.getConfig().getDouble("npc-shop.location.y");
+        double z = plugin.getConfig().getDouble("npc-shop.location.z");
+        float yaw = (float) plugin.getConfig().getDouble("npc-shop.location.yaw");
+        float pitch = (float) plugin.getConfig().getDouble("npc-shop.location.pitch");
+        return new Location(world, x, y, z, yaw, pitch);
     }
 
     private void sendToServer(Player player, String serverName) {

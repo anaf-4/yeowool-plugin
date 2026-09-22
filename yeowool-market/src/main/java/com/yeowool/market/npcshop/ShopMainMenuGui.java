@@ -4,6 +4,7 @@ import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.gui.GuiButton;
 import com.yeowool.core.api.gui.YeowoolGui;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.market.citizens.ShopNpcTeleporter;
 import dev.lone.itemsadder.api.CustomStack;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -24,6 +25,14 @@ import java.util.Map;
  * both live in the same shared {@code allShops} map). Category buttons use
  * the pack's blank {@code shop_empty_slot} item — the theme is meant to be
  * read against the background image, not a distinct icon per category.
+ *
+ * <p>Clicking a category no longer opens that shop's {@link NPCShopGui}
+ * directly when it has a Citizens NPC linked in {@code npc-shop.citizens-npc-shops}
+ * — instead it teleports the player to that NPC (via {@link ShopNpcTeleporter},
+ * cross-server aware) so they still have to walk up and right-click it
+ * themselves, same as visiting any other shop NPC. A shop with no NPC linked
+ * (GUI-only) keeps opening directly — nothing should become unreachable just
+ * because it has no physical stall yet.
  */
 public final class ShopMainMenuGui extends YeowoolGui {
 
@@ -32,18 +41,39 @@ public final class ShopMainMenuGui extends YeowoolGui {
         super(54, ShopBackgroundImages.title(plugin.getConfig().getInt("npc-shop.gui-background-offset", -46),
                 "shop_gui_menu", Component.text("상점", NamedTextColor.DARK_GREEN)));
 
+        Map<Integer, String> npcShops = ShopConfigLoader.loadCitizensNpcShops(plugin);
+        String npcServerId = plugin.getConfig().getString("npc-shop.npc-server-id", "lobby");
+        String thisServerId = plugin.getConfig().getString("npc-shop.this-server-id", "lobby");
+
         int index = 0;
         for (ShopDefinition shop : allShops.values()) {
             if (index >= ShopLayout.MAIN_MENU_SLOTS.size()) {
                 break;
             }
             int slot = ShopLayout.MAIN_MENU_SLOTS.get(index++);
-            setButton(slot, GuiButton.of(categoryIcon(shop.title()), event ->
-                    new NPCShopGui(plugin, core, messages, allShops, shop, rotationManager, 0).open((Player) event.getWhoClicked())));
+            Integer npcId = findNpcFor(npcShops, shop.id());
+            setButton(slot, GuiButton.of(categoryIcon(shop.title(), npcId != null), event -> {
+                Player player = (Player) event.getWhoClicked();
+                if (npcId != null) {
+                    ShopNpcTeleporter.teleportToShopNpc(plugin, core, messages, player, npcId, npcServerId, thisServerId);
+                } else {
+                    new NPCShopGui(plugin, core, messages, allShops, shop, rotationManager, 0).open(player);
+                }
+            }));
         }
     }
 
-    private ItemStack categoryIcon(String title) {
+    /** First npc id (registration order) linked to this shop, or null if none is. */
+    private Integer findNpcFor(Map<Integer, String> npcShops, String shopId) {
+        for (Map.Entry<Integer, String> entry : npcShops.entrySet()) {
+            if (shopId.equals(entry.getValue())) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    private ItemStack categoryIcon(String title, boolean teleportsToNpc) {
         ItemStack stack = null;
         if (Bukkit.getPluginManager().isPluginEnabled("ItemsAdder")) {
             CustomStack custom = CustomStack.getInstance("spectra_shopgui_plus:shop_empty_slot");
@@ -56,7 +86,8 @@ public final class ShopMainMenuGui extends YeowoolGui {
         }
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(Component.text(title, NamedTextColor.WHITE, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
-        meta.lore(java.util.List.of(Component.text("클릭하여 둘러보기", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
+        String loreText = teleportsToNpc ? "클릭하여 상점 위치로 이동" : "클릭하여 둘러보기";
+        meta.lore(java.util.List.of(Component.text(loreText, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
         stack.setItemMeta(meta);
         return stack;
     }

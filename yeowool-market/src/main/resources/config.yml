@@ -61,9 +61,15 @@ npc-shop:
   # (Citizens에서 /npc create 로 NPC를 만든 뒤 /npc id 로 ID를 확인하세요).
   citizens-npc-shops: {}
 
-  # /상점이동 이 텔레포트할 NPC의 Citizens ID. -1이면 "위치 미설정"으로 취급됨.
-  # 메인 상점 NPC를 만든 뒤 그 NPC의 ID를 여기에 넣으세요.
-  menu-teleport-npc-id: -1
+  # /상점이동 이 텔레포트할 상점가 좌표. world가 비어있으면 "위치 미설정"으로 취급됨.
+  # 상점가에 서서 F3으로 좌표 확인한 뒤 아래에 그대로 입력하세요.
+  location:
+    world: ""
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    yaw: 0.0
+    pitch: 0.0
 
   # 상점 NPC가 실제로 있는 서버 이름(velocity.toml [servers]의 이름과 일치해야 함).
   # /상점이동을 다른 서버에서 실행하면 이 서버로 먼저 보낸 뒤 도착하자마자 NPC 앞으로 이동시킴.

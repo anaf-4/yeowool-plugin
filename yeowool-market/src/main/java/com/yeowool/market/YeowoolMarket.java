@@ -128,19 +128,19 @@ public final class YeowoolMarket extends JavaPlugin {
             getLogger().info("Citizens NPC 상점 연동을 등록했습니다. (매핑: " + npcShops + ")");
         }
 
-        // /상점이동 - 상점 NPC는 서버 하나(기본 lobby)에만 있음. 다른 서버에서 실행하면
-        // 그 서버로 먼저 보내고, ShopTeleportJoinListener(NPC가 있는 서버에만 등록됨)가
-        // 도착 즉시 NPC 앞으로 텔레포트를 마무리함 - Citizens 유무와 무관하게 항상 등록.
+        // /상점이동 - 상점가 좌표는 서버 하나(기본 lobby)에만 있음. 다른 서버에서 실행하면
+        // 그 서버로 먼저 보내고, ShopTeleportJoinListener(그 서버에만 등록됨)가 도착 즉시
+        // 텔레포트를 마무리함 - Citizens 유무와 무관하게 항상 등록. 같은 리스너가 /상점
+        // 메인메뉴에서 상점 NPC로 이동하는 것(ShopNpcTeleporter)도 같이 처리함.
         String thisServerId = getConfig().getString("npc-shop.this-server-id", "lobby");
         String npcServerId = getConfig().getString("npc-shop.npc-server-id", "lobby");
-        var shopLocationCommand = new ShopLocationCommand(this, core, messages,
-                getConfig().getInt("npc-shop.menu-teleport-npc-id", -1), npcServerId, thisServerId);
+        var shopLocationCommand = new ShopLocationCommand(this, core, messages, npcServerId, thisServerId);
         var shopLocationCmd = getCommand("상점이동");
         if (shopLocationCmd != null) {
             shopLocationCmd.setExecutor(shopLocationCommand);
         }
         if (thisServerId.equals(npcServerId)) {
-            getServer().getPluginManager().registerEvents(new ShopTeleportJoinListener(this, core, shopLocationCommand), this);
+            getServer().getPluginManager().registerEvents(new ShopTeleportJoinListener(this, core, messages, shopLocationCommand), this);
         }
 
         // 직접 거래
