@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * {@code /여울도움말 [카테고리]} — a hand-curated index of every command
- * across all 10 plugins in the suite (config.yml's {@code help.categories}),
+ * across every plugin in the suite (help.yml's {@code help.categories}),
  * since there's no other way for a player to discover the ~40 commands that
  * have accumulated across separate plugins with no shared command registry.
  * Lives in core rather than a specific feature plugin since it needs to
@@ -37,12 +37,12 @@ public final class HelpCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        ConfigurationSection categories = plugin.getConfig().getConfigurationSection("help.categories");
+        ConfigurationSection categories = HelpContent.get(plugin).getConfigurationSection("help.categories");
         if (categories == null) {
             sender.sendMessage(Component.text("도움말 설정이 없습니다.", NamedTextColor.RED));
             return true;
         }
-        List<String> adminOnly = plugin.getConfig().getStringList("help.admin-only-categories");
+        List<String> adminOnly = HelpContent.get(plugin).getStringList("help.admin-only-categories");
         if (args.length == 0) {
             List<String> visible = categories.getKeys(false).stream()
                     .filter(key -> sender.isOp() || !adminOnly.contains(key))
@@ -73,11 +73,11 @@ public final class HelpCommand implements CommandExecutor, TabCompleter {
         if (args.length != 1) {
             return List.of();
         }
-        ConfigurationSection categories = plugin.getConfig().getConfigurationSection("help.categories");
+        ConfigurationSection categories = HelpContent.get(plugin).getConfigurationSection("help.categories");
         if (categories == null) {
             return List.of();
         }
-        List<String> adminOnly = plugin.getConfig().getStringList("help.admin-only-categories");
+        List<String> adminOnly = HelpContent.get(plugin).getStringList("help.admin-only-categories");
         List<String> visible = categories.getKeys(false).stream()
                 .filter(key -> sender.isOp() || !adminOnly.contains(key))
                 .toList();

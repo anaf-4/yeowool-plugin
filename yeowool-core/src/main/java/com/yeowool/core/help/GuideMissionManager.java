@@ -15,7 +15,7 @@ import java.util.Optional;
 /**
  * Numbered onboarding missions shown in {@link GuideGui} via {@code /길라잡이
  * 추가|제거|수정|목록}. Unlike the static category descriptions
- * (config.yml's {@code guide.categories}), these are meant to be edited
+ * (help.yml's {@code guide.categories}), these are meant to be edited
  * often at runtime by staff, so they persist to their own {@value
  * #MISSIONS_FILE} in the plugin data folder rather than config.yml —
  * {@code FileConfiguration#save} rewrites the whole file and would wipe

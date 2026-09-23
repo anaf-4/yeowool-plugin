@@ -17,7 +17,7 @@ import java.util.List;
 
 /**
  * {@code /길라잡이} — a beginner-friendly GUI overview of the server's major
- * systems (config.yml's {@code guide.categories}), meant to sit next to
+ * systems (help.yml's {@code guide.categories}), meant to sit next to
  * {@link HelpCommand}'s dense command reference rather than replace it: this
  * is "what can I even do here", that is "what's the exact syntax". Clicking
  * a category doesn't open a second GUI page — it prints a short description
@@ -35,8 +35,8 @@ public final class GuideGui extends YeowoolGui {
         super(45, Component.text("여울 길라잡이", NamedTextColor.GREEN));
 
         int i = 0;
-        ConfigurationSection categories = plugin.getConfig().getConfigurationSection("guide.categories");
-        ConfigurationSection helpCategories = plugin.getConfig().getConfigurationSection("help.categories");
+        ConfigurationSection categories = HelpContent.get(plugin).getConfigurationSection("guide.categories");
+        ConfigurationSection helpCategories = HelpContent.get(plugin).getConfigurationSection("help.categories");
         if (categories != null) {
             for (String key : categories.getKeys(false)) {
                 if (i >= ICON_SLOTS.length - 1) {

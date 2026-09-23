@@ -45,6 +45,9 @@ public final class HelpIndexChecker {
         Set<String> mentioned = mentionedCommandNames(helpPlugin);
         List<String> missing = new ArrayList<>();
         for (Plugin plugin : Bukkit.getPluginManager().getPlugins()) {
+            if (!plugin.getName().startsWith("Yeowool")) {
+                continue;
+            }
             for (String commandName : plugin.getDescription().getCommands().keySet()) {
                 if (!mentioned.contains(commandName.toLowerCase(Locale.ROOT))) {
                     missing.add(plugin.getName() + ": /" + commandName);
@@ -56,7 +59,7 @@ public final class HelpIndexChecker {
 
     private static Set<String> mentionedCommandNames(JavaPlugin helpPlugin) {
         Set<String> mentioned = new HashSet<>();
-        ConfigurationSection categories = helpPlugin.getConfig().getConfigurationSection("help.categories");
+        ConfigurationSection categories = HelpContent.get(helpPlugin).getConfigurationSection("help.categories");
         if (categories == null) {
             return mentioned;
         }
