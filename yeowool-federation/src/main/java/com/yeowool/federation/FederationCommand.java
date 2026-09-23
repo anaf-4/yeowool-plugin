@@ -13,6 +13,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 /** {@code /연합 <하위명령어>} — see messages.yml's federation.usage for the full subcommand list. */
@@ -57,6 +58,8 @@ public final class FederationCommand implements CommandExecutor {
             case "부연합장임명" -> handleAppointDeputy(player, args);
             case "부연합장해임" -> handleDismissDeputy(player, args);
             case "위임" -> handleTransfer(player, args);
+            case "폐쇄" -> handleDisband(player);
+            case "소개글" -> handleDescription(player, args);
             default -> core.messages().send(player, "federation.usage");
         }
         return true;
@@ -406,6 +409,59 @@ public final class FederationCommand implements CommandExecutor {
                 });
             } catch (java.sql.SQLException e) {
                 plugin.getLogger().severe("연합장 위임 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleDisband(Player player) {
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> land = landLookup.findByOwnerUuid(player.getUniqueId());
+                if (land.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-land"));
+                    return;
+                }
+                Optional<Federation> federation = manager.findByLandId(land.get().id());
+                if (federation.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.not-your-federation"));
+                    return;
+                }
+                if (!federation.get().leaderLandId().equals(land.get().id())) {
+                    runOnMain(() -> core.messages().send(player, "federation.leader-only"));
+                    return;
+                }
+                String federationName = federation.get().name();
+                UUID landId = land.get().id();
+                runOnMain(() -> new FederationDisbandConfirmGui(plugin, core, manager, executor, landId, federationName).open(player));
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("연합 폐쇄 확인 준비 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleDescription(Player player, String[] args) {
+        if (args.length < 2) {
+            core.messages().send(player, "federation.usage");
+            return;
+        }
+        String description = String.join(" ", java.util.Arrays.copyOfRange(args, 1, args.length));
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> land = landLookup.findByOwnerUuid(player.getUniqueId());
+                if (land.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-land"));
+                    return;
+                }
+                var result = manager.updateDescription(land.get().id(), description);
+                runOnMain(() -> {
+                    switch (result) {
+                        case SUCCESS -> core.messages().send(player, "federation.description-success");
+                        case NOT_LEADER -> core.messages().send(player, "federation.leader-only");
+                        case TOO_LONG -> core.messages().send(player, "federation.description-too-long");
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("연합 소개글 수정 실패: " + e.getMessage());
             }
         });
     }
