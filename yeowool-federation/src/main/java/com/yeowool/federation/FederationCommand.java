@@ -54,6 +54,9 @@ public final class FederationCommand implements CommandExecutor {
             case "거절" -> handleReject(player, args);
             case "탈퇴" -> handleLeave(player);
             case "추방" -> handleKick(player, args);
+            case "부연합장임명" -> handleAppointDeputy(player, args);
+            case "부연합장해임" -> handleDismissDeputy(player, args);
+            case "위임" -> handleTransfer(player, args);
             default -> core.messages().send(player, "federation.usage");
         }
         return true;
@@ -298,6 +301,111 @@ public final class FederationCommand implements CommandExecutor {
                 });
             } catch (java.sql.SQLException e) {
                 plugin.getLogger().severe("연합 추방 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleAppointDeputy(Player player, String[] args) {
+        if (args.length != 2) {
+            core.messages().send(player, "federation.usage");
+            return;
+        }
+        String targetName = args[1];
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> actingLand = landLookup.findByOwnerUuid(player.getUniqueId());
+                Optional<LandInfo> targetLand = landLookup.findByOwnerUsername(targetName);
+                if (actingLand.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-land"));
+                    return;
+                }
+                if (targetLand.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.target-no-land"));
+                    return;
+                }
+                var result = manager.appointDeputy(actingLand.get().id(), targetLand.get().id());
+                String landName = targetLand.get().landName();
+                Optional<Federation> federation = manager.findByLandId(actingLand.get().id());
+                int level = federation.map(Federation::level).orElse(1);
+                int cap = FederationRules.deputyCap(level);
+                runOnMain(() -> {
+                    switch (result) {
+                        case SUCCESS -> core.messages().send(player, "federation.appoint-deputy-success", Placeholder.unparsed("land", landName));
+                        case NOT_LEADER -> core.messages().send(player, "federation.leader-only");
+                        case TARGET_NOT_MEMBER -> core.messages().send(player, "federation.target-not-member");
+                        case ALREADY_DEPUTY -> core.messages().send(player, "federation.already-deputy");
+                        case CAP_REACHED -> core.messages().send(player, "federation.deputy-cap-reached",
+                                Placeholder.unparsed("level", String.valueOf(level)), Placeholder.unparsed("cap", String.valueOf(cap)));
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("부연합장 임명 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleDismissDeputy(Player player, String[] args) {
+        if (args.length != 2) {
+            core.messages().send(player, "federation.usage");
+            return;
+        }
+        String targetName = args[1];
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> actingLand = landLookup.findByOwnerUuid(player.getUniqueId());
+                Optional<LandInfo> targetLand = landLookup.findByOwnerUsername(targetName);
+                if (actingLand.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-land"));
+                    return;
+                }
+                if (targetLand.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.target-no-land"));
+                    return;
+                }
+                var result = manager.dismissDeputy(actingLand.get().id(), targetLand.get().id());
+                String landName = targetLand.get().landName();
+                runOnMain(() -> {
+                    switch (result) {
+                        case SUCCESS -> core.messages().send(player, "federation.dismiss-deputy-success", Placeholder.unparsed("land", landName));
+                        case NOT_LEADER -> core.messages().send(player, "federation.leader-only");
+                        case TARGET_NOT_DEPUTY -> core.messages().send(player, "federation.not-deputy");
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("부연합장 해임 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleTransfer(Player player, String[] args) {
+        if (args.length != 2) {
+            core.messages().send(player, "federation.usage");
+            return;
+        }
+        String targetName = args[1];
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> actingLand = landLookup.findByOwnerUuid(player.getUniqueId());
+                Optional<LandInfo> targetLand = landLookup.findByOwnerUsername(targetName);
+                if (actingLand.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-land"));
+                    return;
+                }
+                if (targetLand.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.target-no-land"));
+                    return;
+                }
+                var result = manager.transferLeadership(actingLand.get().id(), targetLand.get().id());
+                String landName = targetLand.get().landName();
+                runOnMain(() -> {
+                    switch (result) {
+                        case SUCCESS -> core.messages().send(player, "federation.transfer-success", Placeholder.unparsed("land", landName));
+                        case NOT_LEADER -> core.messages().send(player, "federation.leader-only");
+                        case TARGET_NOT_MEMBER -> core.messages().send(player, "federation.transfer-target-not-member");
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("연합장 위임 실패: " + e.getMessage());
             }
         });
     }
