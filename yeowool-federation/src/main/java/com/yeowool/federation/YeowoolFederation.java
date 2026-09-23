@@ -1,6 +1,8 @@
 package com.yeowool.federation;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
+import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.message.MessageManager;
 import com.yeowool.federation.database.FederationRepository;
 import com.yeowool.federation.database.FederationSchemaInitializer;
 import com.yeowool.federation.land.LandLookup;
@@ -37,11 +39,13 @@ public final class YeowoolFederation extends JavaPlugin {
             return thread;
         });
 
+        MessageService messages = new MessageManager(this);
+
         FederationRepository repository = new FederationRepository(core.dataSource());
         LandLookup landLookup = new LandLookup(core.dataSource());
         FederationManager manager = new FederationManager(repository);
 
-        var federationCommand = new FederationCommand(this, core, manager, landLookup, executor);
+        var federationCommand = new FederationCommand(this, messages, manager, landLookup, executor);
         var command = getCommand("연합");
         if (command != null) {
             command.setExecutor(federationCommand);

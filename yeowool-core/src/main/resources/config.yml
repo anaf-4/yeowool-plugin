@@ -150,7 +150,7 @@ guide:
       icon: GRASS_BLOCK
       description: "내 땅을 만들고, 멤버를 초대하고, 그리핑으로부터 보호합니다."
     마을연합:
-      icon: BANNER
+      icon: WHITE_BANNER
       description: "마을 연합을 만들고, 다른 마을 소유주들과 함께 협력합니다."
     생활:
       icon: WHEAT

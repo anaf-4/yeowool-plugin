@@ -1,8 +1,8 @@
 package com.yeowool.federation;
 
-import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.gui.GuiButton;
 import com.yeowool.core.api.gui.YeowoolGui;
+import com.yeowool.core.api.service.MessageService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -25,7 +25,7 @@ public final class FederationDisbandConfirmGui extends YeowoolGui {
     private static final int SLOT_ACCEPT = 11;
     private static final int SLOT_DENY = 15;
 
-    public FederationDisbandConfirmGui(JavaPlugin plugin, YeowoolCoreAPI core, FederationManager manager,
+    public FederationDisbandConfirmGui(JavaPlugin plugin, MessageService messages, FederationManager manager,
                                         ExecutorService executor, UUID actingLandId, String federationName) {
         super(27, Component.text("연합 폐쇄 확인", NamedTextColor.RED));
 
@@ -37,13 +37,13 @@ public final class FederationDisbandConfirmGui extends YeowoolGui {
                     var result = manager.disband(actingLandId);
                     Bukkit.getScheduler().runTask(plugin, () -> {
                         switch (result) {
-                            case SUCCESS -> core.messages().send(player, "federation.disband-success",
+                            case SUCCESS -> messages.send(player, "federation.disband-success",
                                     Placeholder.unparsed("name", federationName));
-                            case NOT_LEADER -> core.messages().send(player, "federation.leader-only");
+                            case NOT_LEADER -> messages.send(player, "federation.leader-only");
                         }
                     });
                 } catch (SQLException e) {
-                    plugin.getLogger().severe("연합 폐쇄 실패: " + e.getMessage());
+                    plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 폐쇄 실패", e);
                 }
             });
         }));

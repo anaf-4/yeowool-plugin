@@ -37,8 +37,17 @@ public final class FederationManager {
         }
         UUID federationId = UUID.randomUUID();
         long now = System.currentTimeMillis();
-        repository.insert(new Federation(federationId, federationName, null, 1, leaderLandId, now));
-        repository.insertMember(new FederationMember(federationId, leaderLandId, FederationRole.LEADER, now));
+        Federation federation = new Federation(federationId, federationName, null, 1, leaderLandId, now);
+        FederationMember leaderMembership = new FederationMember(federationId, leaderLandId, FederationRole.LEADER, now);
+        repository.withTransaction(connection -> {
+            repository.insert(connection, federation);
+            repository.insertMember(connection, leaderMembership);
+            return null;
+        });
+        // The new federation is now this land's only affiliation — drop any applications it had
+        // filed elsewhere before founding it, so a later approve() there doesn't find the land
+        // already a member (of this brand-new federation) and throw.
+        repository.deleteAllApplicationsForLand(leaderLandId);
         return CreateResult.SUCCESS;
     }
 
@@ -66,7 +75,7 @@ public final class FederationManager {
         return repository.loadApplicantLandIds(actingMember.federationId());
     }
 
-    public enum ApprovalResult { SUCCESS, NOT_AUTHORIZED, APPLICATION_NOT_FOUND }
+    public enum ApprovalResult { SUCCESS, NOT_AUTHORIZED, APPLICATION_NOT_FOUND, ALREADY_MEMBER }
 
     public ApprovalResult approve(UUID actingLandId, UUID applicantLandId) throws SQLException {
         Optional<FederationMember> actingMember = repository.findMemberByLandId(actingLandId);
@@ -76,6 +85,11 @@ public final class FederationManager {
         UUID federationId = actingMember.get().federationId();
         if (!repository.applicationExists(federationId, applicantLandId)) {
             return ApprovalResult.APPLICATION_NOT_FOUND;
+        }
+        // The applicant may have founded (or joined) another federation after filing this
+        // application — insertMember below would otherwise throw on the land_id PK.
+        if (repository.findMemberByLandId(applicantLandId).isPresent()) {
+            return ApprovalResult.ALREADY_MEMBER;
         }
         repository.deleteAllApplicationsForLand(applicantLandId);
         repository.insertMember(new FederationMember(federationId, applicantLandId, FederationRole.MEMBER, System.currentTimeMillis()));
@@ -127,7 +141,7 @@ public final class FederationManager {
         return KickResult.SUCCESS;
     }
 
-    public enum AppointResult { SUCCESS, NOT_LEADER, TARGET_NOT_MEMBER, ALREADY_DEPUTY, CAP_REACHED }
+    public enum AppointResult { SUCCESS, NOT_LEADER, TARGET_NOT_MEMBER, ALREADY_DEPUTY, TARGET_IS_LEADER, CAP_REACHED }
 
     public AppointResult appointDeputy(UUID actingLandId, UUID targetLandId) throws SQLException {
         Optional<Federation> federation = requireLeaderFederation(actingLandId);
@@ -137,6 +151,12 @@ public final class FederationManager {
         Optional<FederationMember> targetMember = repository.findMemberByLandId(targetLandId);
         if (targetMember.isEmpty() || !targetMember.get().federationId().equals(federation.get().id())) {
             return AppointResult.TARGET_NOT_MEMBER;
+        }
+        // Without this, a leader appointing themselves as deputy would demote their own role,
+        // leaving the federation's leader_land_id pointing at a non-LEADER land with no recovery
+        // path (requireLeaderFederation gates every leader-only action on role == LEADER).
+        if (targetMember.get().role() == FederationRole.LEADER) {
+            return AppointResult.TARGET_IS_LEADER;
         }
         if (targetMember.get().role() == FederationRole.DEPUTY) {
             return AppointResult.ALREADY_DEPUTY;
@@ -178,9 +198,13 @@ public final class FederationManager {
         if (targetMember.isEmpty() || !targetMember.get().federationId().equals(federationOpt.get().id())) {
             return TransferResult.TARGET_NOT_MEMBER;
         }
-        repository.updateMemberRole(actingLandId, FederationRole.MEMBER);
-        repository.updateMemberRole(targetLandId, FederationRole.LEADER);
-        repository.update(federationOpt.get().withLeaderLandId(targetLandId));
+        Federation updatedFederation = federationOpt.get().withLeaderLandId(targetLandId);
+        repository.withTransaction(connection -> {
+            repository.updateMemberRole(connection, actingLandId, FederationRole.MEMBER);
+            repository.updateMemberRole(connection, targetLandId, FederationRole.LEADER);
+            repository.update(connection, updatedFederation);
+            return null;
+        });
         return TransferResult.SUCCESS;
     }
 

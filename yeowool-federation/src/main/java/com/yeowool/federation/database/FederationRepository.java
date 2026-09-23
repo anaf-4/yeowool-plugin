@@ -23,10 +23,43 @@ public final class FederationRepository {
         this.dataSource = dataSource;
     }
 
+    /**
+     * Runs {@code work} on a single {@link Connection} with auto-commit disabled, committing on
+     * success and rolling back on any {@link SQLException} — for the handful of call sites where
+     * two or more writes must land together (see {@code FederationManager.create()} and
+     * {@code transferLeadership()}). Everything else in this repository still uses one
+     * connection-per-statement, which is fine for writes that don't need atomicity with each other.
+     */
+    public <T> T withTransaction(SqlTransaction<T> work) throws SQLException {
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                T result = work.run(connection);
+                connection.commit();
+                return result;
+            } catch (SQLException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        }
+    }
+
+    @FunctionalInterface
+    public interface SqlTransaction<T> {
+        T run(Connection connection) throws SQLException;
+    }
+
     public void insert(Federation federation) throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement insert = connection.prepareStatement(
-                     "INSERT INTO yw_federations (id, name, description, level, leader_land_id, created_at) VALUES (?, ?, ?, ?, ?, ?)")) {
+        try (Connection connection = dataSource.getConnection()) {
+            insert(connection, federation);
+        }
+    }
+
+    public void insert(Connection connection, Federation federation) throws SQLException {
+        try (PreparedStatement insert = connection.prepareStatement(
+                "INSERT INTO yw_federations (id, name, description, level, leader_land_id, created_at) VALUES (?, ?, ?, ?, ?, ?)")) {
             insert.setString(1, federation.id().toString());
             insert.setString(2, federation.name());
             insert.setString(3, federation.description());
@@ -38,9 +71,14 @@ public final class FederationRepository {
     }
 
     public void update(Federation federation) throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement update = connection.prepareStatement(
-                     "UPDATE yw_federations SET description = ?, leader_land_id = ? WHERE id = ?")) {
+        try (Connection connection = dataSource.getConnection()) {
+            update(connection, federation);
+        }
+    }
+
+    public void update(Connection connection, Federation federation) throws SQLException {
+        try (PreparedStatement update = connection.prepareStatement(
+                "UPDATE yw_federations SET description = ?, leader_land_id = ? WHERE id = ?")) {
             update.setString(1, federation.description());
             update.setString(2, federation.leaderLandId().toString());
             update.setString(3, federation.id().toString());
@@ -114,9 +152,14 @@ public final class FederationRepository {
     }
 
     public void insertMember(FederationMember member) throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement insert = connection.prepareStatement(
-                     "INSERT INTO yw_federation_members (federation_id, land_id, role, joined_at) VALUES (?, ?, ?, ?)")) {
+        try (Connection connection = dataSource.getConnection()) {
+            insertMember(connection, member);
+        }
+    }
+
+    public void insertMember(Connection connection, FederationMember member) throws SQLException {
+        try (PreparedStatement insert = connection.prepareStatement(
+                "INSERT INTO yw_federation_members (federation_id, land_id, role, joined_at) VALUES (?, ?, ?, ?)")) {
             insert.setString(1, member.federationId().toString());
             insert.setString(2, member.landId().toString());
             insert.setString(3, member.role().name());
@@ -126,9 +169,14 @@ public final class FederationRepository {
     }
 
     public void updateMemberRole(UUID landId, FederationRole newRole) throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement update = connection.prepareStatement(
-                     "UPDATE yw_federation_members SET role = ? WHERE land_id = ?")) {
+        try (Connection connection = dataSource.getConnection()) {
+            updateMemberRole(connection, landId, newRole);
+        }
+    }
+
+    public void updateMemberRole(Connection connection, UUID landId, FederationRole newRole) throws SQLException {
+        try (PreparedStatement update = connection.prepareStatement(
+                "UPDATE yw_federation_members SET role = ? WHERE land_id = ?")) {
             update.setString(1, newRole.name());
             update.setString(2, landId.toString());
             update.executeUpdate();

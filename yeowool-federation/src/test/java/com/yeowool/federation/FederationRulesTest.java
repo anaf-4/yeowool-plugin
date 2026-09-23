@@ -42,5 +42,11 @@ class FederationRulesTest {
     void noOneCanKickTheLeader() {
         assertFalse(FederationRules.canKick(FederationRole.LEADER, FederationRole.LEADER));
         assertFalse(FederationRules.canKick(FederationRole.DEPUTY, FederationRole.LEADER));
+        assertFalse(FederationRules.canKick(FederationRole.MEMBER, FederationRole.LEADER));
+    }
+
+    @Test
+    void aPlainMemberCannotKickADeputy() {
+        assertFalse(FederationRules.canKick(FederationRole.MEMBER, FederationRole.DEPUTY));
     }
 }
