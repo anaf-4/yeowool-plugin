@@ -74,16 +74,23 @@ public final class FederationChatService {
         if (activeMuteReason(sender.getUniqueId()).isPresent()) {
             return SendResult.MUTED;
         }
-        long now = System.currentTimeMillis();
-        Long last = lastSentAt.get(sender.getUniqueId());
-        if (last != null && now - last < cooldownMillis) {
-            return SendResult.COOLDOWN;
-        }
         Optional<UUID> federationId = findFederationId(sender.getUniqueId());
         if (federationId.isEmpty()) {
             return SendResult.NO_FEDERATION;
         }
-        lastSentAt.put(sender.getUniqueId(), now);
+
+        long now = System.currentTimeMillis();
+        boolean[] reserved = {false};
+        lastSentAt.compute(sender.getUniqueId(), (id, last) -> {
+            if (last != null && now - last < cooldownMillis) {
+                return last;
+            }
+            reserved[0] = true;
+            return now;
+        });
+        if (!reserved[0]) {
+            return SendResult.COOLDOWN;
+        }
 
         Component message = Component.text()
                 .append(Component.text("[연합] ", NamedTextColor.DARK_GREEN))
