@@ -48,6 +48,10 @@ public final class FederationCommand implements CommandExecutor {
             case "생성" -> handleCreate(player, args);
             case "정보" -> handleInfo(player, args);
             case "목록" -> handleList(player);
+            case "가입신청" -> handleApply(player, args);
+            case "신청목록" -> handleApplicationList(player);
+            case "수락" -> handleApprove(player, args);
+            case "거절" -> handleReject(player, args);
             default -> core.messages().send(player, "federation.usage");
         }
         return true;
@@ -134,6 +138,108 @@ public final class FederationCommand implements CommandExecutor {
                 }
             } catch (java.sql.SQLException e) {
                 plugin.getLogger().severe("연합 목록 조회 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleApply(Player player, String[] args) {
+        if (args.length != 2) {
+            core.messages().send(player, "federation.usage");
+            return;
+        }
+        String federationName = args[1];
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> land = landLookup.findByOwnerUuid(player.getUniqueId());
+                if (land.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-land"));
+                    return;
+                }
+                var result = manager.applyToJoin(land.get().id(), federationName);
+                runOnMain(() -> {
+                    switch (result) {
+                        case SUCCESS -> core.messages().send(player, "federation.apply-success", Placeholder.unparsed("name", federationName));
+                        case FEDERATION_NOT_FOUND -> core.messages().send(player, "federation.not-found", Placeholder.unparsed("name", federationName));
+                        case ALREADY_MEMBER -> core.messages().send(player, "federation.already-member");
+                        case ALREADY_APPLIED -> core.messages().send(player, "federation.already-applied");
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("연합 가입 신청 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleApplicationList(Player player) {
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> land = landLookup.findByOwnerUuid(player.getUniqueId());
+                if (land.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-land"));
+                    return;
+                }
+                List<java.util.UUID> applicantLandIds;
+                try {
+                    applicantLandIds = manager.listApplicants(land.get().id());
+                } catch (IllegalStateException e) {
+                    runOnMain(() -> core.messages().send(player, "federation.not-your-federation"));
+                    return;
+                }
+                if (applicantLandIds.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-applications"));
+                    return;
+                }
+                runOnMain(() -> core.messages().send(player, "federation.application-list-header"));
+                for (java.util.UUID applicantLandId : applicantLandIds) {
+                    Optional<LandInfo> applicantLand = landLookup.findById(applicantLandId);
+                    String landName = applicantLand.map(LandInfo::landName).orElse("?");
+                    runOnMain(() -> core.messages().send(player, "federation.application-list-line", Placeholder.unparsed("land", landName)));
+                }
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("연합 신청 목록 조회 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleApprove(Player player, String[] args) {
+        handleApprovalDecision(player, args, true);
+    }
+
+    private void handleReject(Player player, String[] args) {
+        handleApprovalDecision(player, args, false);
+    }
+
+    private void handleApprovalDecision(Player player, String[] args, boolean approve) {
+        if (args.length != 2) {
+            core.messages().send(player, "federation.usage");
+            return;
+        }
+        String targetLandOwnerName = args[1];
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> actingLand = landLookup.findByOwnerUuid(player.getUniqueId());
+                Optional<LandInfo> targetLand = landLookup.findByOwnerUsername(targetLandOwnerName);
+                if (actingLand.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-land"));
+                    return;
+                }
+                if (targetLand.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.target-no-land"));
+                    return;
+                }
+                var result = approve
+                        ? manager.approve(actingLand.get().id(), targetLand.get().id())
+                        : manager.reject(actingLand.get().id(), targetLand.get().id());
+                String landName = targetLand.get().landName();
+                runOnMain(() -> {
+                    switch (result) {
+                        case SUCCESS -> core.messages().send(player, approve ? "federation.accept-success" : "federation.reject-success", Placeholder.unparsed("land", landName));
+                        case NOT_AUTHORIZED -> core.messages().send(player, "federation.not-your-federation");
+                        case APPLICATION_NOT_FOUND -> core.messages().send(player, "federation.application-not-found");
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("연합 가입 승인/거절 실패: " + e.getMessage());
             }
         });
     }
