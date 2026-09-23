@@ -52,6 +52,8 @@ public final class FederationCommand implements CommandExecutor {
             case "신청목록" -> handleApplicationList(player);
             case "수락" -> handleApprove(player, args);
             case "거절" -> handleReject(player, args);
+            case "탈퇴" -> handleLeave(player);
+            case "추방" -> handleKick(player, args);
             default -> core.messages().send(player, "federation.usage");
         }
         return true;
@@ -240,6 +242,62 @@ public final class FederationCommand implements CommandExecutor {
                 });
             } catch (java.sql.SQLException e) {
                 plugin.getLogger().severe("연합 가입 승인/거절 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleLeave(Player player) {
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> land = landLookup.findByOwnerUuid(player.getUniqueId());
+                if (land.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-land"));
+                    return;
+                }
+                var result = manager.leave(land.get().id());
+                runOnMain(() -> {
+                    switch (result) {
+                        case SUCCESS -> core.messages().send(player, "federation.leave-success");
+                        case NOT_A_MEMBER -> core.messages().send(player, "federation.not-your-federation");
+                        case LEADER_MUST_TRANSFER_FIRST -> core.messages().send(player, "federation.leader-must-transfer-first");
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("연합 탈퇴 실패: " + e.getMessage());
+            }
+        });
+    }
+
+    private void handleKick(Player player, String[] args) {
+        if (args.length != 2) {
+            core.messages().send(player, "federation.usage");
+            return;
+        }
+        String targetName = args[1];
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> actingLand = landLookup.findByOwnerUuid(player.getUniqueId());
+                Optional<LandInfo> targetLand = landLookup.findByOwnerUsername(targetName);
+                if (actingLand.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.no-land"));
+                    return;
+                }
+                if (targetLand.isEmpty()) {
+                    runOnMain(() -> core.messages().send(player, "federation.target-no-land"));
+                    return;
+                }
+                var result = manager.kick(actingLand.get().id(), targetLand.get().id());
+                String landName = targetLand.get().landName();
+                runOnMain(() -> {
+                    switch (result) {
+                        case SUCCESS -> core.messages().send(player, "federation.kick-success", Placeholder.unparsed("land", landName));
+                        case NOT_AUTHORIZED -> core.messages().send(player, "federation.not-your-federation");
+                        case TARGET_NOT_MEMBER -> core.messages().send(player, "federation.target-not-member");
+                        case TARGET_NOT_KICKABLE -> core.messages().send(player, "federation.cannot-kick-deputy");
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("연합 추방 실패: " + e.getMessage());
             }
         });
     }
