@@ -3,6 +3,10 @@ package com.yeowool.federation;
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
 import com.yeowool.core.message.MessageManager;
+import com.yeowool.core.util.ConfigMerger;
+import com.yeowool.federation.chat.FederationChatCommand;
+import com.yeowool.federation.chat.FederationChatListener;
+import com.yeowool.federation.chat.FederationChatService;
 import com.yeowool.federation.database.FederationRepository;
 import com.yeowool.federation.database.FederationSchemaInitializer;
 import com.yeowool.federation.land.LandLookup;
@@ -23,6 +27,7 @@ public final class YeowoolFederation extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        ConfigMerger.mergeDefaults(this, "config.yml");
         YeowoolCoreAPI core = Bukkit.getServicesManager().load(YeowoolCoreAPI.class);
         if (core == null) {
             getLogger().severe("YeowoolCore를 찾을 수 없습니다. 비활성화합니다.");
@@ -55,6 +60,16 @@ public final class YeowoolFederation extends JavaPlugin {
         if (command != null) {
             command.setExecutor(federationCommand);
         }
+
+        FederationChatService chatService = new FederationChatService(
+                this, core, core.dataSource(), getConfig().getLong("chat.cooldown-ms", 1500L));
+        FederationChatCommand chatCommand = new FederationChatCommand(this, core, messages, chatService, executor);
+        var chatCommandEntry = getCommand("연합채팅");
+        if (chatCommandEntry != null) {
+            chatCommandEntry.setExecutor(chatCommand);
+        }
+        getServer().getPluginManager().registerEvents(
+                new FederationChatListener(this, core, messages, chatService, chatCommand), this);
 
         getServer().getPluginManager().registerEvents(new Listener() {
             @EventHandler

@@ -8,3 +8,5 @@ load: POSTWORLD
 commands:
   연합:
     description: 마을 연합을 생성/관리합니다
+  연합채팅:
+    description: 연합원에게만 보이는 채팅 (/연합채팅 <메시지> 한 번 보내기, /연합채팅 모드 켜기/끄기)
