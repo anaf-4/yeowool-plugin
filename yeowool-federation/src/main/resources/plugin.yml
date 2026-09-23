@@ -1,0 +1,10 @@
+name: YeowoolFederation
+version: '${version}'
+main: com.yeowool.federation.YeowoolFederation
+api-version: '1.21'
+depend: [YeowoolCore]
+load: POSTWORLD
+
+commands:
+  연합:
+    description: 마을 연합을 생성/관리합니다

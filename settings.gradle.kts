@@ -14,5 +14,6 @@ include(
     "yeowool-discord",
     "yeowool-enhance",
     "yeowool-quest",
-    "yeowool-raid"
+    "yeowool-raid",
+    "yeowool-federation"
 )
