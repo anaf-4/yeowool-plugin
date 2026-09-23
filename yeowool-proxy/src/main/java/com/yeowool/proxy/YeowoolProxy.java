@@ -48,6 +48,7 @@ import java.util.Set;
 public final class YeowoolProxy {
 
     private static final MinecraftChannelIdentifier CHAT_CHANNEL = MinecraftChannelIdentifier.create("yeowool", "chat");
+    private static final MinecraftChannelIdentifier TARGETED_CHANNEL = MinecraftChannelIdentifier.create("yeowool", "targeted");
 
     private final ProxyServer server;
     private final Logger logger;
@@ -73,6 +74,7 @@ public final class YeowoolProxy {
         server.getCommandManager().register(meta, new ServerCommand(server, queueManager, maintenanceServers, maxPlayersPerServer));
 
         server.getChannelRegistrar().register(CHAT_CHANNEL);
+        server.getChannelRegistrar().register(TARGETED_CHANNEL);
 
         server.getScheduler().buildTask(this, () ->
                 server.getAllServers().forEach(registered -> queueManager.tick(registered, maxPlayersPerServer))
@@ -88,6 +90,11 @@ public final class YeowoolProxy {
      */
     @Subscribe
     public void onPluginMessage(PluginMessageEvent event) {
+        if (event.getIdentifier().equals(TARGETED_CHANNEL)) {
+            event.setResult(PluginMessageEvent.ForwardResult.handled());
+            deliverTargeted(event.getData());
+            return;
+        }
         if (!event.getIdentifier().equals(CHAT_CHANNEL)) {
             return;
         }
@@ -108,6 +115,31 @@ public final class YeowoolProxy {
             if (!playerServer.equals(sourceServer)) {
                 player.sendMessage(message);
             }
+        }
+    }
+
+    /**
+     * {@code yeowool:targeted}: a backend server sends a recipient UUID list plus a
+     * rendered message; deliver it to whichever of those players are online. The
+     * sender already delivered to recipients on its own server and left them out
+     * of the list, so no source-server filtering is needed here.
+     */
+    private void deliverTargeted(byte[] data) {
+        ByteArrayDataInput in = ByteStreams.newDataInput(data);
+        List<java.util.UUID> recipients = new java.util.ArrayList<>();
+        Component message;
+        try {
+            int count = in.readInt();
+            for (int i = 0; i < count; i++) {
+                recipients.add(java.util.UUID.fromString(in.readUTF()));
+            }
+            message = GsonComponentSerializer.gson().deserialize(in.readUTF());
+        } catch (Exception e) {
+            logger.warn("잘못된 지정 수신자 메시지 페이로드를 받았습니다: {}", e.getMessage());
+            return;
+        }
+        for (java.util.UUID recipient : recipients) {
+            server.getPlayer(recipient).ifPresent(player -> player.sendMessage(message));
         }
     }
 
