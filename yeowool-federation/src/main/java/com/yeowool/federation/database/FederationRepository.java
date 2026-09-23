@@ -184,9 +184,14 @@ public final class FederationRepository {
     }
 
     public void deleteMember(UUID landId) throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement delete = connection.prepareStatement(
-                     "DELETE FROM yw_federation_members WHERE land_id = ?")) {
+        try (Connection connection = dataSource.getConnection()) {
+            deleteMember(connection, landId);
+        }
+    }
+
+    public void deleteMember(Connection connection, UUID landId) throws SQLException {
+        try (PreparedStatement delete = connection.prepareStatement(
+                "DELETE FROM yw_federation_members WHERE land_id = ?")) {
             delete.setString(1, landId.toString());
             delete.executeUpdate();
         }

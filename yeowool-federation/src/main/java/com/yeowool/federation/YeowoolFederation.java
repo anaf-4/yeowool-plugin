@@ -6,11 +6,16 @@ import com.yeowool.core.message.MessageManager;
 import com.yeowool.federation.database.FederationRepository;
 import com.yeowool.federation.database.FederationSchemaInitializer;
 import com.yeowool.federation.land.LandLookup;
+import com.yeowool.core.api.event.LandDeletedEvent;
 import org.bukkit.Bukkit;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.sql.SQLException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
 
 public final class YeowoolFederation extends JavaPlugin {
 
@@ -50,6 +55,19 @@ public final class YeowoolFederation extends JavaPlugin {
         if (command != null) {
             command.setExecutor(federationCommand);
         }
+
+        getServer().getPluginManager().registerEvents(new Listener() {
+            @EventHandler
+            public void onLandDeleted(LandDeletedEvent event) {
+                executor.execute(() -> {
+                    try {
+                        manager.handleLandDeleted(event.getLandId());
+                    } catch (SQLException e) {
+                        getLogger().log(Level.SEVERE, "삭제된 토지의 연합 정리 실패 (" + event.getLandId() + ")", e);
+                    }
+                });
+            }
+        }, this);
     }
 
     @Override

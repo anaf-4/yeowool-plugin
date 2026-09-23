@@ -219,6 +219,36 @@ public final class FederationManager {
         return DisbandResult.SUCCESS;
     }
 
+    /** A deleted land leaves its federation; if it was the leader, a successor takes over, or the federation closes when no one is left. */
+    public void handleLandDeleted(UUID landId) throws SQLException {
+        repository.deleteAllApplicationsForLand(landId);
+        Optional<FederationMember> member = repository.findMemberByLandId(landId);
+        if (member.isEmpty()) {
+            return;
+        }
+        if (member.get().role() != FederationRole.LEADER) {
+            repository.deleteMember(landId);
+            return;
+        }
+        UUID federationId = member.get().federationId();
+        List<FederationMember> others = repository.loadMembers(federationId).stream()
+                .filter(m -> !m.landId().equals(landId))
+                .toList();
+        Optional<FederationMember> successor = FederationRules.pickSuccessor(others);
+        Optional<Federation> federation = repository.findById(federationId);
+        if (successor.isEmpty() || federation.isEmpty()) {
+            repository.delete(federationId);
+            return;
+        }
+        UUID successorLandId = successor.get().landId();
+        repository.withTransaction(connection -> {
+            repository.deleteMember(connection, landId);
+            repository.updateMemberRole(connection, successorLandId, FederationRole.LEADER);
+            repository.update(connection, federation.get().withLeaderLandId(successorLandId));
+            return null;
+        });
+    }
+
     public enum DescriptionResult { SUCCESS, NOT_LEADER, TOO_LONG }
 
     public DescriptionResult updateDescription(UUID actingLandId, String newDescription) throws SQLException {

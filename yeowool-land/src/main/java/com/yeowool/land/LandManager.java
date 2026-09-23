@@ -1,5 +1,6 @@
 package com.yeowool.land;
 
+import com.yeowool.core.api.event.LandDeletedEvent;
 import com.yeowool.land.model.ChunkKey;
 import com.yeowool.land.model.Land;
 import com.yeowool.land.model.LandPermission;
@@ -264,5 +265,6 @@ public final class LandManager {
                 plugin.getLogger().severe("토지 삭제 저장 실패 (" + land.getId() + "): " + e.getMessage());
             }
         });
+        plugin.getServer().getPluginManager().callEvent(new LandDeletedEvent(land.getId()));
     }
 }

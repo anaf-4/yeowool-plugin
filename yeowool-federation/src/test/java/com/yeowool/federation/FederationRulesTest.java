@@ -2,6 +2,9 @@ package com.yeowool.federation;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,5 +51,28 @@ class FederationRulesTest {
     @Test
     void aPlainMemberCannotKickADeputy() {
         assertFalse(FederationRules.canKick(FederationRole.MEMBER, FederationRole.DEPUTY));
+    }
+
+    @Test
+    void successorPrefersADeputyOverAnEarlierMember() {
+        FederationMember earlyMember = member(FederationRole.MEMBER, 100);
+        FederationMember lateDeputy = member(FederationRole.DEPUTY, 500);
+        assertEquals(lateDeputy, FederationRules.pickSuccessor(List.of(earlyMember, lateDeputy)).orElseThrow());
+    }
+
+    @Test
+    void successorAmongEqualRolesIsTheEarliestJoiner() {
+        FederationMember late = member(FederationRole.MEMBER, 300);
+        FederationMember early = member(FederationRole.MEMBER, 100);
+        assertEquals(early, FederationRules.pickSuccessor(List.of(late, early)).orElseThrow());
+    }
+
+    @Test
+    void noSuccessorWhenNoOneElseIsLeft() {
+        assertTrue(FederationRules.pickSuccessor(List.of()).isEmpty());
+    }
+
+    private static FederationMember member(FederationRole role, long joinedAt) {
+        return new FederationMember(UUID.randomUUID(), UUID.randomUUID(), role, joinedAt);
     }
 }
