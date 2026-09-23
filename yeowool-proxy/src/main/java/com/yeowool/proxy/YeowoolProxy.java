@@ -90,6 +90,11 @@ public final class YeowoolProxy {
      */
     @Subscribe
     public void onPluginMessage(PluginMessageEvent event) {
+        if ((event.getIdentifier().equals(TARGETED_CHANNEL) || event.getIdentifier().equals(CHAT_CHANNEL))
+                && !(event.getSource() instanceof com.velocitypowered.api.proxy.ServerConnection)) {
+            event.setResult(PluginMessageEvent.ForwardResult.handled());
+            return;
+        }
         if (event.getIdentifier().equals(TARGETED_CHANNEL)) {
             event.setResult(PluginMessageEvent.ForwardResult.handled());
             deliverTargeted(event.getData());
@@ -135,7 +140,7 @@ public final class YeowoolProxy {
             }
             message = GsonComponentSerializer.gson().deserialize(in.readUTF());
         } catch (Exception e) {
-            logger.warn("잘못된 지정 수신자 메시지 페이로드를 받았습니다: {}", e.getMessage());
+            logger.warn("잘못된 지정 수신자 메시지 페이로드를 받았습니다: {}", e.toString());
             return;
         }
         for (java.util.UUID recipient : recipients) {

@@ -111,8 +111,12 @@ public final class FederationChatService {
         Bukkit.getConsoleSender().sendMessage(message);
 
         if (!remote.isEmpty()) {
-            String json = GsonComponentSerializer.gson().serialize(message);
-            sender.sendPluginMessage(plugin, CHANNEL, TargetedPayload.encode(remote, json));
+            if (!sender.getListeningPluginChannels().contains(CHANNEL)) {
+                plugin.getLogger().warning("프록시가 yeowool:targeted 채널을 받지 않습니다 — 다른 서버 연합원에게 연합 채팅이 전달되지 않았습니다 (프록시 재시작 필요?)");
+            } else {
+                String json = GsonComponentSerializer.gson().serialize(message);
+                sender.sendPluginMessage(plugin, CHANNEL, TargetedPayload.encode(remote, json));
+            }
         }
         return SendResult.SENT;
     }

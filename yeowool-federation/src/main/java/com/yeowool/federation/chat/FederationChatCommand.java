@@ -3,7 +3,6 @@ package com.yeowool.federation.chat;
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -51,13 +50,18 @@ public final class FederationChatCommand implements CommandExecutor {
                 sendResultFeedback(player, chatService.send(player, message));
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "연합 채팅 전송 실패", e);
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(Level.SEVERE, "연합 채팅 전송 실패", e);
             }
         });
         return true;
     }
 
     private void toggleMode(Player player) {
-        var data = core.playerData().getOnline(player.getUniqueId());
+        var data = core.playerData().getIfLoaded(player.getUniqueId()).orElse(null);
+        if (data == null) {
+            return;
+        }
         if (MODE_ON.equals(data.getSetting(MODE_SETTING, ""))) {
             data.setSetting(MODE_SETTING, "");
             messages.send(player, "federation.chat-mode-off");
@@ -66,15 +70,15 @@ public final class FederationChatCommand implements CommandExecutor {
         executor.execute(() -> {
             try {
                 boolean inFederation = chatService.findFederationId(player.getUniqueId()).isPresent();
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (!inFederation) {
-                        messages.send(player, "federation.chat-no-federation");
-                        return;
-                    }
-                    core.playerData().getOnline(player.getUniqueId()).setSetting(MODE_SETTING, MODE_ON);
-                    messages.send(player, "federation.chat-mode-on");
-                });
+                if (!inFederation) {
+                    messages.send(player, "federation.chat-no-federation");
+                    return;
+                }
+                data.setSetting(MODE_SETTING, MODE_ON);
+                messages.send(player, "federation.chat-mode-on");
             } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "연합 채팅 모드 전환 실패", e);
+            } catch (RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, "연합 채팅 모드 전환 실패", e);
             }
         });
