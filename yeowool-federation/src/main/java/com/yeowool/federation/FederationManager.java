@@ -1,7 +1,6 @@
 package com.yeowool.federation;
 
 import com.yeowool.federation.database.FederationRepository;
-import com.yeowool.federation.land.LandLookup;
 
 import java.sql.SQLException;
 import java.util.List;
@@ -22,11 +21,9 @@ public final class FederationManager {
     private static final int DESCRIPTION_MAX_LENGTH = 255;
 
     private final FederationRepository repository;
-    private final LandLookup landLookup;
 
-    public FederationManager(FederationRepository repository, LandLookup landLookup) {
+    public FederationManager(FederationRepository repository) {
         this.repository = repository;
-        this.landLookup = landLookup;
     }
 
     public enum CreateResult { SUCCESS, LAND_ALREADY_IN_FEDERATION, NAME_TAKEN }
