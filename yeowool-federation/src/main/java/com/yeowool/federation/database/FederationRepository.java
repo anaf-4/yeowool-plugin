@@ -2,6 +2,7 @@ package com.yeowool.federation.database;
 
 import com.yeowool.federation.Federation;
 import com.yeowool.federation.FederationMember;
+import com.yeowool.federation.FederationProgress;
 import com.yeowool.federation.FederationRole;
 
 import javax.sql.DataSource;
@@ -290,5 +291,67 @@ public final class FederationRepository {
             }
         }
         return landIds;
+    }
+
+    public Optional<FederationProgress> findProgress(UUID federationId) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement select = connection.prepareStatement(
+                     "SELECT bank_balance, activity FROM yw_federations WHERE id = ?")) {
+            select.setString(1, federationId.toString());
+            try (ResultSet rs = select.executeQuery()) {
+                if (!rs.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(new FederationProgress(rs.getLong("bank_balance"), rs.getLong("activity")));
+            }
+        }
+    }
+
+    /** @return false if the federation no longer exists. */
+    public boolean depositToBank(UUID federationId, long amount) throws SQLException {
+        return executeUpdate("UPDATE yw_federations SET bank_balance = bank_balance + ? WHERE id = ?",
+                amount, federationId.toString()) == 1;
+    }
+
+    /** Atomic "subtract only if enough" — @return false if the balance was insufficient (or the federation is gone). */
+    public boolean withdrawFromBank(UUID federationId, long amount) throws SQLException {
+        return executeUpdate("UPDATE yw_federations SET bank_balance = bank_balance - ? WHERE id = ? AND bank_balance >= ?",
+                amount, federationId.toString(), amount) == 1;
+    }
+
+    public void addActivity(UUID federationId, long amount) throws SQLException {
+        executeUpdate("UPDATE yw_federations SET activity = activity + ? WHERE id = ?", amount, federationId.toString());
+    }
+
+    /**
+     * Raises the level by one and deducts the cost in one statement, only if the federation is still at
+     * {@code currentLevel} with enough bank and activity — so a double click or a second server can't level twice.
+     */
+    public boolean tryLevelUp(UUID federationId, int currentLevel, long cost, long requiredActivity) throws SQLException {
+        return executeUpdate("UPDATE yw_federations SET level = level + 1, bank_balance = bank_balance - ? " +
+                        "WHERE id = ? AND level = ? AND bank_balance >= ? AND activity >= ?",
+                cost, federationId.toString(), currentLevel, cost, requiredActivity) == 1;
+    }
+
+    public int countMembers(UUID federationId) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement select = connection.prepareStatement(
+                     "SELECT COUNT(*) FROM yw_federation_members WHERE federation_id = ?")) {
+            select.setString(1, federationId.toString());
+            try (ResultSet rs = select.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
+    private int executeUpdate(String sql, Object... params) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                statement.setObject(i + 1, params[i]);
+            }
+            return statement.executeUpdate();
+        }
     }
 }

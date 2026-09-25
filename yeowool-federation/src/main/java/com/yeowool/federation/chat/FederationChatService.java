@@ -2,6 +2,7 @@ package com.yeowool.federation.chat;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.model.PunishmentEntry;
+import com.yeowool.federation.land.PlayerFederationResolver;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
@@ -35,14 +36,6 @@ public final class FederationChatService {
 
     public static final String CHANNEL = "yeowool:targeted";
 
-    private static final String OWNED_LAND_FEDERATION =
-            "SELECT m.federation_id FROM yw_federation_members m " +
-                    "JOIN yw_lands l ON l.id = m.land_id WHERE l.owner_uuid = ?";
-    private static final String RESIDENT_LAND_FEDERATION =
-            "SELECT m.federation_id FROM yw_federation_members m " +
-                    "JOIN yw_land_members lm ON lm.land_id = m.land_id " +
-                    "JOIN yw_federations f ON f.id = m.federation_id " +
-                    "WHERE lm.member_uuid = ? ORDER BY f.name LIMIT 1";
     private static final String RECIPIENTS =
             "SELECT l.owner_uuid AS uuid FROM yw_lands l " +
                     "JOIN yw_federation_members m ON m.land_id = l.id WHERE m.federation_id = ? " +
@@ -57,12 +50,14 @@ public final class FederationChatService {
     private final DataSource dataSource;
     private final long cooldownMillis;
     private final Map<UUID, Long> lastSentAt = new ConcurrentHashMap<>();
+    private final PlayerFederationResolver resolver;
 
     public FederationChatService(JavaPlugin plugin, YeowoolCoreAPI core, DataSource dataSource, long cooldownMillis) {
         this.plugin = plugin;
         this.core = core;
         this.dataSource = dataSource;
         this.cooldownMillis = cooldownMillis;
+        this.resolver = new PlayerFederationResolver(dataSource);
         Bukkit.getMessenger().registerOutgoingPluginChannel(plugin, CHANNEL);
     }
 
@@ -122,18 +117,7 @@ public final class FederationChatService {
     }
 
     public Optional<UUID> findFederationId(UUID playerUuid) throws SQLException {
-        Optional<UUID> owned = queryFederationId(OWNED_LAND_FEDERATION, playerUuid);
-        return owned.isPresent() ? owned : queryFederationId(RESIDENT_LAND_FEDERATION, playerUuid);
-    }
-
-    private Optional<UUID> queryFederationId(String sql, UUID playerUuid) throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement select = connection.prepareStatement(sql)) {
-            select.setString(1, playerUuid.toString());
-            try (ResultSet rs = select.executeQuery()) {
-                return rs.next() ? Optional.of(UUID.fromString(rs.getString(1))) : Optional.empty();
-            }
-        }
+        return resolver.findFederationId(playerUuid);
     }
 
     private Set<UUID> findRecipients(UUID federationId) throws SQLException {

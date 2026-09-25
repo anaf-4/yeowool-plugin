@@ -2,6 +2,7 @@ package com.yeowool.federation.database;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
@@ -51,6 +52,19 @@ public final class FederationSchemaInitializer {
             for (String ddl : DDL) {
                 statement.executeUpdate(ddl);
             }
+            addColumnIfMissing(connection, "yw_federations", "bank_balance", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, "yw_federations", "activity", "BIGINT NOT NULL DEFAULT 0");
+        }
+    }
+
+    private static void addColumnIfMissing(Connection connection, String table, String column, String definition) throws SQLException {
+        try (ResultSet rs = connection.getMetaData().getColumns(connection.getCatalog(), null, table, column)) {
+            if (rs.next()) {
+                return;
+            }
+        }
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
         }
     }
 }
