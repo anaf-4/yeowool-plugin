@@ -53,7 +53,12 @@ public final class YeowoolFederation extends JavaPlugin {
 
         FederationRepository repository = new FederationRepository(core.dataSource());
         LandLookup landLookup = new LandLookup(core.dataSource());
-        FederationManager manager = new FederationManager(repository);
+        FederationLevelConfig levelConfig = new FederationLevelConfig(
+                getConfig().getLong("level-up.activity-per-level", 20000L),
+                getConfig().getLong("level-up.cost-per-level", 30000L),
+                getConfig().getInt("member-cap.base", 3),
+                getConfig().getInt("member-cap.per-level", 1));
+        FederationManager manager = new FederationManager(repository, levelConfig);
 
         var federationCommand = new FederationCommand(this, messages, manager, landLookup, executor);
         var command = getCommand("연합");

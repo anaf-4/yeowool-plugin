@@ -21,9 +21,11 @@ public final class FederationManager {
     private static final int DESCRIPTION_MAX_LENGTH = 255;
 
     private final FederationRepository repository;
+    private final FederationLevelConfig levelConfig;
 
-    public FederationManager(FederationRepository repository) {
+    public FederationManager(FederationRepository repository, FederationLevelConfig levelConfig) {
         this.repository = repository;
+        this.levelConfig = levelConfig;
     }
 
     public enum CreateResult { SUCCESS, LAND_ALREADY_IN_FEDERATION, NAME_TAKEN }
@@ -75,7 +77,7 @@ public final class FederationManager {
         return repository.loadApplicantLandIds(actingMember.federationId());
     }
 
-    public enum ApprovalResult { SUCCESS, NOT_AUTHORIZED, APPLICATION_NOT_FOUND, ALREADY_MEMBER }
+    public enum ApprovalResult { SUCCESS, NOT_AUTHORIZED, APPLICATION_NOT_FOUND, ALREADY_MEMBER, MEMBER_CAP_REACHED }
 
     public ApprovalResult approve(UUID actingLandId, UUID applicantLandId) throws SQLException {
         Optional<FederationMember> actingMember = repository.findMemberByLandId(actingLandId);
@@ -90,6 +92,13 @@ public final class FederationManager {
         // application — insertMember below would otherwise throw on the land_id PK.
         if (repository.findMemberByLandId(applicantLandId).isPresent()) {
             return ApprovalResult.ALREADY_MEMBER;
+        }
+        Optional<Federation> federation = repository.findById(federationId);
+        if (federation.isEmpty()) {
+            return ApprovalResult.NOT_AUTHORIZED;
+        }
+        if (repository.countMembers(federationId) >= levelConfig.memberCap(federation.get().level())) {
+            return ApprovalResult.MEMBER_CAP_REACHED;
         }
         repository.deleteAllApplicationsForLand(applicantLandId);
         repository.insertMember(new FederationMember(federationId, applicantLandId, FederationRole.MEMBER, System.currentTimeMillis()));
@@ -261,6 +270,70 @@ public final class FederationManager {
         }
         repository.update(federation.get().withDescription(newDescription));
         return DescriptionResult.SUCCESS;
+    }
+
+    public FederationLevelConfig levelConfig() {
+        return levelConfig;
+    }
+
+    public Optional<Federation> findById(UUID federationId) throws SQLException {
+        return repository.findById(federationId);
+    }
+
+    public Optional<FederationProgress> progressOf(UUID federationId) throws SQLException {
+        return repository.findProgress(federationId);
+    }
+
+    /** @return false if the federation no longer exists (caller refunds the wallet). */
+    public boolean deposit(UUID federationId, long amount) throws SQLException {
+        return repository.depositToBank(federationId, amount);
+    }
+
+    public enum WithdrawResult { SUCCESS, NOT_LEADER, INSUFFICIENT_BANK }
+
+    public WithdrawResult withdraw(UUID actingLandId, long amount) throws SQLException {
+        Optional<Federation> federation = requireLeaderFederation(actingLandId);
+        if (federation.isEmpty()) {
+            return WithdrawResult.NOT_LEADER;
+        }
+        return repository.withdrawFromBank(federation.get().id(), amount)
+                ? WithdrawResult.SUCCESS
+                : WithdrawResult.INSUFFICIENT_BANK;
+    }
+
+    public void addActivity(UUID federationId, long amount) throws SQLException {
+        repository.addActivity(federationId, amount);
+    }
+
+    public enum UpgradeResult { SUCCESS, NOT_LEADER, NOT_ENOUGH_ACTIVITY, NOT_ENOUGH_BANK, CHANGED }
+
+    /** {@code level} is the new level on SUCCESS, otherwise the current one. */
+    public record UpgradeOutcome(UpgradeResult result, int level, long activity, long requiredActivity, long bank, long cost) {
+    }
+
+    public UpgradeOutcome upgrade(UUID actingLandId) throws SQLException {
+        Optional<Federation> federation = requireLeaderFederation(actingLandId);
+        if (federation.isEmpty()) {
+            return new UpgradeOutcome(UpgradeResult.NOT_LEADER, 0, 0, 0, 0, 0);
+        }
+        UUID federationId = federation.get().id();
+        int level = federation.get().level();
+        FederationProgress progress = repository.findProgress(federationId).orElse(new FederationProgress(0, 0));
+        long requiredActivity = levelConfig.activityForNextLevel(level);
+        long cost = levelConfig.costForNextLevel(level);
+
+        UpgradeResult result;
+        if (progress.activity() < requiredActivity) {
+            result = UpgradeResult.NOT_ENOUGH_ACTIVITY;
+        } else if (progress.bankBalance() < cost) {
+            result = UpgradeResult.NOT_ENOUGH_BANK;
+        } else if (repository.tryLevelUp(federationId, level, cost, requiredActivity)) {
+            result = UpgradeResult.SUCCESS;
+            level = level + 1;
+        } else {
+            result = UpgradeResult.CHANGED;
+        }
+        return new UpgradeOutcome(result, level, progress.activity(), requiredActivity, progress.bankBalance(), cost);
     }
 
     public Optional<Federation> findByName(String name) throws SQLException {

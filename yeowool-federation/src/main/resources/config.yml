@@ -3,3 +3,14 @@
 chat:
   # 연합 채팅(/연합채팅, 연합 채팅 모드) 도배 방지 — 한 번 보낸 뒤 다음 메시지까지 기다려야 하는 시간(밀리초)
   cooldown-ms: 1500
+
+level-up:
+  # 현재 레벨 N → N+1 : 누적 활동량이 activity-per-level × N 이상이고,
+  # 연합 은행에서 cost-per-level × N 온을 차감합니다. (활동량은 차감되지 않고 계속 쌓임)
+  activity-per-level: 20000
+  cost-per-level: 30000
+
+member-cap:
+  # 연합에 속할 수 있는 마을(토지) 수 = base + per-level × (레벨 - 1)  (연합장 토지 포함)
+  base: 3
+  per-level: 1
