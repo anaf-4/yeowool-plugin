@@ -5,6 +5,9 @@ import com.yeowool.core.api.service.MessageService;
 import com.yeowool.federation.land.LandInfo;
 import com.yeowool.federation.land.LandLookup;
 import com.yeowool.federation.land.PlayerFederationResolver;
+import com.yeowool.federation.shop.FederationLevelCache;
+import com.yeowool.federation.shop.FederationShop;
+import com.yeowool.federation.shop.FederationShopGui;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -30,16 +33,21 @@ public final class FederationCommand implements CommandExecutor {
     private final FederationManager manager;
     private final LandLookup landLookup;
     private final PlayerFederationResolver resolver;
+    private final FederationLevelCache levelCache;
+    private final List<FederationShop> shops;
     private final ExecutorService executor;
 
     public FederationCommand(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, FederationManager manager,
-                              LandLookup landLookup, PlayerFederationResolver resolver, ExecutorService executor) {
+                              LandLookup landLookup, PlayerFederationResolver resolver, FederationLevelCache levelCache,
+                              List<FederationShop> shops, ExecutorService executor) {
         this.plugin = plugin;
         this.core = core;
         this.messages = messages;
         this.manager = manager;
         this.landLookup = landLookup;
         this.resolver = resolver;
+        this.levelCache = levelCache;
+        this.shops = shops;
         this.executor = executor;
     }
 
@@ -71,6 +79,7 @@ public final class FederationCommand implements CommandExecutor {
             case "소개글" -> handleDescription(player, args);
             case "은행" -> handleBank(player, args);
             case "업그레이드" -> handleUpgrade(player);
+            case "상점" -> handleShop(player);
             default -> messages.send(player, "federation.usage");
         }
         return true;
@@ -631,6 +640,26 @@ public final class FederationCommand implements CommandExecutor {
                 });
             } catch (java.sql.SQLException e) {
                 plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 업그레이드 실패", e);
+            }
+        });
+    }
+
+    private void handleShop(Player player) {
+        if (shops.isEmpty()) {
+            messages.send(player, "federation.shop-none");
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                int level = levelCache.lookupLevel(player.getUniqueId());
+                levelCache.put(player.getUniqueId(), level);
+                if (level == 0) {
+                    runOnMain(() -> messages.send(player, "federation.no-federation"));
+                    return;
+                }
+                runOnMain(() -> new FederationShopGui(shops, level).open(player));
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 상점 열기 실패", e);
             }
         });
     }

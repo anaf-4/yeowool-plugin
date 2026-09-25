@@ -13,6 +13,8 @@ import com.yeowool.federation.database.FederationSchemaInitializer;
 import com.yeowool.federation.land.LandLookup;
 import com.yeowool.federation.land.PlayerFederationResolver;
 import com.yeowool.federation.shop.FederationLevelCache;
+import com.yeowool.federation.shop.FederationShop;
+import com.yeowool.federation.shop.FederationShopGate;
 import com.yeowool.core.api.event.LandDeletedEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -86,7 +88,10 @@ public final class YeowoolFederation extends JavaPlugin {
             });
         }, 1200L, 1200L);
 
-        var federationCommand = new FederationCommand(this, core, messages, manager, landLookup, resolver, executor);
+        List<FederationShop> shops = FederationShop.fromConfig(getConfig().getMapList("shops"));
+        getServer().getPluginManager().registerEvents(new FederationShopGate(messages, shops, levelCache), this);
+
+        var federationCommand = new FederationCommand(this, core, messages, manager, landLookup, resolver, levelCache, shops, executor);
         var command = getCommand("연합");
         if (command != null) {
             command.setExecutor(federationCommand);
