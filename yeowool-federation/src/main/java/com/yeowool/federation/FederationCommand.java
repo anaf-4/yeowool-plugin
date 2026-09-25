@@ -652,12 +652,17 @@ public final class FederationCommand implements CommandExecutor {
         executor.execute(() -> {
             try {
                 int level = levelCache.lookupLevel(player.getUniqueId());
-                levelCache.put(player.getUniqueId(), level);
-                if (level == 0) {
-                    runOnMain(() -> messages.send(player, "federation.no-federation"));
-                    return;
-                }
-                runOnMain(() -> new FederationShopGui(shops, level).open(player));
+                runOnMain(() -> {
+                    if (!player.isOnline()) {
+                        return;
+                    }
+                    levelCache.put(player.getUniqueId(), level);
+                    if (level == 0) {
+                        messages.send(player, "federation.no-federation");
+                        return;
+                    }
+                    new FederationShopGui(shops, level).open(player);
+                });
             } catch (java.sql.SQLException e) {
                 plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 상점 열기 실패", e);
             }
