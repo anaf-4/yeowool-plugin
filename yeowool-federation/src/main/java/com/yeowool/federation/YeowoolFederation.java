@@ -86,7 +86,7 @@ public final class YeowoolFederation extends JavaPlugin {
             });
         }, 1200L, 1200L);
 
-        var federationCommand = new FederationCommand(this, messages, manager, landLookup, executor);
+        var federationCommand = new FederationCommand(this, core, messages, manager, landLookup, resolver, executor);
         var command = getCommand("연합");
         if (command != null) {
             command.setExecutor(federationCommand);

@@ -1,8 +1,10 @@
 package com.yeowool.federation;
 
+import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
 import com.yeowool.federation.land.LandInfo;
 import com.yeowool.federation.land.LandLookup;
+import com.yeowool.federation.land.PlayerFederationResolver;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -23,17 +25,21 @@ public final class FederationCommand implements CommandExecutor {
     private static final int NAME_MAX_LENGTH = 32;
 
     private final JavaPlugin plugin;
+    private final YeowoolCoreAPI core;
     private final MessageService messages;
     private final FederationManager manager;
     private final LandLookup landLookup;
+    private final PlayerFederationResolver resolver;
     private final ExecutorService executor;
 
-    public FederationCommand(JavaPlugin plugin, MessageService messages, FederationManager manager,
-                              LandLookup landLookup, ExecutorService executor) {
+    public FederationCommand(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, FederationManager manager,
+                              LandLookup landLookup, PlayerFederationResolver resolver, ExecutorService executor) {
         this.plugin = plugin;
+        this.core = core;
         this.messages = messages;
         this.manager = manager;
         this.landLookup = landLookup;
+        this.resolver = resolver;
         this.executor = executor;
     }
 
@@ -63,6 +69,8 @@ public final class FederationCommand implements CommandExecutor {
             case "위임" -> handleTransfer(player, args);
             case "폐쇄" -> handleDisband(player);
             case "소개글" -> handleDescription(player, args);
+            case "은행" -> handleBank(player, args);
+            case "업그레이드" -> handleUpgrade(player);
             default -> messages.send(player, "federation.usage");
         }
         return true;
@@ -122,7 +130,14 @@ public final class FederationCommand implements CommandExecutor {
                     memberLines.append("\n§7- ").append(landName).append(" (").append(member.role()).append(")");
                 }
                 String description = f.description() == null ? "(없음)" : f.description();
-                runOnMain(() -> player.sendMessage("§6[" + f.name() + "] §7Lv." + f.level() + " · 소개: " + description + memberLines));
+                FederationProgress progress = manager.progressOf(f.id()).orElse(new FederationProgress(0, 0));
+                FederationLevelConfig levelConfig = manager.levelConfig();
+                String progressLine = "\n§7은행: §e" + formatAmount(progress.bankBalance()) + "온"
+                        + " §7· 활동량: §e" + formatAmount(progress.activity())
+                        + "§7/" + formatAmount(levelConfig.activityForNextLevel(f.level()))
+                        + " §7· 다음 레벨 비용: §e" + formatAmount(levelConfig.costForNextLevel(f.level())) + "온"
+                        + " §7· 마을: §e" + members.size() + "§7/" + levelConfig.memberCap(f.level());
+                runOnMain(() -> player.sendMessage("§6[" + f.name() + "] §7Lv." + f.level() + " · 소개: " + description + progressLine + memberLines));
             } catch (java.sql.SQLException e) {
                 plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 정보 조회 실패", e);
             }
@@ -252,6 +267,7 @@ public final class FederationCommand implements CommandExecutor {
                         case NOT_AUTHORIZED -> messages.send(player, "federation.not-your-federation");
                         case APPLICATION_NOT_FOUND -> messages.send(player, "federation.application-not-found");
                         case ALREADY_MEMBER -> messages.send(player, "federation.already-in-federation");
+                        case MEMBER_CAP_REACHED -> messages.send(player, "federation.member-cap-reached");
                     }
                 });
             } catch (java.sql.SQLException e) {
@@ -473,6 +489,154 @@ public final class FederationCommand implements CommandExecutor {
                 plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 소개글 수정 실패", e);
             }
         });
+    }
+
+    private void handleBank(Player player, String[] args) {
+        if (args.length == 1) {
+            showBankBalance(player);
+            return;
+        }
+        if (args.length != 3 || (!args[1].equals("입금") && !args[1].equals("출금"))) {
+            messages.send(player, "federation.bank-usage");
+            return;
+        }
+        long amount;
+        try {
+            amount = Long.parseLong(args[2]);
+        } catch (NumberFormatException e) {
+            messages.send(player, "federation.bank-invalid-amount");
+            return;
+        }
+        if (amount <= 0) {
+            messages.send(player, "federation.bank-invalid-amount");
+            return;
+        }
+        if (args[1].equals("입금")) {
+            deposit(player, amount);
+        } else {
+            withdraw(player, amount);
+        }
+    }
+
+    private void showBankBalance(Player player) {
+        executor.execute(() -> {
+            try {
+                Optional<UUID> federationId = resolver.findFederationId(player.getUniqueId());
+                if (federationId.isEmpty()) {
+                    runOnMain(() -> messages.send(player, "federation.no-federation"));
+                    return;
+                }
+                long balance = manager.progressOf(federationId.get()).map(FederationProgress::bankBalance).orElse(0L);
+                runOnMain(() -> messages.send(player, "federation.bank-balance",
+                        Placeholder.unparsed("amount", formatAmount(balance))));
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 은행 조회 실패", e);
+            }
+        });
+    }
+
+    /** Wallet first (main thread), then the DB; a failed DB deposit refunds the wallet. */
+    private void deposit(Player player, long amount) {
+        executor.execute(() -> {
+            try {
+                Optional<UUID> federationId = resolver.findFederationId(player.getUniqueId());
+                if (federationId.isEmpty()) {
+                    runOnMain(() -> messages.send(player, "federation.no-federation"));
+                    return;
+                }
+                UUID targetFederation = federationId.get();
+                runOnMain(() -> {
+                    if (!core.economyData().hasBalance(player.getUniqueId(), amount)) {
+                        messages.send(player, "federation.bank-insufficient-wallet");
+                        return;
+                    }
+                    core.economyData().modifyBalance(player.getUniqueId(), -amount, "YeowoolFederation", "연합 은행 입금");
+                    executor.execute(() -> {
+                        boolean deposited;
+                        try {
+                            deposited = manager.deposit(targetFederation, amount);
+                        } catch (java.sql.SQLException e) {
+                            plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 은행 입금 실패", e);
+                            deposited = false;
+                        }
+                        boolean success = deposited;
+                        runOnMain(() -> {
+                            if (success) {
+                                messages.send(player, "federation.bank-deposit-success",
+                                        Placeholder.unparsed("amount", formatAmount(amount)));
+                            } else {
+                                core.economyData().modifyBalance(player.getUniqueId(), amount, "YeowoolFederation", "연합 은행 입금 실패 환불");
+                                messages.send(player, "federation.bank-deposit-failed");
+                            }
+                        });
+                    });
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 은행 입금 준비 실패", e);
+            }
+        });
+    }
+
+    /** DB first (atomic "subtract only if enough"), wallet only after it succeeded. */
+    private void withdraw(Player player, long amount) {
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> land = landLookup.findByOwnerUuid(player.getUniqueId());
+                if (land.isEmpty()) {
+                    runOnMain(() -> messages.send(player, "federation.leader-only"));
+                    return;
+                }
+                var result = manager.withdraw(land.get().id(), amount);
+                runOnMain(() -> {
+                    switch (result) {
+                        case SUCCESS -> {
+                            core.economyData().modifyBalance(player.getUniqueId(), amount, "YeowoolFederation", "연합 은행 출금");
+                            messages.send(player, "federation.bank-withdraw-success",
+                                    Placeholder.unparsed("amount", formatAmount(amount)));
+                        }
+                        case NOT_LEADER -> messages.send(player, "federation.leader-only");
+                        case INSUFFICIENT_BANK -> messages.send(player, "federation.bank-insufficient-bank");
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 은행 출금 실패", e);
+            }
+        });
+    }
+
+    private void handleUpgrade(Player player) {
+        executor.execute(() -> {
+            try {
+                Optional<LandInfo> land = landLookup.findByOwnerUuid(player.getUniqueId());
+                if (land.isEmpty()) {
+                    runOnMain(() -> messages.send(player, "federation.leader-only"));
+                    return;
+                }
+                var outcome = manager.upgrade(land.get().id());
+                int cap = manager.levelConfig().memberCap(outcome.level());
+                runOnMain(() -> {
+                    switch (outcome.result()) {
+                        case SUCCESS -> messages.send(player, "federation.upgrade-success",
+                                Placeholder.unparsed("level", String.valueOf(outcome.level())),
+                                Placeholder.unparsed("cap", String.valueOf(cap)));
+                        case NOT_LEADER -> messages.send(player, "federation.leader-only");
+                        case NOT_ENOUGH_ACTIVITY -> messages.send(player, "federation.upgrade-not-enough-activity",
+                                Placeholder.unparsed("current", formatAmount(outcome.activity())),
+                                Placeholder.unparsed("required", formatAmount(outcome.requiredActivity())));
+                        case NOT_ENOUGH_BANK -> messages.send(player, "federation.upgrade-not-enough-bank",
+                                Placeholder.unparsed("cost", formatAmount(outcome.cost())),
+                                Placeholder.unparsed("bank", formatAmount(outcome.bank())));
+                        case CHANGED -> messages.send(player, "federation.upgrade-changed");
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 업그레이드 실패", e);
+            }
+        });
+    }
+
+    private static String formatAmount(long amount) {
+        return String.format("%,d", amount);
     }
 
     private void runOnMain(Runnable action) {
