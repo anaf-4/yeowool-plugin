@@ -58,12 +58,14 @@ public final class FederationLevelCache implements Listener {
         return manager.findById(federationId.get()).map(Federation::level).orElse(0);
     }
 
-    /** Blocking. Skips players who logged off meanwhile so the map doesn't keep offline entries. */
+    /** Blocking lookup on the caller's thread; the online check and cache write happen on the main thread so they serialize with onQuit. */
     public void refresh(UUID playerUuid) throws SQLException {
         int level = lookupLevel(playerUuid);
-        if (plugin.getServer().getPlayer(playerUuid) != null) {
-            levels.put(playerUuid, level);
-        }
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (plugin.getServer().getPlayer(playerUuid) != null) {
+                levels.put(playerUuid, level);
+            }
+        });
     }
 
     @EventHandler
