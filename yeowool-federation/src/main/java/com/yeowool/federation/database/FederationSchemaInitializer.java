@@ -65,6 +65,11 @@ public final class FederationSchemaInitializer {
         }
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+        } catch (SQLException e) {
+            if (e.getErrorCode() != 1060) {
+                throw e;
+            }
+            // 1060 = MySQL "Duplicate column name" — another server's instance added it first; already in the desired state.
         }
     }
 }

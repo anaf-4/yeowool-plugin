@@ -33,4 +33,18 @@ class FederationShopTest {
 
         assertEquals(List.of(), shops);
     }
+
+    @Test
+    void quotedNumericMinLevelIsParsed() {
+        List<FederationShop> shops = FederationShop.fromConfig(List.of(Map.of("shop-id", "federation_rare", "min-level", "5")));
+
+        assertEquals(5, shops.get(0).minLevel());
+    }
+
+    @Test
+    void unreadableMinLevelLocksTheShopInsteadOfOpeningIt() {
+        List<FederationShop> shops = FederationShop.fromConfig(List.of(Map.of("shop-id", "federation_rare", "min-level", "five")));
+
+        assertEquals(Integer.MAX_VALUE, shops.get(0).minLevel());
+    }
 }

@@ -555,11 +555,13 @@ public final class FederationCommand implements CommandExecutor {
                 }
                 UUID targetFederation = federationId.get();
                 runOnMain(() -> {
-                    if (!core.economyData().hasBalance(player.getUniqueId(), amount)) {
+                    if (!player.isOnline()) {
+                        return;
+                    }
+                    if (!core.economyData().modifyBalance(player.getUniqueId(), -amount, "YeowoolFederation", "연합 은행 입금")) {
                         messages.send(player, "federation.bank-insufficient-wallet");
                         return;
                     }
-                    core.economyData().modifyBalance(player.getUniqueId(), -amount, "YeowoolFederation", "연합 은행 입금");
                     executor.execute(() -> {
                         boolean deposited;
                         try {
@@ -573,9 +575,12 @@ public final class FederationCommand implements CommandExecutor {
                             if (success) {
                                 messages.send(player, "federation.bank-deposit-success",
                                         Placeholder.unparsed("amount", formatAmount(amount)));
-                            } else {
+                            } else if (player.isOnline()) {
                                 core.economyData().modifyBalance(player.getUniqueId(), amount, "YeowoolFederation", "연합 은행 입금 실패 환불");
                                 messages.send(player, "federation.bank-deposit-failed");
+                            } else {
+                                plugin.getLogger().severe("연합 은행 입금 실패 — 플레이어가 서버를 떠나 환불하지 못했습니다. 수동 환불 필요: "
+                                        + player.getUniqueId() + " / " + amount + "온");
                             }
                         });
                     });
@@ -595,13 +600,32 @@ public final class FederationCommand implements CommandExecutor {
                     runOnMain(() -> messages.send(player, "federation.leader-only"));
                     return;
                 }
+                Optional<Federation> federation = manager.findByLandId(land.get().id());
+                if (federation.isEmpty()) {
+                    runOnMain(() -> messages.send(player, "federation.leader-only"));
+                    return;
+                }
+                UUID federationId = federation.get().id();
                 var result = manager.withdraw(land.get().id(), amount);
                 runOnMain(() -> {
                     switch (result) {
                         case SUCCESS -> {
-                            core.economyData().modifyBalance(player.getUniqueId(), amount, "YeowoolFederation", "연합 은행 출금");
-                            messages.send(player, "federation.bank-withdraw-success",
-                                    Placeholder.unparsed("amount", formatAmount(amount)));
+                            if (player.isOnline()) {
+                                core.economyData().modifyBalance(player.getUniqueId(), amount, "YeowoolFederation", "연합 은행 출금");
+                                messages.send(player, "federation.bank-withdraw-success",
+                                        Placeholder.unparsed("amount", formatAmount(amount)));
+                            } else {
+                                executor.execute(() -> {
+                                    try {
+                                        manager.deposit(federationId, amount);
+                                    } catch (java.sql.SQLException e) {
+                                        plugin.getLogger().log(java.util.logging.Level.SEVERE,
+                                                "연합 은행 출금 복구 실패 — 수동 복구 필요: " + federationId + " / " + amount + "온", e);
+                                    }
+                                });
+                                plugin.getLogger().warning("연합 은행 출금 후 플레이어가 서버를 떠나 금액을 연합 은행으로 되돌렸습니다: "
+                                        + player.getUniqueId() + " / " + amount + "온");
+                            }
                         }
                         case NOT_LEADER -> messages.send(player, "federation.leader-only");
                         case INSUFFICIENT_BANK -> messages.send(player, "federation.bank-insufficient-bank");

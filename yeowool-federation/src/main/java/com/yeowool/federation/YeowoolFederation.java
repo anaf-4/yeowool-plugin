@@ -128,6 +128,13 @@ public final class YeowoolFederation extends JavaPlugin {
         }
         if (executor != null) {
             executor.shutdown();
+            try {
+                if (!executor.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                    getLogger().warning("연합 작업이 5초 안에 끝나지 않았습니다 — 일부 작업이 중단되었을 수 있습니다.");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 }

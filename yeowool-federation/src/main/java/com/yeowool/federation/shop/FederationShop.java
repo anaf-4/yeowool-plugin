@@ -19,8 +19,23 @@ public record FederationShop(String shopId, String name, int minLevel) {
             shops.add(new FederationShop(
                     id.toString(),
                     name == null ? id.toString() : name.toString(),
-                    minLevel instanceof Number number ? number.intValue() : 1));
+                    parseMinLevel(minLevel)));
         }
         return List.copyOf(shops);
+    }
+
+    /** Missing -> default 1; a Number -> its intValue(); anything else parsed as a string, failing CLOSED (Integer.MAX_VALUE) on unreadable input. */
+    private static int parseMinLevel(Object minLevel) {
+        if (minLevel == null) {
+            return 1;
+        }
+        if (minLevel instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(minLevel.toString().trim());
+        } catch (NumberFormatException e) {
+            return Integer.MAX_VALUE;
+        }
     }
 }
