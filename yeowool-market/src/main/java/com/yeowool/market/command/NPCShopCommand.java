@@ -6,6 +6,7 @@ import com.yeowool.core.util.TabCompletions;
 import com.yeowool.market.npcshop.NPCShopGui;
 import com.yeowool.market.npcshop.ShopDefinition;
 import com.yeowool.market.npcshop.ShopMainMenuGui;
+import com.yeowool.market.npcshop.ShopOpenGate;
 import com.yeowool.market.npcshop.ShopRotationManager;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.command.Command;
@@ -58,7 +59,9 @@ public final class NPCShopCommand implements CommandExecutor, TabCompleter {
             String defaultOpen = plugin.getConfig().getString("npc-shop.default-open", "menu");
             ShopDefinition defaultShop = defaultOpen == null ? null : shops.get(defaultOpen);
             if (defaultShop != null) {
-                new NPCShopGui(plugin, core, messages, shops, defaultShop, rotationManager, 0).open(player);
+                if (ShopOpenGate.allows(player, defaultShop.id())) {
+                    new NPCShopGui(plugin, core, messages, shops, defaultShop, rotationManager, 0).open(player);
+                }
             } else {
                 new ShopMainMenuGui(plugin, core, messages, shops, rotationManager).open(player);
             }
@@ -70,7 +73,9 @@ public final class NPCShopCommand implements CommandExecutor, TabCompleter {
             messages.send(player, "npcshop.shop-not-found", Placeholder.unparsed("id", args[0]));
             return true;
         }
-        new NPCShopGui(plugin, core, messages, shops, shop, rotationManager, 0).open(player);
+        if (ShopOpenGate.allows(player, shop.id())) {
+            new NPCShopGui(plugin, core, messages, shops, shop, rotationManager, 0).open(player);
+        }
         return true;
     }
 

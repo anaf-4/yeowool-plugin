@@ -4,6 +4,7 @@ import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
 import com.yeowool.market.npcshop.NPCShopGui;
 import com.yeowool.market.npcshop.ShopDefinition;
+import com.yeowool.market.npcshop.ShopOpenGate;
 import com.yeowool.market.npcshop.ShopRotationManager;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
 import org.bukkit.entity.Player;
@@ -50,6 +51,8 @@ public final class CitizensShopListener implements Listener {
             return;
         }
         Player player = event.getClicker();
-        new NPCShopGui(plugin, core, messages, shops, shop, rotationManager, 0).open(player);
+        if (ShopOpenGate.allows(player, shop.id())) {
+            new NPCShopGui(plugin, core, messages, shops, shop, rotationManager, 0).open(player);
+        }
     }
 }

@@ -57,7 +57,9 @@ public final class ShopMainMenuGui extends YeowoolGui {
                 if (npcId != null) {
                     ShopNpcTeleporter.teleportToShopNpc(plugin, core, messages, player, npcId, npcServerId, thisServerId);
                 } else {
-                    new NPCShopGui(plugin, core, messages, allShops, shop, rotationManager, 0).open(player);
+                    if (ShopOpenGate.allows(player, shop.id())) {
+                        new NPCShopGui(plugin, core, messages, allShops, shop, rotationManager, 0).open(player);
+                    }
                 }
             }));
         }
