@@ -356,6 +356,10 @@ public final class FederationManager {
         return repository.loadMembers(federationId);
     }
 
+    public List<FederationRankingEntry> ranking(int limit) throws SQLException {
+        return repository.topByLevel(limit);
+    }
+
     private FederationMember requireApprover(UUID actingLandId) throws SQLException {
         FederationMember member = repository.findMemberByLandId(actingLandId)
                 .orElseThrow(() -> new IllegalStateException("not a member of any federation"));

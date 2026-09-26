@@ -40,6 +40,26 @@ public final class FederationSchemaInitializer {
                 INDEX idx_federation (federation_id),
                 INDEX idx_land (land_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS yw_federation_events (
+                id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                starts_at BIGINT NOT NULL,
+                ends_at BIGINT NOT NULL,
+                ended TINYINT(1) NOT NULL DEFAULT 0,
+                ended_at BIGINT NULL,
+                result TEXT NULL,
+                week_key VARCHAR(16) NULL,
+                UNIQUE KEY uniq_week (week_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS yw_federation_event_baselines (
+                event_id BIGINT NOT NULL,
+                federation_id CHAR(36) NOT NULL,
+                activity BIGINT NOT NULL,
+                PRIMARY KEY (event_id, federation_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """
     );
 

@@ -3,6 +3,7 @@ package com.yeowool.federation.database;
 import com.yeowool.federation.Federation;
 import com.yeowool.federation.FederationMember;
 import com.yeowool.federation.FederationProgress;
+import com.yeowool.federation.FederationRankingEntry;
 import com.yeowool.federation.FederationRole;
 
 import javax.sql.DataSource;
@@ -343,6 +344,21 @@ public final class FederationRepository {
                 return rs.getInt(1);
             }
         }
+    }
+
+    public List<FederationRankingEntry> topByLevel(int limit) throws SQLException {
+        List<FederationRankingEntry> entries = new ArrayList<>();
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement select = connection.prepareStatement(
+                     "SELECT name, level, activity FROM yw_federations ORDER BY level DESC, activity DESC LIMIT ?")) {
+            select.setInt(1, limit);
+            try (ResultSet rs = select.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(new FederationRankingEntry(rs.getString("name"), rs.getInt("level"), rs.getLong("activity")));
+                }
+            }
+        }
+        return entries;
     }
 
     private int executeUpdate(String sql, Object... params) throws SQLException {
