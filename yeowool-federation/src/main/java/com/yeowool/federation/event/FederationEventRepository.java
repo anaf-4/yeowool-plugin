@@ -98,18 +98,19 @@ public final class FederationEventRepository {
         }
     }
 
-    /** Federations ordered by activity gained since the snapshot; only positive gains. */
-    public List<EventStanding> standings(long eventId, int limit) throws SQLException {
+    /** Federations ordered by activity gained since the snapshot, only those that gained at least {@code minGained} (clamped to 1). */
+    public List<EventStanding> standings(long eventId, int limit, long minGained) throws SQLException {
         List<EventStanding> standings = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
              PreparedStatement select = connection.prepareStatement(
                      "SELECT f.id, f.name, f.activity - COALESCE(b.activity, 0) AS gained " +
                              "FROM yw_federations f " +
                              "LEFT JOIN yw_federation_event_baselines b ON b.federation_id = f.id AND b.event_id = ? " +
-                             "WHERE f.activity - COALESCE(b.activity, 0) > 0 " +
+                             "WHERE f.activity - COALESCE(b.activity, 0) >= ? " +
                              "ORDER BY gained DESC LIMIT ?")) {
             select.setLong(1, eventId);
-            select.setInt(2, limit);
+            select.setLong(2, Math.max(1, minGained));
+            select.setInt(3, limit);
             try (ResultSet rs = select.executeQuery()) {
                 while (rs.next()) {
                     standings.add(new EventStanding(UUID.fromString(rs.getString("id")), rs.getString("name"), rs.getLong("gained")));

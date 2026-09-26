@@ -93,7 +93,8 @@ public final class YeowoolFederation extends JavaPlugin {
         }
         List<Long> eventRewards = getConfig().getLongList("event.rewards");
         FederationEventService eventService = new FederationEventService(this, messages,
-                new FederationEventRepository(core.dataSource()), manager, eventRewards, eventSchedule);
+                new FederationEventRepository(core.dataSource()), manager, eventRewards,
+                getConfig().getLong("event.min-gained", 10000L), eventSchedule);
         executor.execute(() -> {
             try {
                 eventService.init();

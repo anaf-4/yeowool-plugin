@@ -31,18 +31,21 @@ public final class FederationEventService {
     private final FederationEventRepository events;
     private final FederationManager manager;
     private final List<Long> rewards;
+    private final long minGained;
     private final Optional<FederationEventSchedule> schedule;
 
     private volatile long announcedStartId = -1;
     private volatile long announcedEndId = -1;
 
     public FederationEventService(JavaPlugin plugin, MessageService messages, FederationEventRepository events,
-                                  FederationManager manager, List<Long> rewards, Optional<FederationEventSchedule> schedule) {
+                                  FederationManager manager, List<Long> rewards, long minGained,
+                                  Optional<FederationEventSchedule> schedule) {
         this.plugin = plugin;
         this.messages = messages;
         this.events = events;
         this.manager = manager;
         this.rewards = List.copyOf(rewards);
+        this.minGained = minGained;
         this.schedule = schedule;
     }
 
@@ -111,7 +114,7 @@ public final class FederationEventService {
             return Optional.empty();
         }
         long remaining = Math.max(0, active.get().endsAt() - System.currentTimeMillis());
-        return Optional.of(new EventStatus(remaining, events.standings(active.get().id(), STATUS_TOP)));
+        return Optional.of(new EventStatus(remaining, events.standings(active.get().id(), STATUS_TOP, 1)));
     }
 
     /** Main thread only. */
@@ -123,7 +126,7 @@ public final class FederationEventService {
 
     /** Only the server whose claim succeeds pays and stores the result. */
     private void finish(FederationEvent event) throws SQLException {
-        List<EventStanding> top = events.standings(event.id(), rewards.size());
+        List<EventStanding> top = events.standings(event.id(), rewards.size(), minGained);
         if (!events.claimEnd(event.id(), System.currentTimeMillis())) {
             return;
         }
@@ -154,6 +157,8 @@ public final class FederationEventService {
                 result.append(" (지급 실패)");
             }
         }
-        events.saveResult(event.id(), result.length() == 0 ? "참가한 연합이 없습니다." : result.toString());
+        events.saveResult(event.id(), result.length() == 0
+                ? "보상 기준(활동량 " + String.format("%,d", Math.max(1, minGained)) + " 이상)을 넘은 연합이 없습니다."
+                : result.toString());
     }
 }
