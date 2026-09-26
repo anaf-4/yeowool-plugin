@@ -133,9 +133,14 @@ public final class FederationEventService {
         for (int i = 0; i < top.size(); i++) {
             EventStanding standing = top.get(i);
             long reward = rewards.get(i);
+            boolean paid;
             try {
-                manager.deposit(standing.federationId(), reward);
+                paid = manager.deposit(standing.federationId(), reward);
+                if (!paid) {
+                    plugin.getLogger().severe("연합대항 보상 지급 실패(연합 없음) — 수동 지급 필요: " + standing.name() + " / " + reward + "온");
+                }
             } catch (SQLException e) {
+                paid = false;
                 plugin.getLogger().log(Level.SEVERE, "연합대항 보상 지급 실패 — 수동 지급 필요: " + standing.name() + " / " + reward + "온", e);
             }
             if (result.length() > 0) {
@@ -144,6 +149,9 @@ public final class FederationEventService {
             result.append(i + 1).append(". ").append(standing.name())
                     .append(" (+").append(String.format("%,d", standing.gained())).append(") — 보상 ")
                     .append(String.format("%,d", reward)).append("온");
+            if (!paid) {
+                result.append(" (지급 실패)");
+            }
         }
         events.saveResult(event.id(), result.length() == 0 ? "참가한 연합이 없습니다." : result.toString());
     }
