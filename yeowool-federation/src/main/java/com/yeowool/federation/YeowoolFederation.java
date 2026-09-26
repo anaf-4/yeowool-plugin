@@ -136,14 +136,15 @@ public final class YeowoolFederation extends JavaPlugin {
         List<FederationShop> shops = FederationShop.fromConfig(getConfig().getMapList("shops"));
         getServer().getPluginManager().registerEvents(new FederationShopGate(messages, shops, levelCache), this);
 
-        var federationCommand = new FederationCommand(this, core, messages, manager, landLookup, resolver, levelCache, shops, executor);
+        FederationChatService chatService = new FederationChatService(
+                this, core, core.dataSource(), getConfig().getLong("chat.cooldown-ms", 1500L));
+
+        var federationCommand = new FederationCommand(this, core, messages, manager, landLookup, resolver, levelCache, shops, chatService, executor);
         var command = getCommand("연합");
         if (command != null) {
             command.setExecutor(federationCommand);
         }
 
-        FederationChatService chatService = new FederationChatService(
-                this, core, core.dataSource(), getConfig().getLong("chat.cooldown-ms", 1500L));
         FederationChatCommand chatCommand = new FederationChatCommand(this, core, messages, chatService, executor);
         var chatCommandEntry = getCommand("연합채팅");
         if (chatCommandEntry != null) {

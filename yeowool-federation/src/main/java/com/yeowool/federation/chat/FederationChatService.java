@@ -94,8 +94,17 @@ public final class FederationChatService {
                 .append(Component.text(plainMessage, NamedTextColor.WHITE))
                 .build();
 
+        deliverToFederation(sender, federationId.get(), message);
+        return SendResult.SENT;
+    }
+
+    /**
+     * Delivers {@code message} to every owner/resident of the federation: directly to those online here,
+     * and through {@code via}'s connection to the proxy for the rest. Blocking — call off the main thread.
+     */
+    public void deliverToFederation(Player via, UUID federationId, Component message) throws SQLException {
         List<UUID> remote = new ArrayList<>();
-        for (UUID recipient : findRecipients(federationId.get())) {
+        for (UUID recipient : findRecipients(federationId)) {
             Player online = Bukkit.getPlayer(recipient);
             if (online != null) {
                 online.sendMessage(message);
@@ -105,15 +114,15 @@ public final class FederationChatService {
         }
         Bukkit.getConsoleSender().sendMessage(message);
 
-        if (!remote.isEmpty()) {
-            if (!sender.getListeningPluginChannels().contains(CHANNEL)) {
-                plugin.getLogger().warning("프록시가 yeowool:targeted 채널을 받지 않습니다 — 다른 서버 연합원에게 연합 채팅이 전달되지 않았습니다 (프록시 재시작 필요?)");
-            } else {
-                String json = GsonComponentSerializer.gson().serialize(message);
-                sender.sendPluginMessage(plugin, CHANNEL, TargetedPayload.encode(remote, json));
-            }
+        if (remote.isEmpty() || !via.isOnline()) {
+            return;
         }
-        return SendResult.SENT;
+        if (!via.getListeningPluginChannels().contains(CHANNEL)) {
+            plugin.getLogger().warning("프록시가 yeowool:targeted 채널을 받지 않습니다 — 다른 서버 연합원에게 연합 메시지가 전달되지 않았습니다 (프록시 재시작 필요?)");
+            return;
+        }
+        String json = GsonComponentSerializer.gson().serialize(message);
+        via.sendPluginMessage(plugin, CHANNEL, TargetedPayload.encode(remote, json));
     }
 
     public Optional<UUID> findFederationId(UUID playerUuid) throws SQLException {

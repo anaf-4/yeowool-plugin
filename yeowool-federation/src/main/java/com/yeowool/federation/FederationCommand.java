@@ -2,12 +2,14 @@ package com.yeowool.federation;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.federation.chat.FederationChatService;
 import com.yeowool.federation.land.LandInfo;
 import com.yeowool.federation.land.LandLookup;
 import com.yeowool.federation.land.PlayerFederationResolver;
 import com.yeowool.federation.shop.FederationLevelCache;
 import com.yeowool.federation.shop.FederationShop;
 import com.yeowool.federation.shop.FederationShopGui;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -35,11 +37,12 @@ public final class FederationCommand implements CommandExecutor {
     private final PlayerFederationResolver resolver;
     private final FederationLevelCache levelCache;
     private final List<FederationShop> shops;
+    private final FederationChatService chatService;
     private final ExecutorService executor;
 
     public FederationCommand(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, FederationManager manager,
                               LandLookup landLookup, PlayerFederationResolver resolver, FederationLevelCache levelCache,
-                              List<FederationShop> shops, ExecutorService executor) {
+                              List<FederationShop> shops, FederationChatService chatService, ExecutorService executor) {
         this.plugin = plugin;
         this.core = core;
         this.messages = messages;
@@ -48,6 +51,7 @@ public final class FederationCommand implements CommandExecutor {
         this.resolver = resolver;
         this.levelCache = levelCache;
         this.shops = shops;
+        this.chatService = chatService;
         this.executor = executor;
     }
 
@@ -80,6 +84,7 @@ public final class FederationCommand implements CommandExecutor {
             case "은행" -> handleBank(player, args);
             case "업그레이드" -> handleUpgrade(player);
             case "상점" -> handleShop(player);
+            case "랭킹" -> handleRanking(player);
             default -> messages.send(player, "federation.usage");
         }
         return true;
@@ -647,6 +652,21 @@ public final class FederationCommand implements CommandExecutor {
                 }
                 var outcome = manager.upgrade(land.get().id());
                 int cap = manager.levelConfig().memberCap(outcome.level());
+                if (outcome.result() == FederationManager.UpgradeResult.SUCCESS) {
+                    Optional<Federation> upgraded = manager.findByLandId(land.get().id());
+                    if (upgraded.isPresent()) {
+                        Component notice = messages.resolve("federation.levelup-broadcast",
+                                Placeholder.unparsed("name", upgraded.get().name()),
+                                Placeholder.unparsed("level", String.valueOf(outcome.level())),
+                                Placeholder.unparsed("cap", String.valueOf(cap)));
+                        try {
+                            chatService.deliverToFederation(player, upgraded.get().id(), notice);
+                            return;
+                        } catch (java.sql.SQLException e) {
+                            plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 레벨업 알림 전달 실패", e);
+                        }
+                    }
+                }
                 runOnMain(() -> {
                     switch (outcome.result()) {
                         case SUCCESS -> messages.send(player, "federation.upgrade-success",
@@ -689,6 +709,31 @@ public final class FederationCommand implements CommandExecutor {
                 });
             } catch (java.sql.SQLException e) {
                 plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 상점 열기 실패", e);
+            }
+        });
+    }
+
+    private void handleRanking(Player player) {
+        executor.execute(() -> {
+            try {
+                List<FederationRankingEntry> top = manager.ranking(10);
+                runOnMain(() -> {
+                    if (top.isEmpty()) {
+                        messages.send(player, "federation.list-empty");
+                        return;
+                    }
+                    messages.send(player, "federation.ranking-header");
+                    for (int i = 0; i < top.size(); i++) {
+                        FederationRankingEntry entry = top.get(i);
+                        messages.send(player, "federation.ranking-line",
+                                Placeholder.unparsed("rank", String.valueOf(i + 1)),
+                                Placeholder.unparsed("name", entry.name()),
+                                Placeholder.unparsed("level", String.valueOf(entry.level())),
+                                Placeholder.unparsed("activity", formatAmount(entry.activity())));
+                    }
+                });
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().log(java.util.logging.Level.SEVERE, "연합 랭킹 조회 실패", e);
             }
         });
     }

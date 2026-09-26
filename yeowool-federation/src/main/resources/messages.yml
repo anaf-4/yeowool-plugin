@@ -1,6 +1,6 @@
 federation:
   player-only: "§c플레이어만 사용할 수 있습니다."
-  usage: "§c사용법: /연합 <생성|가입신청|신청목록|수락|거절|탈퇴|추방|부연합장임명|부연합장해임|위임|폐쇄|소개글|정보|목록|은행|업그레이드|상점>"
+  usage: "§c사용법: /연합 <생성|가입신청|신청목록|수락|거절|탈퇴|추방|부연합장임명|부연합장해임|위임|폐쇄|소개글|정보|목록|은행|업그레이드|상점|랭킹>"
   no-land: "§c소유한 토지가 없습니다."
   already-in-federation: "§c이미 다른 연합에 소속되어 있습니다."
   name-taken: "§c이미 사용 중인 연합 이름입니다: <name>"
@@ -75,3 +75,6 @@ federation:
   event-status-empty: "§7아직 활동량을 쌓은 연합이 없습니다."
   event-started: "§6[연합대항] §e연합대항이 진행 중입니다! 남은 시간 <minutes>분 — 활동량을 가장 많이 쌓은 연합이 우승합니다. §7(/연합대항 정보)"
   event-ended: "§6[연합대항] §e연합대항이 끝났습니다!\n<results>"
+  ranking-header: "§6[연합 랭킹]"
+  ranking-line: "§7<rank>. §e<name> §7Lv.<level> (활동량 <activity>)"
+  levelup-broadcast: "§6[연합] §e<name> 연합이 Lv.<level>이 되었습니다! §7(마을 정원 <cap>개)"
