@@ -273,7 +273,9 @@ public final class QuestBoardService {
                     reward = -1;
                 }
                 entry.result = reward;
-                Bukkit.getScheduler().runTask(plugin, () -> finishDelivery(entry));
+                if (plugin.isEnabled()) { // disabled: onDisable's settleInFlight() hands the items on
+                    Bukkit.getScheduler().runTask(plugin, () -> finishDelivery(entry));
+                }
             });
         });
     }
