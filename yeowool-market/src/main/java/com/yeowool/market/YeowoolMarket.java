@@ -28,6 +28,10 @@ import com.yeowool.market.command.ShopRotationAddCommand;
 import com.yeowool.market.command.ShopRotationClearCommand;
 import com.yeowool.market.command.ShopRotationSetCommand;
 import com.yeowool.market.command.TradeCommand;
+import com.yeowool.market.merchant.MerchantCommand;
+import com.yeowool.market.merchant.MerchantRepository;
+import com.yeowool.market.merchant.MerchantRules;
+import com.yeowool.market.merchant.MerchantService;
 import com.yeowool.market.npcshop.ShopConfigLoader;
 import com.yeowool.market.npcshop.ShopDefinition;
 import com.yeowool.market.npcshop.ShopLayout;
@@ -41,10 +45,15 @@ import com.yeowool.market.trade.TradeChatInputListener;
 import com.yeowool.market.trade.TradeManager;
 import com.yeowool.market.trade.TradeQuitListener;
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -54,6 +63,7 @@ import java.util.concurrent.Executors;
 public final class YeowoolMarket extends JavaPlugin {
 
     private ExecutorService executor;
+    private MerchantService merchantService;
 
     @Override
     public void onEnable() {
@@ -149,6 +159,19 @@ public final class YeowoolMarket extends JavaPlugin {
             getServer().getPluginManager().registerEvents(new ShopTeleportJoinListener(this, core, messages, shopLocationCommand), this);
         }
 
+        // 떠돌이 상인 — Citizens가 있는 서버에서만 (NPC가 필요함). 실패해도 나머지 기능은 그대로.
+        if (getConfig().getBoolean("wandering-merchant.enabled", true)) {
+            if (getServer().getPluginManager().isPluginEnabled("Citizens")) {
+                try {
+                    enableWanderingMerchant(core, messages, shops, rotationManager, thisServerId);
+                } catch (Exception e) {
+                    getLogger().severe("떠돌이 상인 초기화 실패 — 떠돌이 상인을 끕니다: " + e.getMessage());
+                }
+            } else {
+                getLogger().warning("Citizens가 없어 이 서버에서는 떠돌이 상인을 끕니다.");
+            }
+        }
+
         // 직접 거래
         TradeManager tradeManager = new TradeManager(this, core, messages);
         getServer().getPluginManager().registerEvents(new TradeChatInputListener(this, core, messages), this);
@@ -228,6 +251,43 @@ public final class YeowoolMarket extends JavaPlugin {
         getLogger().info("YeowoolMarket이 활성화되었습니다.");
     }
 
+    private void enableWanderingMerchant(YeowoolCoreAPI core, MessageManager messages, Map<String, ShopDefinition> shops,
+                                         ShopRotationManager rotationManager, String thisServerId) throws java.sql.SQLException {
+        EntityType entityType;
+        String typeName = getConfig().getString("wandering-merchant.entity-type", "WANDERING_TRADER");
+        try {
+            entityType = EntityType.valueOf(typeName.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            getLogger().warning("wandering-merchant.entity-type '" + typeName + "'을(를) 알 수 없어 WANDERING_TRADER를 씁니다.");
+            entityType = EntityType.WANDERING_TRADER;
+        }
+        Map<String, String> serverNames = new HashMap<>();
+        ConfigurationSection namesSection = getConfig().getConfigurationSection("wandering-merchant.server-names");
+        if (namesSection != null) {
+            for (String key : namesSection.getKeys(false)) {
+                serverNames.put(key, namesSection.getString(key, key));
+            }
+        }
+        MerchantService.Settings settings = new MerchantService.Settings(
+                thisServerId,
+                getConfig().getString("wandering-merchant.shop-id", "wandering_merchant"),
+                getConfig().getString("wandering-merchant.npc-name", "&6떠돌이 상인"),
+                entityType,
+                getConfig().getInt("wandering-merchant.stay-minutes", 30),
+                getConfig().getInt("wandering-merchant.interval-min-minutes", 180),
+                getConfig().getInt("wandering-merchant.interval-max-minutes", 300),
+                serverNames);
+        MerchantRepository repository = new MerchantRepository(core.dataSource());
+        repository.createTables(System.currentTimeMillis()
+                + MerchantRules.nextDelayMillis(new Random(), settings.intervalMinMinutes(), settings.intervalMaxMinutes()));
+        this.merchantService = new MerchantService(this, core, messages, repository, settings, shops, rotationManager);
+        getServer().getPluginManager().registerEvents(merchantService, this);
+        var merchantCommand = new MerchantCommand(this, messages, merchantService, executor);
+        bindCommand("떠돌이상인", merchantCommand, merchantCommand);
+        MerchantService service = merchantService;
+        getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::tick), 20L * 10, 20L * 60);
+    }
+
     private void bindCommand(String name, org.bukkit.command.CommandExecutor executorImpl) {
         var command = getCommand(name);
         if (command != null) {
@@ -245,6 +305,9 @@ public final class YeowoolMarket extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (merchantService != null) {
+            merchantService.removeNpc();
+        }
         if (executor != null) {
             executor.shutdown();
         }
