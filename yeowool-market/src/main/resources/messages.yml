@@ -81,6 +81,7 @@ merchant:
   none: "<gray>지금은 떠돌이 상인이 없습니다.</gray>"
   status: "<yellow>떠돌이 상인: <server> '<spot>' (<x>, <y>, <z>) — 남은 시간 <remaining></yellow>"
   shop-missing: "<red>떠돌이 상인의 상점이 아직 준비되지 않았습니다.</red>"
+  shop-npc-only: "<red>이 상점은 떠돌이 상인에게서만 이용할 수 있습니다. (/떠돌이상인으로 위치 확인)</red>"
   usage: "<gray>/떠돌이상인 [위치추가 <이름> | 위치제거 <이름> | 위치목록 | 소환 | 퇴장]</gray>"
   no-permission: "<red>권한이 없습니다.</red>"
   invalid-name: "<red>지점 이름은 1~32자의 한글·영문·숫자·_ 만 쓸 수 있습니다.</red>"

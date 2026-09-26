@@ -11,8 +11,10 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -32,7 +34,7 @@ public final class QuestBoardService {
     }
 
     /** A player partway through the chat prompts; quantity 0 means we're still asking for the quantity. */
-    private record PendingInput(ItemStack sample, int quantity) {
+    private record PendingInput(ItemStack sample, int quantity, long createdAt) {
     }
 
     @FunctionalInterface
@@ -40,8 +42,25 @@ public final class QuestBoardService {
         T call() throws SQLException;
     }
 
+    /** Items taken from a deliverer but not yet handed on; result is Long.MIN_VALUE until the DB call finishes. */
+    private static final class InFlightDelivery {
+        final UUID deliverer;
+        final QuestRequest request;
+        final int amount;
+        final int page;
+        volatile long result = Long.MIN_VALUE;
+
+        InFlightDelivery(UUID deliverer, QuestRequest request, int amount, int page) {
+            this.deliverer = deliverer;
+            this.request = request;
+            this.amount = amount;
+            this.page = page;
+        }
+    }
+
     static final int PAGE_SIZE = 45;
     private static final String SOURCE = "YeowoolMarket";
+    private static final long PENDING_TTL_MILLIS = 120_000L;
 
     private final JavaPlugin plugin;
     private final YeowoolCoreAPI core;
@@ -51,6 +70,7 @@ public final class QuestBoardService {
     private final Executor executor;
     private final Settings settings;
     private final Map<UUID, PendingInput> pending = new ConcurrentHashMap<>();
+    private final Set<InFlightDelivery> inFlight = ConcurrentHashMap.newKeySet();
 
     public QuestBoardService(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, QuestRepository repository,
                              QuestPayoutClaimer claimer, Executor executor, Settings settings) {
@@ -96,7 +116,7 @@ public final class QuestBoardService {
             messages.send(player, "questboard.hold-item");
             return;
         }
-        pending.put(player.getUniqueId(), new PendingInput(hand.asOne(), 0));
+        pending.put(player.getUniqueId(), new PendingInput(hand.asOne(), 0, System.currentTimeMillis()));
         player.closeInventory();
         askQuantity(player);
     }
@@ -106,6 +126,9 @@ public final class QuestBoardService {
         PendingInput input = pending.remove(player.getUniqueId());
         if (input == null) {
             return false;
+        }
+        if (System.currentTimeMillis() - input.createdAt() > PENDING_TTL_MILLIS) {
+            return false; // stale prompt — let the chat line through instead
         }
         Bukkit.getScheduler().runTask(plugin, () -> handleInput(player, input, raw.trim()));
         return true;
@@ -132,17 +155,17 @@ public final class QuestBoardService {
         UUID uuid = player.getUniqueId();
         if (input.quantity() == 0) {
             if (!QuestBoardRules.validQuantity(value, settings.maxQuantity())) {
-                pending.put(uuid, input);
+                pending.put(uuid, new PendingInput(input.sample(), input.quantity(), System.currentTimeMillis()));
                 messages.send(player, "questboard.invalid-number");
                 askQuantity(player);
                 return;
             }
-            pending.put(uuid, new PendingInput(input.sample(), (int) value));
+            pending.put(uuid, new PendingInput(input.sample(), (int) value, System.currentTimeMillis()));
             messages.send(player, "questboard.ask-reward");
             return;
         }
         if (value < 1) {
-            pending.put(uuid, input);
+            pending.put(uuid, new PendingInput(input.sample(), input.quantity(), System.currentTimeMillis()));
             messages.send(player, "questboard.invalid-number");
             messages.send(player, "questboard.ask-reward");
             return;
@@ -238,6 +261,8 @@ public final class QuestBoardService {
                 messages.send(online, "questboard.no-matching-items");
                 return;
             }
+            InFlightDelivery entry = new InFlightDelivery(uuid, fresh, removed, page);
+            inFlight.add(entry);
             long now = System.currentTimeMillis();
             executor.execute(() -> {
                 long reward;
@@ -247,13 +272,21 @@ public final class QuestBoardService {
                     plugin.getLogger().log(Level.SEVERE, "의뢰 납품 실패 (#" + fresh.id() + ", " + uuid + ") — 아이템 반환", e);
                     reward = -1;
                 }
-                long result = reward;
-                Bukkit.getScheduler().runTask(plugin, () -> finishDelivery(uuid, fresh, removed, result, page));
+                entry.result = reward;
+                Bukkit.getScheduler().runTask(plugin, () -> finishDelivery(entry));
             });
         });
     }
 
-    private void finishDelivery(UUID deliverer, QuestRequest request, int amount, long reward, int page) {
+    private void finishDelivery(InFlightDelivery entry) {
+        if (!inFlight.remove(entry)) {
+            return; // already settled by shutdown
+        }
+        UUID deliverer = entry.deliverer;
+        QuestRequest request = entry.request;
+        int amount = entry.amount;
+        long reward = entry.result;
+        int page = entry.page;
         Player player = Bukkit.getPlayer(deliverer);
         if (reward < 0) {
             giveStacks(deliverer, request.sample(), amount, "의뢰 #" + request.id() + " 납품 반환");
@@ -270,6 +303,20 @@ public final class QuestBoardService {
                     Placeholder.unparsed("reward", String.format("%,d", reward)));
             claimer.claim(deliverer);
             openBoard(player, page);
+        }
+    }
+
+    /** Main thread, from onDisable after the executor drained: settles deliveries whose follow-up task never ran. */
+    public void settleInFlight() {
+        for (InFlightDelivery entry : new ArrayList<>(inFlight)) {
+            inFlight.remove(entry);
+            if (entry.result >= 0) {
+                giveStacks(entry.request.requester(), entry.request.sample(), entry.amount,
+                        "의뢰 #" + entry.request.id() + " 납품품");
+            } else {
+                giveStacks(entry.deliverer, entry.request.sample(), entry.amount,
+                        "의뢰 #" + entry.request.id() + " 납품 반환");
+            }
         }
     }
 
@@ -338,7 +385,7 @@ public final class QuestBoardService {
             T result;
             try {
                 result = call.call();
-            } catch (SQLException e) {
+            } catch (SQLException | RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, "의뢰 게시판 DB 작업 실패 (" + uuid + ")", e);
                 sync(uuid, p -> messages.send(p, "questboard.error"));
                 return;

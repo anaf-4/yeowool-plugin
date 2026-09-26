@@ -10,6 +10,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,6 +33,7 @@ public final class QuestPayoutClaimer {
     private final QuestRepository repository;
     private final Executor executor;
     private final Set<UUID> inFlight = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, List<QuestRepository.Payout>> claimedUnpaid = new ConcurrentHashMap<>();
 
     public QuestPayoutClaimer(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages,
                               QuestRepository repository, Executor executor) {
@@ -65,8 +67,12 @@ public final class QuestPayoutClaimer {
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "의뢰 정산 장부 조회 실패 (" + uuid + ")", e);
             }
+            if (!claimed.isEmpty()) {
+                claimedUnpaid.put(uuid, claimed);
+            }
             runOnMain(() -> {
                 inFlight.remove(uuid);
+                claimedUnpaid.remove(uuid);
                 credit(uuid, claimed);
             }, uuid, claimed);
         });
@@ -112,7 +118,16 @@ public final class QuestPayoutClaimer {
             Bukkit.getScheduler().runTask(plugin, task);
         } else {
             inFlight.remove(uuid);
+            claimedUnpaid.remove(uuid);
             restore(claimed);
+        }
+    }
+
+    /** Main thread, from onDisable after the executor drained: puts back every claimed-but-unpaid payout. */
+    public void restoreUnpaid() {
+        for (Map.Entry<UUID, List<QuestRepository.Payout>> entry : new ArrayList<>(claimedUnpaid.entrySet())) {
+            claimedUnpaid.remove(entry.getKey());
+            restore(entry.getValue());
         }
     }
 }

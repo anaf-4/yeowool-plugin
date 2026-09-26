@@ -56,6 +56,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 상점 및 거래 (기획서 7절): NPC 상점, 플레이어 상점, 직접 거래, 경매장.
@@ -64,6 +65,8 @@ public final class YeowoolMarket extends JavaPlugin {
 
     private ExecutorService executor;
     private MerchantService merchantService;
+    private QuestBoardService questBoard;
+    private QuestPayoutClaimer payoutClaimer;
 
     @Override
     public void onEnable() {
@@ -216,7 +219,7 @@ public final class YeowoolMarket extends JavaPlugin {
 
         // 의뢰 게시판 — 실패해도 나머지 상점 기능은 그대로 켜 둠
         try {
-            QuestRepository questRepository = new QuestRepository(core.dataSource());
+            QuestRepository questRepository = new QuestRepository(core.dataSource(), getLogger());
             questRepository.createTables();
             QuestBoardService.Settings questSettings = new QuestBoardService.Settings(
                     getConfig().getString("quest-board.furniture-id", "workshop_six:quest_board"),
@@ -224,8 +227,8 @@ public final class YeowoolMarket extends JavaPlugin {
                     getConfig().getLong("quest-board.duration-hours", 72L) * 3_600_000L,
                     getConfig().getInt("quest-board.max-open-per-player", 5),
                     getConfig().getInt("quest-board.max-quantity", 100000));
-            QuestPayoutClaimer payoutClaimer = new QuestPayoutClaimer(this, core, messages, questRepository, executor);
-            QuestBoardService questBoard = new QuestBoardService(this, core, messages, questRepository, payoutClaimer, executor, questSettings);
+            payoutClaimer = new QuestPayoutClaimer(this, core, messages, questRepository, executor);
+            questBoard = new QuestBoardService(this, core, messages, questRepository, payoutClaimer, executor, questSettings);
             getServer().getPluginManager().registerEvents(new QuestBoardListener(this, questBoard, payoutClaimer), this);
             if (getServer().getPluginManager().isPluginEnabled("ItemsAdder")) {
                 getServer().getPluginManager().registerEvents(new QuestBoardFurnitureListener(questBoard), this);
@@ -310,6 +313,20 @@ public final class YeowoolMarket extends JavaPlugin {
         }
         if (executor != null) {
             executor.shutdown();
+            try {
+                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    getLogger().warning("의뢰 게시판/떠돌이 상인 작업이 5초 안에 끝나지 않았습니다.");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        // Main thread, after the executor drained: settle whatever follow-up task Paper cancelled on disable.
+        if (questBoard != null) {
+            questBoard.settleInFlight();
+        }
+        if (payoutClaimer != null) {
+            payoutClaimer.restoreUnpaid();
         }
     }
 }

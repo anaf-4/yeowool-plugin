@@ -20,11 +20,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
+import com.yeowool.core.api.event.ShopOpenEvent;
 
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import java.util.UUID;
 import java.util.logging.Level;
 
 /**
@@ -56,6 +58,8 @@ public final class MerchantService implements Listener {
     private final Random random = new Random();
     private volatile boolean warnedNoSpots;
 
+    private static final int MERCHANT_NPC_ID = Integer.MAX_VALUE - 1;
+
     // main thread only
     private MerchantRepository.State current;
     private long announcedSeq = -1;
@@ -63,6 +67,7 @@ public final class MerchantService implements Listener {
     private NPC npc;
     private long npcSeq = -1;
     private long warnedWorldSeq = -1;
+    private boolean openingFromNpc;
 
     public MerchantService(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, MerchantRepository repository,
                            Settings settings, Map<String, ShopDefinition> shops, ShopRotationManager rotationManager) {
@@ -152,7 +157,7 @@ public final class MerchantService implements Listener {
         if (registry == null) {
             registry = CitizensAPI.createAnonymousNPCRegistry(new MemoryNPCDataStore());
         }
-        npc = registry.createNPC(settings.entityType(), settings.npcName());
+        npc = registry.createNPC(settings.entityType(), UUID.randomUUID(), MERCHANT_NPC_ID, settings.npcName());
         npc.spawn(new Location(world, spot.x(), spot.y(), spot.z(), spot.yaw(), spot.pitch()));
         npcSeq = state.seq();
     }
@@ -189,8 +194,21 @@ public final class MerchantService implements Listener {
             messages.send(player, "merchant.shop-missing");
             return;
         }
-        if (ShopOpenGate.allows(player, shop.id())) {
-            new NPCShopGui(plugin, core, messages, shops, shop, rotationManager, 0).open(player);
+        openingFromNpc = true;
+        try {
+            if (ShopOpenGate.allows(player, shop.id())) {
+                new NPCShopGui(plugin, core, messages, shops, shop, rotationManager, 0).open(player);
+            }
+        } finally {
+            openingFromNpc = false;
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onShopOpen(ShopOpenEvent event) {
+        if (!openingFromNpc && settings.shopId().equals(event.getShopId())) {
+            event.setCancelled(true);
+            messages.send(event.getPlayer(), "merchant.shop-npc-only");
         }
     }
 }

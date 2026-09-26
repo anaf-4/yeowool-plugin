@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 /**
  * All quest-board SQL. Every state change that owes someone money writes the
@@ -58,9 +59,11 @@ public final class QuestRepository {
             + "reward_per_item, status, created_at, expires_at";
 
     private final DataSource dataSource;
+    private final Logger logger;
 
-    public QuestRepository(DataSource dataSource) {
+    public QuestRepository(DataSource dataSource, Logger logger) {
         this.dataSource = dataSource;
+        this.logger = logger;
     }
 
     public void createTables() throws SQLException {
@@ -180,7 +183,11 @@ public final class QuestRepository {
                 connection.rollback();
                 throw e;
             } finally {
-                connection.setAutoCommit(true);
+                // the pool resets autoCommit anyway; this must never mask an already-committed result
+                try {
+                    connection.setAutoCommit(true);
+                } catch (SQLException ignored) {
+                }
             }
         }
     }
@@ -250,7 +257,11 @@ public final class QuestRepository {
                 connection.rollback();
                 throw e;
             } finally {
-                connection.setAutoCommit(true);
+                // the pool resets autoCommit anyway; this must never mask an already-committed result
+                try {
+                    connection.setAutoCommit(true);
+                } catch (SQLException ignored) {
+                }
             }
         }
     }
@@ -296,22 +307,27 @@ public final class QuestRepository {
         }
     }
 
-    private static List<QuestRequest> readAll(PreparedStatement ps) throws SQLException {
+    private List<QuestRequest> readAll(PreparedStatement ps) throws SQLException {
         List<QuestRequest> requests = new ArrayList<>();
         try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                requests.add(new QuestRequest(
-                        rs.getLong("id"),
-                        UUID.fromString(rs.getString("requester")),
-                        rs.getString("requester_name"),
-                        ItemStackSerializer.deserialize(rs.getString("item_data")),
-                        rs.getString("item_label"),
-                        rs.getInt("quantity"),
-                        rs.getInt("delivered"),
-                        rs.getLong("reward_per_item"),
-                        rs.getString("status"),
-                        rs.getLong("created_at"),
-                        rs.getLong("expires_at")));
+                long id = rs.getLong("id");
+                try {
+                    requests.add(new QuestRequest(
+                            id,
+                            UUID.fromString(rs.getString("requester")),
+                            rs.getString("requester_name"),
+                            ItemStackSerializer.deserialize(rs.getString("item_data")),
+                            rs.getString("item_label"),
+                            rs.getInt("quantity"),
+                            rs.getInt("delivered"),
+                            rs.getLong("reward_per_item"),
+                            rs.getString("status"),
+                            rs.getLong("created_at"),
+                            rs.getLong("expires_at")));
+                } catch (RuntimeException e) {
+                    logger.warning("의뢰 #" + id + " 아이템 데이터를 읽지 못해 건너뜁니다: " + e.getMessage());
+                }
             }
         }
         return requests;
