@@ -73,6 +73,10 @@ public final class FederationEventRepository {
         return querySingle("SELECT " + EVENT_COLUMNS + " FROM yw_federation_events ORDER BY id DESC LIMIT 1");
     }
 
+    public Optional<FederationEvent> findLatestFinished() throws SQLException {
+        return querySingle("SELECT " + EVENT_COLUMNS + " FROM yw_federation_events WHERE result IS NOT NULL ORDER BY id DESC LIMIT 1");
+    }
+
     /** @return true for exactly one caller across all servers — that caller pays rewards and saves the result. */
     public boolean claimEnd(long eventId, long endedAt) throws SQLException {
         try (Connection connection = dataSource.getConnection();

@@ -27,6 +27,7 @@ event:
   rewards: [100000, 50000, 30000]
   auto:
     # 매주 자동 시작 (서버 시간 기준). false 면 관리진이 /연합대항 시작 <분> 으로만 시작합니다.
+    # 세 서버 설정을 모두 똑같이 맞추세요 (한 서버라도 켜져 있으면 자동 시작됨).
     enabled: true
     day-of-week: SATURDAY
     start-time: "20:00"

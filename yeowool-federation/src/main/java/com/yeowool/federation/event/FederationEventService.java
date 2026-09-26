@@ -48,12 +48,13 @@ public final class FederationEventService {
 
     /** Don't re-announce whatever already happened before this server (re)started. */
     public void init() throws SQLException {
-        Optional<FederationEvent> latest = events.findLatest();
-        if (latest.isPresent()) {
-            announcedStartId = latest.get().id();
-            if (latest.get().result() != null) {
-                announcedEndId = latest.get().id();
-            }
+        Optional<FederationEvent> finished = events.findLatestFinished();
+        if (finished.isPresent()) {
+            announcedEndId = finished.get().id();
+        }
+        Optional<FederationEvent> running = events.findActive();
+        if (running.isPresent()) {
+            announcedStartId = running.get().id();
         }
     }
 
@@ -90,19 +91,16 @@ public final class FederationEventService {
         }
 
         List<Announcement> announcements = new ArrayList<>();
-        Optional<FederationEvent> latest = events.findLatest();
-        if (latest.isPresent()) {
-            FederationEvent event = latest.get();
-            if (!event.ended() && event.id() != announcedStartId) {
-                announcedStartId = event.id();
-                long minutesLeft = Math.max(1, (event.endsAt() - nowMillis + 59_999) / 60_000);
-                announcements.add(new Announcement("federation.event-started", "minutes", String.valueOf(minutesLeft)));
-            }
-            if (event.ended() && event.result() != null && event.id() != announcedEndId) {
-                announcedEndId = event.id();
-                announcedStartId = event.id();
-                announcements.add(new Announcement("federation.event-ended", "results", event.result()));
-            }
+        Optional<FederationEvent> finished = events.findLatestFinished();
+        if (finished.isPresent() && finished.get().id() != announcedEndId) {
+            announcedEndId = finished.get().id();
+            announcements.add(new Announcement("federation.event-ended", "results", finished.get().result()));
+        }
+        Optional<FederationEvent> running = events.findActive();
+        if (running.isPresent() && running.get().id() != announcedStartId) {
+            announcedStartId = running.get().id();
+            long minutesLeft = Math.max(1, (running.get().endsAt() - nowMillis + 59_999) / 60_000);
+            announcements.add(new Announcement("federation.event-started", "minutes", String.valueOf(minutesLeft)));
         }
         return announcements;
     }
@@ -125,10 +123,13 @@ public final class FederationEventService {
 
     /** Only the server whose claim succeeds pays and stores the result. */
     private void finish(FederationEvent event) throws SQLException {
+        List<EventStanding> top = events.standings(event.id(), rewards.size());
         if (!events.claimEnd(event.id(), System.currentTimeMillis())) {
             return;
         }
-        List<EventStanding> top = events.standings(event.id(), rewards.size());
+        plugin.getLogger().info("연합대항 #" + event.id() + " 종료 — 지급 예정: " + top.stream()
+                .map(s -> s.name() + " " + rewards.get(top.indexOf(s)) + "온")
+                .toList());
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < top.size(); i++) {
             EventStanding standing = top.get(i);

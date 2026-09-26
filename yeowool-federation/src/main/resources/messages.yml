@@ -69,7 +69,7 @@ federation:
   event-no-permission: "§c연합대항을 시작/종료할 권한이 없습니다."
   event-none: "§7진행 중인 연합대항이 없습니다."
   event-already-running: "§c이미 진행 중인 연합대항이 있습니다. (/연합대항 종료 후 다시 시작)"
-  event-ended-by-admin: "§a연합대항을 종료하고 보상을 지급했습니다."
+  event-ended-by-admin: "§a연합대항을 종료했습니다. 결과가 곧 공지됩니다."
   event-status-header: "§6[연합대항] §7남은 시간 <minutes>분"
   event-status-line: "§7<rank>. §e<name> §7(+<gained>)"
   event-status-empty: "§7아직 활동량을 쌓은 연합이 없습니다."
