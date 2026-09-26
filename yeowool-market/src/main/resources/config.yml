@@ -88,3 +88,17 @@ auction:
   gui-background-offset: -8
   # 입찰 화면(bidding.png)의 +/- 버튼 3개가 얼마씩 조정하는지 (온 기준)
   bid-increments: [1000, 10000, 100000]
+
+# 의뢰 게시판 — 플레이어가 "아이템 N개 구함, 개당 P온" 의뢰를 올리고 다른 플레이어가 나눠서 납품.
+# 게시판은 아래 ItemsAdder 가구를 우클릭해야만 열리고, /의뢰는 어디서나 "내 의뢰"만 엽니다.
+quest-board:
+  # 게시판으로 쓸 ItemsAdder 가구 ID (W6 Quest Board 팩)
+  furniture-id: "workshop_six:quest_board"
+  # 등록할 때 총 보상에 더해 추가로 내는 수수료(%) — 환불되지 않고 소각
+  fee-percent: 5
+  # 의뢰 유지 시간(시간). 지나면 남은 보상이 의뢰자에게 자동 환불
+  duration-hours: 72
+  # 한 사람이 동시에 올릴 수 있는 진행 중 의뢰 수
+  max-open-per-player: 5
+  # 의뢰 하나의 최대 수량
+  max-quantity: 100000

@@ -32,10 +32,16 @@ import com.yeowool.market.npcshop.ShopConfigLoader;
 import com.yeowool.market.npcshop.ShopDefinition;
 import com.yeowool.market.npcshop.ShopLayout;
 import com.yeowool.market.npcshop.ShopRotationManager;
+import com.yeowool.market.questboard.QuestBoardFurnitureListener;
+import com.yeowool.market.questboard.QuestBoardListener;
+import com.yeowool.market.questboard.QuestBoardService;
+import com.yeowool.market.questboard.QuestPayoutClaimer;
+import com.yeowool.market.questboard.QuestRepository;
 import com.yeowool.market.trade.TradeChatInputListener;
 import com.yeowool.market.trade.TradeManager;
 import com.yeowool.market.trade.TradeQuitListener;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
@@ -184,6 +190,40 @@ public final class YeowoolMarket extends JavaPlugin {
             auctionCommand.setTabCompleter(executor3);
         }
         new AuctionExpiryTask(auctionManager, auctionFeePercent).runTaskTimer(this, 20L * 30, 20L * 30);
+
+        // 의뢰 게시판 — 실패해도 나머지 상점 기능은 그대로 켜 둠
+        try {
+            QuestRepository questRepository = new QuestRepository(core.dataSource());
+            questRepository.createTables();
+            QuestBoardService.Settings questSettings = new QuestBoardService.Settings(
+                    getConfig().getString("quest-board.furniture-id", "workshop_six:quest_board"),
+                    getConfig().getInt("quest-board.fee-percent", 5),
+                    getConfig().getLong("quest-board.duration-hours", 72L) * 3_600_000L,
+                    getConfig().getInt("quest-board.max-open-per-player", 5),
+                    getConfig().getInt("quest-board.max-quantity", 100000));
+            QuestPayoutClaimer payoutClaimer = new QuestPayoutClaimer(this, core, messages, questRepository, executor);
+            QuestBoardService questBoard = new QuestBoardService(this, core, messages, questRepository, payoutClaimer, executor, questSettings);
+            getServer().getPluginManager().registerEvents(new QuestBoardListener(this, questBoard, payoutClaimer), this);
+            if (getServer().getPluginManager().isPluginEnabled("ItemsAdder")) {
+                getServer().getPluginManager().registerEvents(new QuestBoardFurnitureListener(questBoard), this);
+            } else {
+                getLogger().warning("ItemsAdder가 없어 의뢰 게시판 가구를 쓸 수 없습니다 (/의뢰로 내 의뢰만 확인 가능).");
+            }
+            bindCommand("의뢰", (sender, command, label, args) -> {
+                if (sender instanceof Player player) {
+                    questBoard.openMine(player);
+                } else {
+                    messages.send(sender, "general.player-only");
+                }
+                return true;
+            });
+            getServer().getScheduler().runTaskTimer(this, () -> {
+                executor.execute(questBoard::expireDue);
+                payoutClaimer.claimAllOnline();
+            }, 20L * 60, 20L * 60);
+        } catch (Exception e) {
+            getLogger().severe("의뢰 게시판 초기화 실패 — 의뢰 게시판을 끕니다: " + e.getMessage());
+        }
 
         getLogger().info("YeowoolMarket이 활성화되었습니다.");
     }

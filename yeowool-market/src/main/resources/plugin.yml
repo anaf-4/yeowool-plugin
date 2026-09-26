@@ -60,6 +60,8 @@ commands:
     description: 플레이어 간 직접 거래
   경매:
     description: 경매장 GUI를 엽니다 (등록/검색/내경매 하위 명령어 지원, 즉시구매·입찰 모두 지원)
+  의뢰:
+    description: 내가 올린 의뢰 목록을 엽니다 (의뢰 게시판은 게시판 가구를 우클릭)
 
 permissions:
   yeowool.market.shop.manage:
