@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS yw_merchant_state (
 wandering-merchant:
   enabled: true
   shop-id: "wandering_merchant"
-  npc-name: "<gold>떠돌이 상인"
+  npc-name: "&6떠돌이 상인"   # Citizens 이름 색상은 & 코드
   entity-type: WANDERING_TRADER
   stay-minutes: 30
   interval-min-minutes: 180
