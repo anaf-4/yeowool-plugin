@@ -21,3 +21,13 @@ member-cap:
 #     name: "연합 기본 상점"
 #     min-level: 1
 shops: []
+
+event:
+  # 연합대항 1~3등 보상 (각 연합 은행으로 지급, 온). 기간 동안 활동량을 못 쌓은 연합은 순위에서 제외됩니다.
+  rewards: [100000, 50000, 30000]
+  auto:
+    # 매주 자동 시작 (서버 시간 기준). false 면 관리진이 /연합대항 시작 <분> 으로만 시작합니다.
+    enabled: true
+    day-of-week: SATURDAY
+    start-time: "20:00"
+    duration-minutes: 1440

@@ -10,6 +10,11 @@ import com.yeowool.federation.chat.FederationChatListener;
 import com.yeowool.federation.chat.FederationChatService;
 import com.yeowool.federation.database.FederationRepository;
 import com.yeowool.federation.database.FederationSchemaInitializer;
+import com.yeowool.federation.event.Announcement;
+import com.yeowool.federation.event.FederationEventCommand;
+import com.yeowool.federation.event.FederationEventRepository;
+import com.yeowool.federation.event.FederationEventSchedule;
+import com.yeowool.federation.event.FederationEventService;
 import com.yeowool.federation.land.LandLookup;
 import com.yeowool.federation.land.PlayerFederationResolver;
 import com.yeowool.federation.shop.FederationLevelCache;
@@ -23,7 +28,13 @@ import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
+import java.time.DateTimeException;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -69,6 +80,32 @@ public final class YeowoolFederation extends JavaPlugin {
                 getConfig().getInt("member-cap.per-level", 1));
         FederationManager manager = new FederationManager(repository, levelConfig);
 
+        Optional<FederationEventSchedule> eventSchedule = Optional.empty();
+        if (getConfig().getBoolean("event.auto.enabled", true)) {
+            try {
+                eventSchedule = Optional.of(new FederationEventSchedule(
+                        DayOfWeek.valueOf(getConfig().getString("event.auto.day-of-week", "SATURDAY").trim().toUpperCase(Locale.ROOT)),
+                        LocalTime.parse(getConfig().getString("event.auto.start-time", "20:00").trim()),
+                        getConfig().getInt("event.auto.duration-minutes", 1440)));
+            } catch (IllegalArgumentException | DateTimeException e) {
+                getLogger().warning("연합대항 자동 시작 설정을 읽지 못해 자동 시작을 끕니다: " + e.getMessage());
+            }
+        }
+        List<Long> eventRewards = getConfig().getLongList("event.rewards");
+        FederationEventService eventService = new FederationEventService(this, messages,
+                new FederationEventRepository(core.dataSource()), manager, eventRewards, eventSchedule);
+        executor.execute(() -> {
+            try {
+                eventService.init();
+            } catch (SQLException e) {
+                getLogger().log(Level.SEVERE, "연합대항 상태 불러오기 실패", e);
+            }
+        });
+        var eventCommand = getCommand("연합대항");
+        if (eventCommand != null) {
+            eventCommand.setExecutor(new FederationEventCommand(this, messages, eventService, executor));
+        }
+
         PlayerFederationResolver resolver = new PlayerFederationResolver(core.dataSource());
         this.activityTracker = new ActivityTracker(this, manager, resolver);
         FederationLevelCache levelCache = new FederationLevelCache(this, manager, resolver, executor);
@@ -84,6 +121,14 @@ public final class YeowoolFederation extends JavaPlugin {
                     } catch (SQLException e) {
                         getLogger().log(Level.SEVERE, "연합 레벨 캐시 갱신 실패 (" + playerUuid + ")", e);
                     }
+                }
+                try {
+                    List<Announcement> announcements = eventService.tick(ZonedDateTime.now());
+                    if (!announcements.isEmpty()) {
+                        getServer().getScheduler().runTask(this, () -> eventService.broadcast(announcements));
+                    }
+                } catch (SQLException e) {
+                    getLogger().log(Level.SEVERE, "연합대항 주기 처리 실패", e);
                 }
             });
         }, 1200L, 1200L);
