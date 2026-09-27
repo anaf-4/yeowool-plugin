@@ -599,7 +599,13 @@ public final class YeowoolLife extends JavaPlugin {
             getLogger().warning("MCPets 또는 LuckPerms가 없어 탈것 이용권을 끕니다.");
             return;
         }
-        Map<String, MountDefinition> mounts = MountCatalog.load(new File(mcpets.getDataFolder(), "Pets"));
+        Map<String, MountDefinition> mounts;
+        try {
+            mounts = MountCatalog.load(new File(mcpets.getDataFolder(), "Pets"));
+        } catch (RuntimeException e) { // unreadable pet folder must not take the rest of YeowoolLife down
+            getLogger().warning("MCPets 펫 설정을 읽지 못해 탈것 이용권을 끕니다: " + e.getMessage());
+            return;
+        }
         getLogger().info("탈것 " + mounts.size() + "종을 불러왔습니다: " + mounts.keySet());
         MountVoucherItem voucherItem = new MountVoucherItem(this);
         getServer().getPluginManager().registerEvents(new MountVoucherListener(this, messages, voucherItem, mounts), this);
