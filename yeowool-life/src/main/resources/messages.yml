@@ -84,3 +84,14 @@ competition:
   result-line: "<gray><rank>위</gray> <white><player></white> <yellow><score><unit></yellow>"
   result-empty: "<gold>[생활 대회]</gold> <gray><activity> 대회가 참가자 없이 끝났습니다.</gray>"
   error: "<red>처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</red>"
+
+mount:
+  unlocked: "<gold>[탈것]</gold> <yellow><mount>을(를) 해금했습니다! /탈것 으로 소환해 보세요.</yellow>"
+  already-owned: "<red>이미 보유한 탈것입니다: <mount></red>"
+  unknown: "<red>알 수 없는 탈것입니다: <id></red>"
+  none-owned: "<gray>보유한 탈것이 없습니다. 탈것 이용권을 우클릭하면 해금됩니다.</gray>"
+  issue-usage: "<gray>/탈것이용권 [펫ID] [수량] [닉네임]</gray>"
+  invalid-amount: "<red>수량은 1~<max> 사이로 입력하세요.</red>"
+  target-unknown: "<red>한 번도 접속한 적 없는 플레이어입니다.</red>"
+  issued: "<green><player>님에게 <mount> 탈것 이용권 <amount>장을 지급했습니다. (접속 중이 아니면 우편함)</green>"
+  grant-failed: "<red>탈것을 해금하지 못했습니다. 이용권은 그대로 남아 있으니 관리자에게 문의하세요.</red>"
