@@ -54,9 +54,7 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <p>Every catch also rolls a size (cm, within {@link FishSpecies#minSizeCm}/
  * {@link FishSpecies#maxSizeCm}) — shown on the item and recorded as a
- * personal-best via {@link PlayerData#recordMaxStatistic} — and, if {@link
- * #competitionManager} is currently running the daily event, counted toward
- * it.
+ * personal-best via {@link PlayerData#recordMaxStatistic}.
  *
  * <p>The reel-in timing minigame ({@link #onBite}/{@link #onCaught}) shows a
  * {@link BossBar} the moment a fish bites — see {@link FishMinigameConfig}
@@ -75,7 +73,6 @@ public final class FishingListener implements Listener {
     private final FishWaitTime waitTime;
     private final FishMinigameConfig minigame;
     private final FishStarConfig star;
-    private final FishingCompetitionManager competitionManager;
     private final Map<UUID, BiteSession> biteSessions = new HashMap<>();
 
     /** How long a resolved (missed/timed-out) bar lingers on screen before removing itself. */
@@ -83,7 +80,7 @@ public final class FishingListener implements Listener {
 
     public FishingListener(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, long xpPerCatch, List<FishRarity> rarities,
                             Map<String, FishRod> rodsByItemId, Map<String, FishBait> baitsByItemId,
-                            FishWaitTime waitTime, FishMinigameConfig minigame, FishStarConfig star, FishingCompetitionManager competitionManager) {
+                            FishWaitTime waitTime, FishMinigameConfig minigame, FishStarConfig star) {
         this.plugin = plugin;
         this.core = core;
         this.messages = messages;
@@ -95,7 +92,6 @@ public final class FishingListener implements Listener {
         this.waitTime = waitTime;
         this.minigame = minigame;
         this.star = star;
-        this.competitionManager = competitionManager;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -245,8 +241,6 @@ public final class FishingListener implements Listener {
                 consumeEquippedBait(data);
             }
         }
-
-        competitionManager.recordCatch(player, species.name(), sizeCm);
 
         messages.send(player, "fishing.caught",
                 Placeholder.unparsed("rarity", rarityLabel),

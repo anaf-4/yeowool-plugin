@@ -54,9 +54,12 @@ import com.yeowool.life.fishing.customfishing.CustomFishingBridge;
 import com.yeowool.life.fishing.customfishing.CustomFishingCatchListener;
 import com.yeowool.life.fishing.customfishing.CustomFishingMenuCommand;
 import com.yeowool.life.fishing.customfishing.CustomFishingNativeFishExporter;
-import com.yeowool.life.fishing.FishingCompetitionCommand;
-import com.yeowool.life.fishing.FishingCompetitionManager;
 import com.yeowool.life.fishing.FishingListener;
+import com.yeowool.life.competition.CompetitionActivity;
+import com.yeowool.life.competition.CompetitionRepository;
+import com.yeowool.life.competition.CompetitionSchedule;
+import com.yeowool.life.competition.LifeCompetitionListener;
+import com.yeowool.life.competition.LifeCompetitionService;
 import com.yeowool.life.hunting.HuntingListener;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
@@ -100,8 +103,10 @@ import com.yeowool.life.treasure.TreasureService;
 import com.yeowool.life.treasure.TreasureTier;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -248,38 +253,17 @@ public final class YeowoolLife extends JavaPlugin {
         FishStarConfig fishStar = new FishStarConfig(
                 config.getDouble("fishing.star.chance-percent", 2),
                 config.getDouble("fishing.star.size-bonus-percent", 40));
-        Map<Integer, Long> competitionRewards = new HashMap<>();
-        var rewardSection = config.getConfigurationSection("fishing.competition.rewards");
-        if (rewardSection != null) {
-            for (String rank : rewardSection.getKeys(false)) {
-                try {
-                    competitionRewards.put(Integer.parseInt(rank), rewardSection.getLong(rank));
-                } catch (NumberFormatException ignored) {
-                    // 숫자가 아닌 키는 무시
-                }
-            }
-        }
-        FishingCompetitionManager competitionManager = new FishingCompetitionManager(this, core, messages,
-                config.getInt("fishing.competition.start-hour", 18),
-                config.getLong("fishing.competition.duration-minutes", 60),
-                competitionRewards);
-        competitionManager.scheduleNextStart();
-
         // 낚시 플레이 자체는 CustomFishing이 설치되어 있으면 그쪽 메커닉을 그대로 씀 —
         // 우리 자체 미니게임(입질 타이밍 등)은 CustomFishing이 없을 때의 대체 수단으로만 남김.
         if (!CustomFishingBridge.isEnabled()) {
             getServer().getPluginManager().registerEvents(
                     new FishingListener(this, core, messages, config.getLong("fishing.xp-per-catch", 3), fishRarities, fishRods, fishBaits,
-                            fishWaitTime, fishMinigame, fishStar, competitionManager), this);
+                            fishWaitTime, fishMinigame, fishStar), this);
         } else {
             // 낚시 메커닉이 CustomFishing으로 완전히 넘어가서, 우리 자체 물고기도 그쪽 loot
             // 풀에 직접 등록해줘야 실제로 잡을 수 있음 — 안 그러면 도감/지급 GUI에만 보이는
             // 장식용 목록으로 남음.
             CustomFishingNativeFishExporter.export(this, fishRarities);
-        }
-        var competitionCommand = getCommand("낚시대회");
-        if (competitionCommand != null) {
-            competitionCommand.setExecutor(new FishingCompetitionCommand(competitionManager));
         }
         getServer().getPluginManager().registerEvents(new BaitEquipListener(core, messages, fishBaits), this);
         getServer().getPluginManager().registerEvents(
@@ -392,8 +376,8 @@ public final class YeowoolLife extends JavaPlugin {
 
         if (customFishingEnabled) {
             getServer().getPluginManager().registerEvents(
-                    new CustomFishingCatchListener(core, jobManager, config.getLong("fishing.xp-per-catch", 3), competitionManager), this);
-            getLogger().info("CustomFishing 연동이 활성화되었습니다 — 낚시 플레이는 CustomFishing, 어부 XP/땅 XP/도감/낚시대회는 그대로 연결됨.");
+                    new CustomFishingCatchListener(core, jobManager, config.getLong("fishing.xp-per-catch", 3)), this);
+            getLogger().info("CustomFishing 연동이 활성화되었습니다 — 낚시 플레이는 CustomFishing, 어부 XP/땅 XP/도감/생활 대회는 그대로 연결됨.");
         }
 
         getServer().getPluginManager().registerEvents(new JobJoinListener(this, jobManager), this);
@@ -434,6 +418,7 @@ public final class YeowoolLife extends JavaPlugin {
 
         enableScrapyard(core, messages);
         enableTreasureMaps(core, messages);
+        enableLifeCompetition(core, messages);
 
         getLogger().info("YeowoolLife가 활성화되었습니다.");
     }
@@ -545,6 +530,56 @@ public final class YeowoolLife extends JavaPlugin {
         }
         getServer().getScheduler().runTaskTimer(this, service::showHints, 20L, 20L);
         getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::announceLegendaryDigs), 20L * 60, 20L * 60);
+    }
+
+    /** 생활 대회 — 매일 같은 시각, 세 서버 합산 행동 횟수로 순위 (종목은 날짜별 순환). */
+    private void enableLifeCompetition(YeowoolCoreAPI core, MessageManager messages) {
+        var config = getConfig();
+        if (!config.getBoolean("life-competition.enabled", true)) {
+            return;
+        }
+        CompetitionRepository repository = new CompetitionRepository(core.dataSource());
+        try {
+            repository.createTables();
+        } catch (Exception e) {
+            getLogger().severe("생활 대회 데이터베이스 초기화 실패 — 생활 대회를 끕니다: " + e.getMessage());
+            return;
+        }
+        List<CompetitionActivity> rotation = new ArrayList<>();
+        for (String key : config.getStringList("life-competition.rotation")) {
+            CompetitionActivity.byKey(key).ifPresentOrElse(rotation::add, () -> getLogger().warning(
+                    "life-competition.rotation의 '" + key + "'는 fishing/mining/hunting/farming 중 하나여야 합니다 — 건너뜁니다."));
+        }
+        Map<Integer, Long> rewards = new HashMap<>();
+        ConfigurationSection rewardSection = config.getConfigurationSection("life-competition.rewards");
+        if (rewardSection != null) {
+            for (String rank : rewardSection.getKeys(false)) {
+                try {
+                    rewards.put(Integer.parseInt(rank), rewardSection.getLong(rank));
+                } catch (NumberFormatException e) {
+                    getLogger().warning("life-competition.rewards의 '" + rank + "'는 순위 숫자여야 합니다 — 건너뜁니다.");
+                }
+            }
+        }
+        CompetitionSchedule schedule = new CompetitionSchedule(ZoneId.systemDefault(),
+                config.getInt("life-competition.start-hour", 18),
+                config.getInt("life-competition.duration-minutes", 60),
+                rotation);
+        LifeCompetitionService service = new LifeCompetitionService(this, core, messages, repository, schedule, rewards, executor);
+        getServer().getPluginManager().registerEvents(new LifeCompetitionListener(service), this);
+        var command = getCommand("생활대회");
+        if (command != null) {
+            command.setExecutor((sender, cmd, label, args) -> {
+                if (sender instanceof Player player) {
+                    service.showStatus(player);
+                } else {
+                    messages.send(sender, "general.player-only");
+                }
+                return true;
+            });
+        }
+        getServer().getScheduler().runTaskTimer(this, service::tick, 20L * 10, 20L * 10);
+        getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::settleAndAnnounce), 20L * 60, 20L * 60);
     }
 
     private void enableCustomFarming(YeowoolCoreAPI core) {
