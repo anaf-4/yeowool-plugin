@@ -1,11 +1,11 @@
 prefix: "<gray>[<green>여울</green>]</gray> "
 
 worldboss:
-  announced: "<red>[월드보스]</red> <yellow><minutes>분 뒤 야생 '<spot>'에 월드보스가 나타납니다! (/월드보스)</yellow>"
-  spawned: "<red>[월드보스]</red> <gold>야생 '<spot>' (X <x>, Z <z>)에 월드보스가 나타났습니다! <minutes>분 안에 쓰러뜨리세요.</gold>"
-  killed: "<red>[월드보스]</red> <green>월드보스를 쓰러뜨렸습니다! 보상은 곧 지급됩니다.</green>"
+  announced: "<yellow><minutes>분 뒤 야생 '<spot>' (X <x>, Z <z>)에 <red>월드보스</red>가 나타납니다! (/월드보스)</yellow>"
+  spawned: "<gold>야생 '<spot>' (X <x>, Z <z>)에 <red>월드보스</red>가 나타났습니다! <minutes>분 안에 쓰러뜨리세요.</gold>"
+  killed: "<green><red>월드보스</red>를 쓰러뜨렸습니다! 보상은 곧 지급됩니다.</green>"
   rank-line: "<gray><rank>위</gray> <white><player></white>"
-  escaped: "<red>[월드보스]</red> <gray>월드보스가 도망쳤습니다.</gray>"
+  escaped: "<gray>월드보스가 도망쳤습니다.</gray>"
   status-idle: "<gray>월드보스는 매일 <time>에 야생에 나타납니다.</gray>"
   status-announced: "<yellow>곧 야생 '<spot>'에 월드보스가 나타납니다 — <remaining> 남음</yellow>"
   status-active: "<gold>월드보스 전투 중: 야생 '<spot>' (X <x>, Z <z>) — 남은 시간 <remaining></gold>"

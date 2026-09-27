@@ -23,6 +23,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
@@ -68,6 +69,9 @@ public final class WorldBossService implements Listener {
     private WorldBossRepository.State state;
     private long announcedSeq = -1;
     private boolean choosingSpot;
+    private boolean loading;
+    /** A boss left in an unloaded chunk by a crash mid-fight — removed when its chunk's entities load. */
+    private String staleBossUuid;
     private String warnedNoSpotsDate;
     private final Map<UUID, Double> damage = new HashMap<>();
     private final Map<UUID, String> names = new HashMap<>();
@@ -99,30 +103,63 @@ public final class WorldBossService implements Listener {
 
     /** Main thread, once from onEnable: loads the shared state; the owner cleans up a fight cut short by a restart. */
     public void start() {
+        if (loading) {
+            return;
+        }
+        loading = true;
         executor.execute(() -> {
             WorldBossRepository.State loaded;
             try {
                 loaded = repository.state();
             } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "월드보스 상태 불러오기 실패", e);
+                plugin.getLogger().log(Level.SEVERE, "월드보스 상태 불러오기 실패 — 잠시 후 다시 시도합니다", e);
+                runOnMain(() -> loading = false);
                 return;
             }
             runOnMain(() -> {
+                loading = false;
                 state = loaded;
                 announcedSeq = loaded.seq();
-                if (owner && ACTIVE.equals(loaded.phase())) {
+                if (!owner) {
+                    return;
+                }
+                if (ACTIVE.equals(loaded.phase())) {
+                    // A crash mid-fight: the boss may still be saved in its (not yet loaded) chunk.
+                    staleBossUuid = loaded.bossUuid();
                     removeBossEntity(loaded.bossUuid());
                     transition(IDLE, loaded.spot(), loaded.eventDate(), 0, 0, null, "ESCAPED", null);
+                } else if (ANNOUNCED.equals(loaded.phase())
+                        && System.currentTimeMillis() >= loaded.spawnAt() + settings.fightMinutes() * 60_000L) {
+                    // Announced before a long outage — its fight window is long gone, don't spawn it at a random hour.
+                    transition(IDLE, loaded.spot(), loaded.eventDate(), 0, 0, null, "FAILED", null);
                 }
             });
         });
+    }
+
+    @EventHandler
+    public void onEntitiesLoad(EntitiesLoadEvent event) {
+        if (staleBossUuid == null) {
+            return;
+        }
+        for (Entity entity : event.getEntities()) {
+            if (entity.getUniqueId().toString().equals(staleBossUuid)) {
+                entity.remove();
+                staleBossUuid = null;
+                return;
+            }
+        }
     }
 
     // ---- owner state machine (main thread) ----
 
     /** Main thread, every 5 seconds on the owner. */
     public void ownerTick() {
-        if (!owner || state == null) {
+        if (!owner) {
+            return;
+        }
+        if (state == null) {
+            start(); // the first load failed (DB hiccup) — keep retrying
             return;
         }
         long now = System.currentTimeMillis();
@@ -136,7 +173,9 @@ public final class WorldBossService implements Listener {
                 }
             }
             case ACTIVE -> {
-                if (now >= state.despawnAt()) {
+                Entity boss = state.bossUuid() == null ? null : Bukkit.getEntity(UUID.fromString(state.bossUuid()));
+                if (now >= state.despawnAt() || boss == null || !boss.isValid()) {
+                    // Timeout, or gone without dying here (despawned, /mm killall, ...) — the spot chunk is ticketed, so "not loaded" isn't the reason.
                     removeBossEntity(state.bossUuid());
                     endFight("ESCAPED", null);
                 }
@@ -210,6 +249,10 @@ public final class WorldBossService implements Listener {
             return;
         }
         Entity entity = activeMob.getEntity().getBukkitEntity();
+        if (entity instanceof LivingEntity living) {
+            // MythicMobs' default Despawn: true would discard it on the next tick when no player is within range.
+            living.setRemoveWhenFarAway(false);
+        }
         AttributeInstance maxHealth = entity instanceof LivingEntity living ? living.getAttribute(Attribute.MAX_HEALTH) : null;
         bossMaxHealth = maxHealth == null ? 1 : Math.max(1, maxHealth.getValue());
         damage.clear();
@@ -232,7 +275,7 @@ public final class WorldBossService implements Listener {
         names.put(attacker.getUniqueId(), attacker.getName());
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDeath(EntityDeathEvent event) {
         if (!isBoss(event.getEntity())) {
             return;
@@ -341,7 +384,9 @@ public final class WorldBossService implements Listener {
         switch (s.phase()) {
             case ANNOUNCED -> messages.broadcast("worldboss.announced",
                     Placeholder.unparsed("spot", spotName),
-                    Placeholder.unparsed("minutes", String.valueOf(Math.max(0, (s.spawnAt() - System.currentTimeMillis() + 59_999) / 60_000))));
+                    Placeholder.unparsed("x", String.valueOf(s.spot() == null ? 0 : (long) Math.floor(s.spot().x()))),
+                    Placeholder.unparsed("z", String.valueOf(s.spot() == null ? 0 : (long) Math.floor(s.spot().z()))),
+                    Placeholder.unparsed("minutes", String.valueOf(Math.max(1, (s.spawnAt() - System.currentTimeMillis() + 59_999) / 60_000))));
             case ACTIVE -> messages.broadcast("worldboss.spawned",
                     Placeholder.unparsed("spot", spotName),
                     Placeholder.unparsed("x", String.valueOf((long) Math.floor(s.spot().x()))),
@@ -414,6 +459,9 @@ public final class WorldBossService implements Listener {
 
     /** Main thread, from onDisable: an ongoing fight is left to start() on the next boot, which cleans it up. */
     public void shutdown() {
+        if (owner && state != null && ACTIVE.equals(state.phase())) {
+            removeBossEntity(state.bossUuid()); // chunk still loaded here; start() marks the fight ESCAPED on next boot
+        }
         if (ticketChunk != null) {
             ticketChunk.removePluginChunkTicket(plugin);
             ticketChunk = null;
