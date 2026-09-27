@@ -1,6 +1,7 @@
 package com.yeowool.life.fishing.customfishing;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
+import com.yeowool.core.api.event.PlayerRepeatableActionEvent;
 import com.yeowool.life.fishing.FishSpecies;
 import com.yeowool.life.fishing.FishingCompetitionManager;
 import com.yeowool.life.job.JobManager;
@@ -8,6 +9,7 @@ import net.momirealms.customfishing.api.BukkitCustomFishingPlugin;
 import net.momirealms.customfishing.api.event.FishingLootSpawnEvent;
 import net.momirealms.customfishing.api.mechanic.loot.Loot;
 import net.momirealms.customfishing.api.mechanic.loot.LootType;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -68,5 +70,7 @@ public final class CustomFishingCatchListener implements Listener {
                 competitionManager.recordCatch(player, loot.id(), sizeCm);
             }
         }
+
+        Bukkit.getPluginManager().callEvent(new PlayerRepeatableActionEvent(player.getUniqueId(), "fishing"));
     }
 }

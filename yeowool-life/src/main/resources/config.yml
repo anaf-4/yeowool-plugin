@@ -872,3 +872,50 @@ scrapyard:
       name: "<yellow>귀중한 유물</yellow>"
       weight: 8
       loot-weight: 2
+
+# 보물지도 — 채광·낚시·사냥 중 가끔 지도가 나오고, 야생 월드에서 지도를 따라가 웅크리고 땅을 우클릭하면 발굴.
+# 보물은 블록이 아닌 가상 보물이라 지형·토지를 건드리지 않으며, 야생을 초기화해도 좌표는 그대로 유효합니다.
+# 세 서버 모두 같은 값으로 맞춰주세요.
+treasure:
+  enabled: true
+  # 보물이 묻히는 월드 (야생 서버의 월드 이름)
+  dig-world: wild_world
+  # 보물 좌표를 뽑는 중심과 반경(블록)
+  center-x: 0
+  center-z: 0
+  min-radius: 500
+  max-radius: 3000
+  # 지도 유효 기간(일)
+  expire-days: 7
+  # 한 사람이 하루(서버 시간 자정 기준)에 자연 획득할 수 있는 지도 수
+  daily-limit: 3
+  # 목표 지점에서 이 거리(블록) 안이면 발굴 가능
+  dig-radius: 4
+  # 행동 1회당 지도가 나올 확률 (0.01 = 1%)
+  drop-chance:
+    mining: 0.002
+    fishing: 0.01
+    hunting: 0.005
+  # 등급 가중치
+  tier-weights:
+    common: 80
+    rare: 17
+    legendary: 3
+  # 등급별 보상: 온(범위 내 무작위) + 아이템 후보 중 item-rolls개 (/보물지도 보상설정으로 후보 편집)
+  # item-id: 지도 아이템으로 쓸 ItemsAdder 아이템 ID (비우면 종이)
+  tiers:
+    common:
+      money-min: 1000
+      money-max: 5000
+      item-rolls: 1
+      item-id: ""
+    rare:
+      money-min: 10000
+      money-max: 30000
+      item-rolls: 2
+      item-id: ""
+    legendary:
+      money-min: 50000
+      money-max: 150000
+      item-rolls: 3
+      item-id: ""
