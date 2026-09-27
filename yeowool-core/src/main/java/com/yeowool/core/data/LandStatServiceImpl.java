@@ -57,7 +57,7 @@ public final class LandStatServiceImpl implements LandStatService {
 
     @Override
     public double getXpMultiplier() {
-        return xpMultiplier;
+        return Math.max(xpMultiplier, autoXpBoost);
     }
 
     @Override

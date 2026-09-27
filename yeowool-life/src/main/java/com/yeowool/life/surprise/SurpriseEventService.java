@@ -59,10 +59,15 @@ public final class SurpriseEventService {
 
     /** Every 20 seconds: advance the shared state if a transition is due, then apply the latest on the main thread. */
     public void tick() {
+        tick(-1);
+    }
+
+    /** {@code knownSeqBefore}: seq read before a staff transition (forceStart/forceEnd), else -1 to use this tick's own first read. */
+    private void tick(long knownSeqBefore) {
         try {
             long now = System.currentTimeMillis();
             SurpriseEventRepository.State state = repository.state();
-            long seqBefore = state.seq();
+            long seqBefore = knownSeqBefore >= 0 ? knownSeqBefore : state.seq();
             if (!state.active() && now >= state.nextAt()) {
                 Optional<SurpriseEventType> type = SurpriseEventRules.pickType(random,
                         List.copyOf(settings.multipliers().keySet()), state.lastType());
@@ -101,7 +106,7 @@ public final class SurpriseEventService {
         boolean started = repository.start(state.seq(), type.get(), multiplier,
                 System.currentTimeMillis() + settings.durationMinutes() * 60_000L);
         if (started) {
-            tick();
+            tick(state.seq());
         }
         return started;
     }
@@ -114,7 +119,7 @@ public final class SurpriseEventService {
         }
         boolean ended = repository.end(state.seq(), System.currentTimeMillis() + nextDelay());
         if (ended) {
-            tick();
+            tick(state.seq());
         }
         return ended;
     }

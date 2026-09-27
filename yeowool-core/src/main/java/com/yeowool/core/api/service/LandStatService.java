@@ -28,6 +28,7 @@ public interface LandStatService {
      */
     void setXpMultiplier(double multiplier);
 
+    /** Effective land XP multiplier: the larger of the manual one above and {@link #setAutoXpBoost}. */
     double getXpMultiplier();
 
     /**
