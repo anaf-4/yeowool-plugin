@@ -42,7 +42,9 @@ public final class DexMenuGui extends YeowoolGui {
         ItemStack stack = new ItemStack(material);
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(Component.text(name, NamedTextColor.GOLD));
-        if (progress != null) {
+        if (progress != null && progress.total() == 0) {
+            meta.lore(List.of(Component.text("등록된 항목 없음", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false)));
+        } else if (progress != null) {
             meta.lore(List.of(
                     Component.text("수집 " + progress.owned() + "/" + progress.total() + " (" + progress.percent() + "%)", NamedTextColor.YELLOW)
                             .decoration(TextDecoration.ITALIC, false),

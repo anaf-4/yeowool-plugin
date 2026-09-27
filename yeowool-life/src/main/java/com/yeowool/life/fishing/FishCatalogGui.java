@@ -58,8 +58,10 @@ public final class FishCatalogGui extends YeowoolGui {
 
         for (int i = from; i < to; i++) {
             Entry entry = entries.get(i);
-            long caught = data.map(d -> d.getStatistic(entry.species().statisticKey())).orElse(0L);
-            long bestSizeMm = data.map(d -> d.getStatistic(entry.species().sizeRecordStatisticKey())).orElse(0L);
+            long caught = data.map(d -> d.getStatistic(entry.species().statisticKey())
+                    + d.getStatistic(entry.species().legacyStatisticKey())).orElse(0L);
+            long bestSizeMm = data.map(d -> Math.max(d.getStatistic(entry.species().sizeRecordStatisticKey()),
+                    d.getStatistic(entry.species().legacySizeRecordStatisticKey()))).orElse(0L);
             setButton(DISPLAY_SLOTS[i - from], GuiButton.display(buildIcon(viewer, entry.rarity(), entry.species(), caught, bestSizeMm)));
         }
 

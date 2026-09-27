@@ -29,4 +29,16 @@ public record FishSpecies(String id, String name, Material material, String cust
     public String sizeRecordStatisticKey() {
         return "life.fishing.size." + id;
     }
+
+    /**
+     * Where CustomFishing catches of our own exported fish were recorded before the catch listener
+     * mapped {@code yw_<id>} back to {@code <id>} — still counted so earlier catches aren't lost.
+     */
+    public String legacyStatisticKey() {
+        return "life.fishing.catalog.yw_" + id;
+    }
+
+    public String legacySizeRecordStatisticKey() {
+        return "life.fishing.size.yw_" + id;
+    }
 }

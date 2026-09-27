@@ -55,7 +55,7 @@ public final class CustomFishingCatchListener implements Listener {
 
         core.playerData().getIfLoaded(player.getUniqueId()).ifPresent(data -> {
             data.addStatistic("life.fishing.caught", 1);
-            data.addStatistic("life.fishing.catalog." + loot.id(), 1);
+            data.addStatistic("life.fishing.catalog." + CustomFishingNativeFishExporter.nativeId(loot.id()), 1);
         });
 
         core.landStats().addLandXp(player.getUniqueId(), xpPerCatch);
@@ -66,7 +66,7 @@ public final class CustomFishingCatchListener implements Listener {
             if (sizeCm != null) {
                 long sizeMm = Math.round(sizeCm * 10);
                 core.playerData().getIfLoaded(player.getUniqueId())
-                        .ifPresent(data -> data.recordMaxStatistic("life.fishing.size." + loot.id(), sizeMm));
+                        .ifPresent(data -> data.recordMaxStatistic("life.fishing.size." + CustomFishingNativeFishExporter.nativeId(loot.id()), sizeMm));
                 competitionManager.recordCatch(player, loot.id(), sizeCm);
             }
         }

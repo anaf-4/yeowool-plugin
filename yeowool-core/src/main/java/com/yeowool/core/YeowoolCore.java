@@ -167,7 +167,7 @@ public final class YeowoolCore extends JavaPlugin {
             executor.shutdown();
             try {
                 if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    getLogger().warning("DB 작업이 5초 안에 끝나지 않았습니다 — 일부 작업이 중단되었을 수 있습니다.");
+                    getLogger().warning("DB 작업이 5초 안에 끝나지 않았습니다 — 일부 작업(지급 장부 포함)이 유실되었을 수 있습니다.");
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

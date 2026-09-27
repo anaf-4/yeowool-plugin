@@ -9,13 +9,16 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import java.util.logging.Level;
 
 /**
  * Pays dex completion milestones (e.g. 25/50/75/100% of a category) once per
@@ -32,28 +35,33 @@ public final class DexRewardService {
     public record Progress(int owned, int total, int percent, int nextMilestone, int remaining) {
     }
 
-    /** One dex category: config/flag key, Korean label, and the statistic keys counted as its entries. */
-    private record Category(String key, String label, List<String> statKeys) {
+    /** One dex category: config/flag key, Korean label, and per entry the statistic key(s) that count it as collected. */
+    private record Category(String key, String label, List<List<String>> entryKeys) {
     }
 
     private static final String SOURCE = "YeowoolLife";
 
+    private final JavaPlugin plugin;
     private final YeowoolCoreAPI core;
     private final MessageService messages;
     private final List<Milestone> milestones;
     private final List<Integer> milestonePercents;
     private final Supplier<List<FishRarity>> fishRarities;
+    private final BooleanSupplier fishListReady;
     private final List<DexEntry> mining;
     private final List<DexEntry> hunting;
     private final List<DexEntry> farming;
 
-    public DexRewardService(YeowoolCoreAPI core, MessageService messages, List<Milestone> milestones,
-                            Supplier<List<FishRarity>> fishRarities, List<DexEntry> mining, List<DexEntry> hunting, List<DexEntry> farming) {
+    public DexRewardService(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, List<Milestone> milestones,
+                            Supplier<List<FishRarity>> fishRarities, BooleanSupplier fishListReady,
+                            List<DexEntry> mining, List<DexEntry> hunting, List<DexEntry> farming) {
+        this.plugin = plugin;
         this.core = core;
         this.messages = messages;
         this.milestones = milestones.stream().sorted((a, b) -> Integer.compare(a.percent(), b.percent())).toList();
         this.milestonePercents = this.milestones.stream().map(Milestone::percent).toList();
         this.fishRarities = fishRarities;
+        this.fishListReady = fishListReady;
         this.mining = mining;
         this.hunting = hunting;
         this.farming = farming;
@@ -113,12 +121,17 @@ public final class DexRewardService {
             core.economyData().modifyBalance(player.getUniqueId(), milestone.money(), SOURCE, reason);
         }
         for (String command : milestone.commands()) {
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command
+            String resolved = command
                     .replace("{player}", player.getName())
                     .replace("{category}", category.label())
-                    .replace("{category_key}", category.key()));
+                    .replace("{category_key}", category.key());
+            try {
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), resolved);
+            } catch (RuntimeException e) {
+                plugin.getLogger().log(Level.WARNING, "도감 보상 명령어 실행 실패 (" + player.getName() + "): " + resolved, e);
+            }
         }
-        messages.send(player, "dex.reward",
+        messages.send(player, milestone.money() > 0 ? "dex.reward" : "dex.reward-no-money",
                 Placeholder.unparsed("category", category.label()),
                 Placeholder.unparsed("percent", String.valueOf(milestone.percent())),
                 Placeholder.unparsed("money", String.format("%,d", milestone.money())));
@@ -126,10 +139,10 @@ public final class DexRewardService {
     }
 
     private Progress progress(PlayerData data, Category category) {
-        int total = category.statKeys().size();
+        int total = category.entryKeys().size();
         int owned = 0;
-        for (String key : category.statKeys()) {
-            if (data.getStatistic(key) > 0) {
+        for (List<String> keys : category.entryKeys()) {
+            if (keys.stream().anyMatch(key -> data.getStatistic(key) > 0)) {
                 owned++;
             }
         }
@@ -139,20 +152,25 @@ public final class DexRewardService {
     }
 
     private List<Category> categories() {
-        List<String> fishKeys = new ArrayList<>();
-        for (FishRarity rarity : fishRarities.get()) {
-            for (FishSpecies species : rarity.species()) {
-                fishKeys.add(species.statisticKey());
+        List<Category> categories = new ArrayList<>();
+        // While CustomFishing hasn't finished registering its loot, the fish list is only our own
+        // species - counting against that short list would pay high milestones early and forever.
+        if (fishListReady.getAsBoolean()) {
+            List<List<String>> fishKeys = new ArrayList<>();
+            for (FishRarity rarity : fishRarities.get()) {
+                for (FishSpecies species : rarity.species()) {
+                    fishKeys.add(List.of(species.statisticKey(), species.legacyStatisticKey()));
+                }
             }
+            categories.add(new Category("fishing", "물고기", fishKeys));
         }
-        return List.of(
-                new Category("fishing", "물고기", fishKeys),
-                new Category("mining", "광물", statKeys("dex.mining.", mining)),
-                new Category("hunting", "사냥", statKeys("dex.hunting.", hunting)),
-                new Category("farming", "작물", statKeys("dex.farming.", farming)));
+        categories.add(new Category("mining", "광물", entryKeys("dex.mining.", mining)));
+        categories.add(new Category("hunting", "사냥", entryKeys("dex.hunting.", hunting)));
+        categories.add(new Category("farming", "작물", entryKeys("dex.farming.", farming)));
+        return categories;
     }
 
-    private static List<String> statKeys(String prefix, List<DexEntry> entries) {
-        return entries.stream().map(entry -> prefix + entry.id()).toList();
+    private static List<List<String>> entryKeys(String prefix, List<DexEntry> entries) {
+        return entries.stream().map(entry -> List.of(prefix + entry.id())).toList();
     }
 }

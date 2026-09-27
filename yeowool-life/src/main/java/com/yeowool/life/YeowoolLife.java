@@ -309,16 +309,24 @@ public final class YeowoolLife extends JavaPlugin {
             ConfigurationSection milestoneSection = config.getConfigurationSection("dex-rewards.milestones");
             if (milestoneSection != null) {
                 for (String key : milestoneSection.getKeys(false)) {
+                    int percent;
                     try {
-                        milestones.add(new DexRewardService.Milestone(Integer.parseInt(key),
-                                milestoneSection.getLong(key + ".money", 0),
-                                milestoneSection.getStringList(key + ".commands")));
+                        percent = Integer.parseInt(key);
                     } catch (NumberFormatException e) {
-                        getLogger().warning("dex-rewards.milestones의 '" + key + "'는 숫자(퍼센트)여야 합니다 — 건너뜁니다.");
+                        percent = -1;
                     }
+                    if (percent < 1 || percent > 100) {
+                        getLogger().warning("dex-rewards.milestones의 '" + key + "'는 1~100 사이 숫자(퍼센트)여야 합니다 — 건너뜁니다.");
+                        continue;
+                    }
+                    milestones.add(new DexRewardService.Milestone(percent,
+                            milestoneSection.getLong(key + ".money", 0),
+                            milestoneSection.getStringList(key + ".commands")));
                 }
             }
-            DexRewardService service = new DexRewardService(core, messages, milestones, fishRaritySupplier, miningDex, huntingDex, farmingDex);
+            DexRewardService service = new DexRewardService(this, core, messages, milestones, fishRaritySupplier,
+                    () -> !customFishingEnabled || !CustomFishingBridge.buildRarity().species().isEmpty(),
+                    miningDex, huntingDex, farmingDex);
             getServer().getScheduler().runTaskTimer(this, service::checkAll, 20L * 60, 20L * 60);
             getServer().getPluginManager().registerEvents(new org.bukkit.event.Listener() {
                 @org.bukkit.event.EventHandler

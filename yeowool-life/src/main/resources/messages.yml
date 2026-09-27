@@ -72,3 +72,4 @@ treasure:
 
 dex:
   reward: "<gold>[도감]</gold> <yellow><category> 도감 <percent>% 달성! 보상으로 <money>온을 받았습니다.</yellow>"
+  reward-no-money: "<gold>[도감]</gold> <yellow><category> 도감 <percent>% 달성! 보상을 받았습니다.</yellow>"

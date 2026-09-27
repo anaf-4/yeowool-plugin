@@ -106,7 +106,14 @@ public final class PayoutManager implements PayoutService, Listener {
         Player player = Bukkit.getPlayer(uuid);
         List<PayoutRepository.Payout> unpaid = new ArrayList<>();
         for (PayoutRepository.Payout payout : batch) {
-            if (player != null && economy.modifyBalance(uuid, payout.amount(), payout.source(), payout.reason())) {
+            boolean paid;
+            try {
+                paid = player != null && economy.modifyBalance(uuid, payout.amount(), payout.source(), payout.reason());
+            } catch (RuntimeException e) { // e.g. player data not loaded (evicted from cache)
+                plugin.getLogger().log(Level.WARNING, "지급 실패 — 장부로 되돌립니다 (" + uuid + ")", e);
+                paid = false;
+            }
+            if (paid) {
                 messages.send(player, "payout.received",
                         Placeholder.unparsed("reason", payout.reason()),
                         Placeholder.unparsed("amount", String.format("%,d", payout.amount())));

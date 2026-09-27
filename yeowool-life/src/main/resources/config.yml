@@ -923,6 +923,8 @@ treasure:
 # 도감 완성 보상 — 물고기/광물/사냥/작물 도감마다 수집률이 아래 퍼센트를 넘으면 자동 지급(각 단계 한 번씩).
 # 접속 5초 뒤와 1분마다 확인합니다. commands는 콘솔로 실행되며 {player}, {category}(한글), {category_key}(fishing/mining/hunting/farming) 치환.
 # 예) commands: ["칭호 지급 {player} dex_{category_key}_master"]  (칭호는 /칭호생성으로 미리 만들어 두세요)
+# 명령어는 두 번 실행돼도 괜찮은 것(칭호 지급 등)으로 넣으세요 — 서버를 아주 빠르게 옮기는 순간엔 드물게 한 번 더 실행될 수 있습니다.
+# 단계를 없애려면 키를 지우지 말고 money: 0, commands: [] 로 두세요(지운 기본 단계는 재시작 때 다시 채워집니다).
 dex-rewards:
   enabled: true
   milestones:
