@@ -1,10 +1,12 @@
 package com.yeowool.life.farming.custom;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
+import com.yeowool.life.farming.LifeHarvestEvent;
 import dev.lone.itemsadder.api.Events.CustomBlockBreakEvent;
 import dev.lone.itemsadder.api.Events.CustomBlockPlaceEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -57,6 +59,7 @@ public final class CustomFarmingListener implements Listener {
         core.landStats().addLandXp(player.getUniqueId(), ref.crop().xpReward());
         core.playerData().getIfLoaded(player.getUniqueId())
                 .ifPresent(data -> data.addStatistic("life.farming.harvested", 1));
+        Bukkit.getPluginManager().callEvent(new LifeHarvestEvent(player));
 
         if (incomePerHarvest > 0) {
             CustomFarmingQualityConfig.Grade grade = quality.roll();

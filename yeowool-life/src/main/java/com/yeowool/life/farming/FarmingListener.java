@@ -1,6 +1,7 @@
 package com.yeowool.life.farming;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Ageable;
@@ -95,6 +96,7 @@ public final class FarmingListener implements Listener {
             playerData.addStatistic("life.farming.harvested", 1);
             playerData.addStatistic("dex.farming." + type.name(), 1);
         });
+        Bukkit.getPluginManager().callEvent(new LifeHarvestEvent(player));
     }
 
     /** "이벤트 - 작물 드랍 2배" — scales the natural drop amounts for {@link #HARVEST_XP_MATERIALS} blocks. */

@@ -71,16 +71,6 @@ fishing:
   star:
     chance-percent: 2
     size-bonus-percent: 40
-  # 매일 start-hour(서버 시간, 24시 기준)에 자동 시작해서 duration-minutes 동안 진행되는
-  # 낚시 대회. 대회 중 낚은 물고기 중 가장 큰 걸 기준으로 참가자 순위를 매기고, 종료 시
-  # 1~3위에게 rewards에 설정된 만큼 온을 지급합니다(0이거나 생략하면 보상 없음).
-  competition:
-    start-hour: 18
-    duration-minutes: 60
-    rewards:
-      1: 50000
-      2: 30000
-      3: 15000
   # /도감으로 확인 가능. 등급마다 원하는 만큼 물고기를 추가할 수 있음.
   # custom-icon은 ItemsAdder "fishing_expansion" 팩의 아이템 id로, 잡은 적이 있는
   # 물고기의 /도감 아이콘에 우선 사용됨(없거나 ItemsAdder 미설치 시 material로 대체).
@@ -940,3 +930,16 @@ dex-rewards:
     100:
       money: 100000
       commands: []
+
+# 생활 대회 — 매일 start-hour시(서버 시간)부터 duration-minutes분 동안, 세 서버 합산 행동 횟수로 순위를 겨룹니다.
+# 종목은 날짜마다 rotation 순서로 바뀝니다(fishing=잡은 물고기, mining=캔 광석, hunting=처치한 몹, farming=수확한 작물).
+# 1~3위(rewards)에게 온 지급 — 오프라인/다른 서버여도 다음 접속 때 받습니다. 세 서버 설정을 똑같이 맞춰주세요.
+life-competition:
+  enabled: true
+  start-hour: 18
+  duration-minutes: 60
+  rotation: [fishing, mining, hunting, farming]
+  rewards:
+    1: 50000
+    2: 30000
+    3: 10000

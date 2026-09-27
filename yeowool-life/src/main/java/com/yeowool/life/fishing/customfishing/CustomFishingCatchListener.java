@@ -3,7 +3,6 @@ package com.yeowool.life.fishing.customfishing;
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.event.PlayerRepeatableActionEvent;
 import com.yeowool.life.fishing.FishSpecies;
-import com.yeowool.life.fishing.FishingCompetitionManager;
 import com.yeowool.life.job.JobManager;
 import net.momirealms.customfishing.api.BukkitCustomFishingPlugin;
 import net.momirealms.customfishing.api.event.FishingLootSpawnEvent;
@@ -21,7 +20,7 @@ import org.bukkit.event.Listener;
  * — see {@code YeowoolLife#onEnable}, which only registers that vanilla-event
  * listener as a fallback when CustomFishing isn't installed. Everything
  * *around* a catch (어부 job XP, 땅 XP, the fishing-discovered statistic used
- * by the 도감 "???" gating, and the daily 낚시대회) still needs to fire the
+ * by the 도감 "???" gating) still needs to fire the
  * same way regardless of which plugin actually caught the fish, so this
  * listener re-derives all of it from {@link FishingLootSpawnEvent} — the one
  * CustomFishing event that hands over the real spawned {@link Item} entity,
@@ -32,14 +31,11 @@ public final class CustomFishingCatchListener implements Listener {
     private final YeowoolCoreAPI core;
     private final JobManager jobManager;
     private final long xpPerCatch;
-    private final FishingCompetitionManager competitionManager;
 
-    public CustomFishingCatchListener(YeowoolCoreAPI core, JobManager jobManager, long xpPerCatch,
-                                       FishingCompetitionManager competitionManager) {
+    public CustomFishingCatchListener(YeowoolCoreAPI core, JobManager jobManager, long xpPerCatch) {
         this.core = core;
         this.jobManager = jobManager;
         this.xpPerCatch = xpPerCatch;
-        this.competitionManager = competitionManager;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -67,7 +63,6 @@ public final class CustomFishingCatchListener implements Listener {
                 long sizeMm = Math.round(sizeCm * 10);
                 core.playerData().getIfLoaded(player.getUniqueId())
                         .ifPresent(data -> data.recordMaxStatistic("life.fishing.size." + CustomFishingNativeFishExporter.nativeId(loot.id()), sizeMm));
-                competitionManager.recordCatch(player, loot.id(), sizeCm);
             }
         }
 

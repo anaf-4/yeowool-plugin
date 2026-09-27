@@ -1,9 +1,11 @@
 package com.yeowool.life.farming.customcrops;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
+import com.yeowool.life.farming.LifeHarvestEvent;
 import net.momirealms.customcrops.api.core.block.BreakReason;
 import net.momirealms.customcrops.api.event.CropBreakEvent;
 import net.momirealms.customcrops.api.event.DropItemActionEvent;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -40,6 +42,7 @@ public final class CustomCropsHarvestListener implements Listener {
         core.landStats().addLandXp(player.getUniqueId(), xpPerHarvest);
         core.playerData().getIfLoaded(player.getUniqueId())
                 .ifPresent(data -> data.addStatistic("life.farming.harvested", 1));
+        Bukkit.getPluginManager().callEvent(new LifeHarvestEvent(player));
     }
 
     /** "이벤트 - 작물 드랍 2배" applied to every item CustomCrops itself drops. */

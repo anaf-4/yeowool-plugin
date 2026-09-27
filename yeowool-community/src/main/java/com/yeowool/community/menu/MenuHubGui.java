@@ -82,7 +82,7 @@ public final class MenuHubGui extends YeowoolGui {
                 dispatchEntry("직업", "직업", "medival_jobs:medival_jobs_miner"),
                 dispatchEntry("가방", "가방", null, Material.BUNDLE),
                 dispatchEntry("도감", "도감"),
-                dispatchEntry("낚시대회", "낚시대회", "fishing_expansion:golden_fishing_rod")
+                dispatchEntry("생활대회", "생활대회", "fishing_expansion:golden_fishing_rod")
         ), player -> new MenuHubGui(ctx, player).open(player));
     }
 

@@ -40,7 +40,6 @@ fishing:
   perfect-timing: "<gold><b>완벽한 타이밍!</b></gold>"
   good-timing: "<yellow>좋은 타이밍!</yellow>"
   new-record: "<light_purple>신기록! 개인 최고 <fish> 크기를 경신했습니다!</light_purple>"
-  competition-reward: "<gold>낚시 대회 <rank>위 보상으로 <amount>온을 받았습니다!</gold>"
   bait-equipped: "<aqua><bait> 미끼가 장착되었습니다! (<count>/<max>)</aqua>"
   bait-different-equipped: "<red>이미 <bait>가 장착되어 있습니다. 다 쓴 뒤에 교체할 수 있습니다.</red>"
   bait-full: "<red>미끼는 최대 <max>개까지만 장착할 수 있습니다.</red>"
@@ -73,3 +72,15 @@ treasure:
 dex:
   reward: "<gold>[도감]</gold> <yellow><category> 도감 <percent>% 달성! 보상으로 <money>온을 받았습니다.</yellow>"
   reward-no-money: "<gold>[도감]</gold> <yellow><category> 도감 <percent>% 달성! 보상을 받았습니다.</yellow>"
+
+competition:
+  started: "<gold>[생활 대회]</gold> <yellow><activity> 대회가 시작되었습니다! <minutes>분 동안 세 서버 합산 <score_label> 수로 순위를 겨룹니다. (/생활대회)</yellow>"
+  status-header: "<gold>[생활 대회]</gold> <yellow><activity> 대회 진행 중 — 남은 시간 <remaining></yellow>"
+  status-line: "<gray><rank>위</gray> <white><player></white> <yellow><score><unit></yellow>"
+  status-empty: "<gray>아직 기록이 없습니다.</gray>"
+  status-mine: "<aqua>내 기록: <score><unit> (<score_label>)</aqua>"
+  next: "<gold>[생활 대회]</gold> <gray>다음 대회: <time> <activity> (<score_label> 수 경쟁)</gray>"
+  result-header: "<gold>[생활 대회]</gold> <yellow><activity> 대회 결과</yellow>"
+  result-line: "<gray><rank>위</gray> <white><player></white> <yellow><score><unit></yellow>"
+  result-empty: "<gold>[생활 대회]</gold> <gray><activity> 대회가 참가자 없이 끝났습니다.</gray>"
+  error: "<red>처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</red>"
