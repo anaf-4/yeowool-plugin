@@ -116,6 +116,9 @@ public final class DexRewardService {
     }
 
     private void grant(Player player, Category category, Milestone milestone) {
+        if (milestone.money() <= 0 && milestone.commands().isEmpty()) {
+            return; // milestone switched off in config (money: 0, commands: [])
+        }
         String reason = "도감 보상 (" + category.label() + " " + milestone.percent() + "%)";
         if (milestone.money() > 0) {
             core.economyData().modifyBalance(player.getUniqueId(), milestone.money(), SOURCE, reason);
