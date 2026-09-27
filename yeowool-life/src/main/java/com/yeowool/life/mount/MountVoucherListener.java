@@ -59,12 +59,22 @@ public final class MountVoucherListener implements Listener {
             messages.send(player, "mount.already-owned", Placeholder.unparsed("mount", mount.displayName()));
             return;
         }
+        boolean granted;
+        try {
+            granted = Bukkit.dispatchCommand(Bukkit.getConsoleSender(),
+                    "lp user " + player.getName() + " permission set " + mount.permission() + " true");
+        } catch (RuntimeException e) {
+            plugin.getLogger().warning("탈것 권한 부여 명령 실패: " + e.getMessage());
+            granted = false;
+        }
+        if (!granted) {
+            messages.send(player, "mount.grant-failed");
+            return; // voucher kept
+        }
         ItemStack hand = player.getInventory().getItemInMainHand();
         player.getInventory().setItemInMainHand(hand.getAmount() > 1 ? hand.asQuantity(hand.getAmount() - 1) : null);
         granting.add(guardKey);
         Bukkit.getScheduler().runTaskLater(plugin, () -> granting.remove(guardKey), 20L * 10);
-        Bukkit.dispatchCommand(Bukkit.getConsoleSender(),
-                "lp user " + player.getName() + " permission set " + mount.permission() + " true");
         plugin.getLogger().info("탈것 이용권 사용: " + player.getName() + " → " + mount.id() + " (" + mount.permission() + ")");
         messages.send(player, "mount.unlocked", Placeholder.unparsed("mount", mount.displayName()));
         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);

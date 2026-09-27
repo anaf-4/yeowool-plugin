@@ -4,6 +4,7 @@ import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -80,21 +81,20 @@ public final class MountCommand implements CommandExecutor, TabCompleter {
                 return;
             }
         }
-        Player target;
+        OfflinePlayer target;
         if (args.length >= 3) {
-            target = Bukkit.getPlayerExact(args[2]);
+            // Any player who has ever joined — the mailbox delivers to other servers/offline players too.
+            target = Bukkit.getOfflinePlayerIfCached(args[2]);
         } else {
             target = sender instanceof Player self ? self : null;
         }
         if (target == null) {
-            messages.send(sender, "mount.target-offline");
+            messages.send(sender, "mount.target-unknown");
             return;
         }
-        for (int i = 0; i < amount; i++) {
-            core.mailbox().deliverOrStore(target.getUniqueId(), voucherItem.create(mount), "YeowoolLife", "탈것 이용권");
-        }
+        core.mailbox().deliverOrStore(target.getUniqueId(), voucherItem.create(mount).asQuantity(amount), "YeowoolLife", "탈것 이용권");
         messages.send(sender, "mount.issued",
-                Placeholder.unparsed("player", target.getName()),
+                Placeholder.unparsed("player", target.getName() == null ? args[2] : target.getName()),
                 Placeholder.unparsed("mount", mount.displayName()),
                 Placeholder.unparsed("amount", String.valueOf(amount)));
     }

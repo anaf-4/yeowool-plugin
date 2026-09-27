@@ -595,8 +595,8 @@ public final class YeowoolLife extends JavaPlugin {
     /** 탈것 이용권 — MCPets의 탈것(Mountable: true) 권한을 이용권 아이템으로 영구 해금, /탈것 으로 보유 목록. */
     private void enableMounts(YeowoolCoreAPI core, MessageManager messages) {
         var mcpets = getServer().getPluginManager().getPlugin("MCPets");
-        if (mcpets == null || !mcpets.isEnabled()) {
-            getLogger().warning("MCPets가 없어 탈것 이용권을 끕니다.");
+        if (mcpets == null || !mcpets.isEnabled() || !getServer().getPluginManager().isPluginEnabled("LuckPerms")) {
+            getLogger().warning("MCPets 또는 LuckPerms가 없어 탈것 이용권을 끕니다.");
             return;
         }
         Map<String, MountDefinition> mounts = MountCatalog.load(new File(mcpets.getDataFolder(), "Pets"));

@@ -92,5 +92,6 @@ mount:
   none-owned: "<gray>보유한 탈것이 없습니다. 탈것 이용권을 우클릭하면 해금됩니다.</gray>"
   issue-usage: "<gray>/탈것이용권 [펫ID] [수량] [닉네임]</gray>"
   invalid-amount: "<red>수량은 1~<max> 사이로 입력하세요.</red>"
-  target-offline: "<red>이 서버에 접속 중인 플레이어가 아닙니다.</red>"
-  issued: "<green><player>님에게 <mount> 탈것 이용권 <amount>장을 지급했습니다.</green>"
+  target-unknown: "<red>한 번도 접속한 적 없는 플레이어입니다.</red>"
+  issued: "<green><player>님에게 <mount> 탈것 이용권 <amount>장을 지급했습니다. (접속 중이 아니면 우편함)</green>"
+  grant-failed: "<red>탈것을 해금하지 못했습니다. 이용권은 그대로 남아 있으니 관리자에게 문의하세요.</red>"

@@ -37,6 +37,8 @@ class MountCatalogTest {
         assertTrue(MountCatalog.parse(yaml("Id: Cat\nPermission: mcpets.cat\n")).isEmpty());
         assertTrue(MountCatalog.parse(yaml("Permission: mcpets.x\nMountable: true\n")).isEmpty());
         assertTrue(MountCatalog.parse(yaml("Id: X\nMountable: true\n")).isEmpty());
+        assertTrue(MountCatalog.parse(yaml("Id: X\nPermission: 'mcpets.x true'\nMountable: true\n")).isEmpty());
+        assertTrue(MountCatalog.parse(yaml("Id: 'X Y'\nPermission: mcpets.x\nMountable: true\n")).isEmpty());
     }
 
     @Test
