@@ -36,8 +36,15 @@ commands:
     description: 관리진 전용 - 여울 폐기장의 진입점/출구/귀환지점/구역/상자/몹 스폰 지점을 등록합니다
   보물지도:
     description: 들고 있는 보물지도 정보 (관리진은 보상설정/지급)
+  탈것:
+    description: 보유한 탈것 목록을 열고 소환 메뉴로 이동합니다
+  탈것이용권:
+    description: 관리진 전용 - 탈것 이용권 아이템을 지급합니다
 
 permissions:
   yeowool.life.treasure.manage:
     description: 보물지도 보상 후보 편집 및 지급
+    default: op
+  yeowool.life.mount.manage:
+    description: 탈것 이용권 지급
     default: op

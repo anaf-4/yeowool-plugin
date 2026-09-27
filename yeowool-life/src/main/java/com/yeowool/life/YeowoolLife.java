@@ -85,6 +85,11 @@ import com.yeowool.life.job.action.JobHunterListener;
 import com.yeowool.life.job.action.JobMinerListener;
 import com.yeowool.life.job.action.JobWoodCutterListener;
 import com.yeowool.life.mining.MiningListener;
+import com.yeowool.life.mount.MountCatalog;
+import com.yeowool.life.mount.MountCommand;
+import com.yeowool.life.mount.MountDefinition;
+import com.yeowool.life.mount.MountVoucherItem;
+import com.yeowool.life.mount.MountVoucherListener;
 import com.yeowool.life.ranch.RanchListener;
 import com.yeowool.life.scrapyard.ScrapyardAdminCommand;
 import com.yeowool.life.scrapyard.ScrapyardConfig;
@@ -106,6 +111,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -421,6 +427,7 @@ public final class YeowoolLife extends JavaPlugin {
         enableScrapyard(core, messages);
         enableTreasureMaps(core, messages);
         enableLifeCompetition(core, messages);
+        enableMounts(core, messages);
 
         getLogger().info("YeowoolLife가 활성화되었습니다.");
     }
@@ -583,6 +590,27 @@ public final class YeowoolLife extends JavaPlugin {
         }
         getServer().getScheduler().runTaskTimer(this, service::tick, 20L * 10, 20L * 10);
         getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::settleAndAnnounce), 20L * 60, 20L * 60);
+    }
+
+    /** 탈것 이용권 — MCPets의 탈것(Mountable: true) 권한을 이용권 아이템으로 영구 해금, /탈것 으로 보유 목록. */
+    private void enableMounts(YeowoolCoreAPI core, MessageManager messages) {
+        var mcpets = getServer().getPluginManager().getPlugin("MCPets");
+        if (mcpets == null || !mcpets.isEnabled()) {
+            getLogger().warning("MCPets가 없어 탈것 이용권을 끕니다.");
+            return;
+        }
+        Map<String, MountDefinition> mounts = MountCatalog.load(new File(mcpets.getDataFolder(), "Pets"));
+        getLogger().info("탈것 " + mounts.size() + "종을 불러왔습니다: " + mounts.keySet());
+        MountVoucherItem voucherItem = new MountVoucherItem(this);
+        getServer().getPluginManager().registerEvents(new MountVoucherListener(this, messages, voucherItem, mounts), this);
+        MountCommand mountCommand = new MountCommand(core, messages, voucherItem, mounts);
+        for (String name : List.of("탈것", "탈것이용권")) {
+            var command = getCommand(name);
+            if (command != null) {
+                command.setExecutor(mountCommand);
+                command.setTabCompleter(mountCommand);
+            }
+        }
     }
 
     private void enableCustomFarming(YeowoolCoreAPI core) {
