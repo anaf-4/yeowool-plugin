@@ -32,6 +32,7 @@ public final class TreasureRepository {
                 z INT NOT NULL,
                 created_at BIGINT NOT NULL,
                 expires_at BIGINT NOT NULL,
+                natural_drop TINYINT(1) NOT NULL DEFAULT 1,
                 dug_by CHAR(36) NULL,
                 dug_by_name VARCHAR(16) NULL,
                 dug_at BIGINT NULL,
@@ -65,7 +66,7 @@ public final class TreasureRepository {
     public int countFoundSince(UUID finder, long since) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(
-                     "SELECT COUNT(*) FROM yw_treasure_maps WHERE finder = ? AND created_at >= ?")) {
+                     "SELECT COUNT(*) FROM yw_treasure_maps WHERE finder = ? AND created_at >= ? AND natural_drop = 1")) {
             ps.setString(1, finder.toString());
             ps.setLong(2, since);
             try (ResultSet rs = ps.executeQuery()) {
@@ -75,10 +76,11 @@ public final class TreasureRepository {
         }
     }
 
-    public long insertMap(UUID finder, TreasureTier tier, int x, int z, long now, long expiresAt) throws SQLException {
+    /** {@code naturalDrop} false for admin grants, which don't count toward the daily limit. */
+    public long insertMap(UUID finder, TreasureTier tier, int x, int z, long now, long expiresAt, boolean naturalDrop) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(
-                     "INSERT INTO yw_treasure_maps (finder, tier, x, z, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+                     "INSERT INTO yw_treasure_maps (finder, tier, x, z, created_at, expires_at, natural_drop) VALUES (?, ?, ?, ?, ?, ?, ?)",
                      Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, finder.toString());
             ps.setString(2, tier.name());
@@ -86,6 +88,7 @@ public final class TreasureRepository {
             ps.setInt(4, z);
             ps.setLong(5, now);
             ps.setLong(6, expiresAt);
+            ps.setBoolean(7, naturalDrop);
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 if (!keys.next()) {

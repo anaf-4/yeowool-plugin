@@ -58,7 +58,7 @@ treasure:
   wrong-world: "<red>이 보물은 야생 서버 지상에 묻혀 있습니다.</red>"
   expired: "<red>기한이 지난 낡은 지도입니다.</red>"
   nothing-here: "<red>여기에는 아무것도 없는 것 같습니다. 지도가 가리키는 곳으로 더 가보세요.</red>"
-  already-dug: "<red>이미 누군가 파낸 보물입니다.</red>"
+  already-dug: "<red>이미 누군가 파낸 보물이었습니다. 빈 지도는 바스러져 사라졌습니다.</red>"
   dug: "<gold><tier> 보물을 발굴했습니다!</gold> <yellow><money>온</yellow><gray>과 아이템 <items>개를 얻었습니다. (인벤토리가 가득 차면 우편함)</gray>"
   legendary-broadcast: "<gold>[보물]</gold> <yellow><player>님이 전설 보물을 발굴했습니다!</yellow>"
   info: "<yellow><tier> 보물지도 #<id></yellow><gray> — 야생 X <xband>, Z <zband> 부근, 만료 <expires></gray>"

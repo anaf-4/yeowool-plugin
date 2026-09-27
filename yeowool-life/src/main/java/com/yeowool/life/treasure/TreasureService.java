@@ -10,7 +10,6 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
@@ -102,7 +101,7 @@ public final class TreasureService {
                 if (natural && repository.countFoundSince(uuid, startOfDay) >= settings.dailyLimit()) {
                     return;
                 }
-                id = repository.insertMap(uuid, tier, spot[0], spot[1], now, expiresAt);
+                id = repository.insertMap(uuid, tier, spot[0], spot[1], now, expiresAt, natural);
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.SEVERE, "보물지도 생성 실패 (" + uuid + ")", e);
                 return;
@@ -115,7 +114,7 @@ public final class TreasureService {
                     messages.send(online, "treasure.found", Placeholder.unparsed("tier", tier.label()));
                     online.playSound(online.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 1f, 0.8f);
                 }
-            });
+            }, "보물지도 #" + id + " 지급 (" + uuid + ")");
         });
     }
 
@@ -159,17 +158,17 @@ public final class TreasureService {
     /** Main thread: the player sneak-right-clicked a block while holding {@code data}'s map. */
     public void dig(Player player, TreasureMapItem.MapData data) {
         if (!player.getWorld().getName().equals(settings.digWorld())) {
-            messages.send(player, "treasure.wrong-world");
+            player.sendActionBar(messages.resolveRaw("treasure.wrong-world"));
             return;
         }
         long now = System.currentTimeMillis();
         if (data.expired(now)) {
-            messages.send(player, "treasure.expired");
+            player.sendActionBar(messages.resolveRaw("treasure.expired"));
             return;
         }
         Location loc = player.getLocation();
         if (Math.hypot(data.x() + 0.5 - loc.getX(), data.z() + 0.5 - loc.getZ()) > settings.digRadius()) {
-            messages.send(player, "treasure.nothing-here");
+            player.sendActionBar(messages.resolveRaw("treasure.nothing-here"));
             return;
         }
         if (!digging.add(data.id())) {
@@ -177,6 +176,10 @@ public final class TreasureService {
         }
         UUID uuid = player.getUniqueId();
         String name = player.getName();
+        // Take the map before the async claim so it can't be dropped or traded away mid-dig and resold as a "fresh" map.
+        ItemStack held = player.getInventory().getItemInMainHand();
+        ItemStack taken = held.asOne();
+        player.getInventory().setItemInMainHand(held.getAmount() > 1 ? held.asQuantity(held.getAmount() - 1) : null);
         executor.execute(() -> {
             boolean claimed;
             try {
@@ -185,11 +188,12 @@ public final class TreasureService {
                 plugin.getLogger().log(Level.SEVERE, "보물 발굴 처리 실패 (지도 #" + data.id() + ")", e);
                 digging.remove(data.id());
                 runOnMain(() -> {
+                    core.mailbox().deliverOrStore(uuid, taken, SOURCE, "보물지도 반환");
                     Player online = Bukkit.getPlayer(uuid);
                     if (online != null) {
                         messages.send(online, "treasure.error");
                     }
-                });
+                }, "보물지도 #" + data.id() + " 반환 (" + uuid + ")");
                 return;
             }
             List<ItemStack> pool = List.of();
@@ -204,7 +208,7 @@ public final class TreasureService {
             runOnMain(() -> {
                 digging.remove(data.id());
                 finishDig(uuid, data, claimed, rewardPool);
-            });
+            }, "보물 발굴 보상 (" + uuid + ", 지도 #" + data.id() + ", claimed=" + claimed + ")");
         });
     }
 
@@ -227,7 +231,6 @@ public final class TreasureService {
             plugin.getLogger().warning("보물 발굴 직후 접속 종료로 온 보상 미지급 — 수동 지급 필요: " + uuid + " " + money + "온 (지도 #" + data.id() + ")");
             return;
         }
-        removeMap(player.getInventory(), data.id());
         if (money > 0 && !core.economyData().modifyBalance(uuid, money, SOURCE, "보물 발굴 (" + data.tier().label() + ")")) {
             plugin.getLogger().warning("보물 온 보상 지급 실패 — 수동 지급 필요: " + uuid + " " + money + "온 (지도 #" + data.id() + ")");
         }
@@ -240,20 +243,6 @@ public final class TreasureService {
                 Placeholder.unparsed("items", String.valueOf(items.size())));
     }
 
-    private void removeMap(PlayerInventory inventory, long mapId) {
-        ItemStack[] contents = inventory.getContents();
-        for (int slot = 0; slot < contents.length; slot++) {
-            ItemStack stack = contents[slot];
-            if (mapItem.read(stack).map(d -> d.id() == mapId).orElse(false)) {
-                if (stack.getAmount() > 1) {
-                    stack.setAmount(stack.getAmount() - 1);
-                } else {
-                    inventory.setItem(slot, null);
-                }
-                return;
-            }
-        }
-    }
 
     // ---- legendary announcement (executor, every minute on every server) ----
 
@@ -269,15 +258,18 @@ public final class TreasureService {
                     messages.broadcast("treasure.legendary-broadcast",
                             Placeholder.unparsed("player", dig.diggerName() == null ? "누군가" : dig.diggerName()));
                 }
-            });
+            }, null);
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "전설 보물 공지 조회 실패", e);
         }
     }
 
-    private void runOnMain(Runnable task) {
+    /** Schedules on the main thread; while the plugin is disabling, logs {@code lostWork} (if given) for manual follow-up instead. */
+    private void runOnMain(Runnable task, String lostWork) {
         if (plugin.isEnabled()) {
             Bukkit.getScheduler().runTask(plugin, task);
+        } else if (lostWork != null) {
+            plugin.getLogger().warning("플러그인 종료 중이라 처리하지 못함 — 수동 처리 필요: " + lostWork);
         }
     }
 }
