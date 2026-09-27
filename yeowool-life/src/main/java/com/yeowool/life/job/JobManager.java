@@ -2,6 +2,7 @@ package com.yeowool.life.job;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.life.job.repository.JobRepository;
+import com.yeowool.life.surprise.LifeBoosts;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
@@ -118,7 +119,7 @@ public final class JobManager {
         long effectiveBase = critical ? baseAmount * 2 : baseAmount;
 
         double bonusPercent = skillBonusPercent(progress, SkillEffectType.XP_BONUS_PERCENT);
-        long amount = Math.round(effectiveBase * (1 + bonusPercent / 100.0));
+        long amount = Math.round(effectiveBase * (1 + bonusPercent / 100.0) * LifeBoosts.jobXpMultiplier());
         long newXp = progress.xp() + amount;
 
         double bonusCurrencyChance = skillBonusPercent(progress, SkillEffectType.BONUS_CURRENCY_CHANCE_PERCENT);

@@ -943,3 +943,27 @@ life-competition:
     1: 50000
     2: 30000
     3: 10000
+
+# 깜짝 이벤트 — 아래 worlds 중 하나가 있는 서버(마을·야생)끼리 같은 짧은 버프 이벤트를 자동으로 엽니다(로비는 자동 제외).
+# 끝난 뒤 interval-min~max분 사이 무작위로 다음 이벤트, duration-minutes분 진행. 직전과 같은 종류는 피합니다.
+# 관리진이 /이벤트·/서버이벤트로 켠 수동 이벤트와 겹치면 두 배율이 곱해지지 않고 더 큰 쪽이 적용되며, 서로의 배율을 끄지 않습니다.
+# 세 서버 설정을 똑같이 맞춰주세요.
+surprise-event:
+  enabled: true
+  worlds: [town_world, wild_world]
+  duration-minutes: 30
+  interval-min-minutes: 60
+  interval-max-minutes: 120
+  types:
+    land_xp:
+      enabled: true
+      multiplier: 2.0
+    crop_drop:
+      enabled: true
+      multiplier: 2.0
+    treasure_drop:
+      enabled: true
+      multiplier: 3.0
+    job_xp:
+      enabled: true
+      multiplier: 2.0

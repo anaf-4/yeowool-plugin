@@ -28,6 +28,7 @@ public interface LandStatService {
      */
     void setXpMultiplier(double multiplier);
 
+    /** Effective land XP multiplier: the larger of the manual one above and {@link #setAutoXpBoost}. */
     double getXpMultiplier();
 
     /**
@@ -36,7 +37,16 @@ public interface LandStatService {
      */
     void setCropDropMultiplier(double multiplier);
 
+    /** Effective crop drop multiplier: the larger of the manual one above and {@link #setAutoCropDropBoost}. */
     double getCropDropMultiplier();
+
+    /**
+     * Automatic (surprise event) boosts, kept apart from the manual event multipliers above so the
+     * two never reset each other; the larger of manual and automatic applies (1.0 = none).
+     */
+    void setAutoXpBoost(double multiplier);
+
+    void setAutoCropDropBoost(double multiplier);
 
     Set<UUID> getLandIds(UUID uuid);
 
