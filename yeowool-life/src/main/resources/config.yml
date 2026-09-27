@@ -919,3 +919,22 @@ treasure:
       money-max: 150000
       item-rolls: 3
       item-id: ""
+
+# 도감 완성 보상 — 물고기/광물/사냥/작물 도감마다 수집률이 아래 퍼센트를 넘으면 자동 지급(각 단계 한 번씩).
+# 접속 5초 뒤와 1분마다 확인합니다. commands는 콘솔로 실행되며 {player}, {category}(한글), {category_key}(fishing/mining/hunting/farming) 치환.
+# 예) commands: ["칭호 지급 {player} dex_{category_key}_master"]  (칭호는 /칭호생성으로 미리 만들어 두세요)
+dex-rewards:
+  enabled: true
+  milestones:
+    25:
+      money: 5000
+      commands: []
+    50:
+      money: 15000
+      commands: []
+    75:
+      money: 30000
+      commands: []
+    100:
+      money: 100000
+      commands: []

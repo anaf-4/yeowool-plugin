@@ -38,6 +38,7 @@ import com.yeowool.life.farming.repository.CropRepository;
 import com.yeowool.life.dex.DexCommand;
 import com.yeowool.life.dex.DexConfigLoader;
 import com.yeowool.life.dex.DexEntry;
+import com.yeowool.life.dex.DexRewardService;
 import com.yeowool.life.fishing.BaitEquipListener;
 import com.yeowool.life.fishing.FishBait;
 import com.yeowool.life.fishing.FishMinigameConfig;
@@ -108,6 +109,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 
 /**
  * 생활 콘텐츠 (기획서 6절): 농사, 벌목, 목축, 낚시, 채광. 각 영역은 패키지로
@@ -293,10 +295,48 @@ public final class YeowoolLife extends JavaPlugin {
         List<DexEntry> miningDex = DexConfigLoader.load(this, "mining");
         List<DexEntry> huntingDex = DexConfigLoader.load(this, "hunting");
         List<DexEntry> farmingDex = DexConfigLoader.load(this, "farming");
+        Supplier<List<FishRarity>> fishRaritySupplier = () -> {
+            if (!customFishingEnabled) {
+                return fishRarities;
+            }
+            List<FishRarity> combined = new ArrayList<>(fishRarities);
+            combined.add(CustomFishingBridge.buildRarity());
+            return combined;
+        };
+        DexRewardService dexRewards = null;
+        if (config.getBoolean("dex-rewards.enabled", true)) {
+            List<DexRewardService.Milestone> milestones = new ArrayList<>();
+            ConfigurationSection milestoneSection = config.getConfigurationSection("dex-rewards.milestones");
+            if (milestoneSection != null) {
+                for (String key : milestoneSection.getKeys(false)) {
+                    try {
+                        milestones.add(new DexRewardService.Milestone(Integer.parseInt(key),
+                                milestoneSection.getLong(key + ".money", 0),
+                                milestoneSection.getStringList(key + ".commands")));
+                    } catch (NumberFormatException e) {
+                        getLogger().warning("dex-rewards.milestones의 '" + key + "'는 숫자(퍼센트)여야 합니다 — 건너뜁니다.");
+                    }
+                }
+            }
+            DexRewardService service = new DexRewardService(core, messages, milestones, fishRaritySupplier, miningDex, huntingDex, farmingDex);
+            getServer().getScheduler().runTaskTimer(this, service::checkAll, 20L * 60, 20L * 60);
+            getServer().getPluginManager().registerEvents(new org.bukkit.event.Listener() {
+                @org.bukkit.event.EventHandler
+                public void onJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+                    var player = event.getPlayer();
+                    getServer().getScheduler().runTaskLater(YeowoolLife.this, () -> {
+                        if (player.isOnline()) {
+                            service.check(player);
+                        }
+                    }, 100L);
+                }
+            }, this);
+            dexRewards = service;
+        }
         var catalogCommand = getCommand("도감");
         if (catalogCommand != null) {
             int fishBackgroundOffset = config.getInt("fishing.gui-background-offset", -46);
-            catalogCommand.setExecutor(new DexCommand(core, messages, fishRarities, customFishingEnabled, miningDex, huntingDex, farmingDex, fishBackgroundOffset));
+            catalogCommand.setExecutor(new DexCommand(core, messages, fishRaritySupplier, miningDex, huntingDex, farmingDex, fishBackgroundOffset, dexRewards));
         }
 
         var fishAdminCommand = getCommand("낚시관리");
