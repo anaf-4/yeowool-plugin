@@ -91,10 +91,18 @@ import com.yeowool.life.scrapyard.ScrapyardRepository;
 import com.yeowool.life.scrapyard.ScrapyardSchemaInitializer;
 import com.yeowool.life.scrapyard.ScrapyardSessionManager;
 import com.yeowool.life.scrapyard.ScrapyardTickTask;
+import com.yeowool.life.treasure.TreasureCommand;
+import com.yeowool.life.treasure.TreasureListener;
+import com.yeowool.life.treasure.TreasureMapItem;
+import com.yeowool.life.treasure.TreasureRepository;
+import com.yeowool.life.treasure.TreasureService;
+import com.yeowool.life.treasure.TreasureTier;
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -377,6 +385,7 @@ public final class YeowoolLife extends JavaPlugin {
         }
 
         enableScrapyard(core, messages);
+        enableTreasureMaps(core, messages);
 
         getLogger().info("YeowoolLife가 활성화되었습니다.");
     }
@@ -433,6 +442,61 @@ public final class YeowoolLife extends JavaPlugin {
             scrapyardAdminCommand.setExecutor(executorCmd);
             scrapyardAdminCommand.setTabCompleter(executorCmd);
         }
+    }
+
+    /** 보물지도 — 채광·낚시·사냥 중 지도 드롭, 야생 월드에서 발굴 (세 서버 공통, 발굴은 dig-world가 있는 서버에서만). */
+    private void enableTreasureMaps(YeowoolCoreAPI core, MessageManager messages) {
+        var config = getConfig();
+        if (!config.getBoolean("treasure.enabled", true)) {
+            return;
+        }
+        TreasureRepository repository = new TreasureRepository(core.dataSource());
+        try {
+            repository.createTables();
+        } catch (Exception e) {
+            getLogger().severe("보물지도 데이터베이스 초기화 실패 — 보물지도를 끕니다: " + e.getMessage());
+            return;
+        }
+        Map<String, Double> dropChances = new HashMap<>();
+        ConfigurationSection dropSection = config.getConfigurationSection("treasure.drop-chance");
+        if (dropSection != null) {
+            for (String key : dropSection.getKeys(false)) {
+                dropChances.put(key, dropSection.getDouble(key));
+            }
+        }
+        Map<TreasureTier, Integer> tierWeights = new EnumMap<>(TreasureTier.class);
+        Map<TreasureTier, TreasureService.TierReward> rewards = new EnumMap<>(TreasureTier.class);
+        Map<TreasureTier, String> itemIds = new EnumMap<>(TreasureTier.class);
+        for (TreasureTier tier : TreasureTier.values()) {
+            String key = tier.configKey();
+            tierWeights.put(tier, config.getInt("treasure.tier-weights." + key, 0));
+            rewards.put(tier, new TreasureService.TierReward(
+                    config.getLong("treasure.tiers." + key + ".money-min", 0),
+                    config.getLong("treasure.tiers." + key + ".money-max", 0),
+                    config.getInt("treasure.tiers." + key + ".item-rolls", 0)));
+            itemIds.put(tier, config.getString("treasure.tiers." + key + ".item-id", ""));
+        }
+        TreasureService.Settings settings = new TreasureService.Settings(
+                config.getString("treasure.dig-world", "wild_world"),
+                config.getInt("treasure.center-x", 0),
+                config.getInt("treasure.center-z", 0),
+                config.getInt("treasure.min-radius", 500),
+                config.getInt("treasure.max-radius", 3000),
+                config.getLong("treasure.expire-days", 7) * 86_400_000L,
+                config.getInt("treasure.daily-limit", 3),
+                config.getDouble("treasure.dig-radius", 4),
+                dropChances, tierWeights, rewards);
+        TreasureService service = new TreasureService(this, core, messages, repository,
+                new TreasureMapItem(this, itemIds), executor, settings);
+        getServer().getPluginManager().registerEvents(new TreasureListener(service), this);
+        var treasureCommand = getCommand("보물지도");
+        if (treasureCommand != null) {
+            var executorCmd = new TreasureCommand(this, messages, service, executor);
+            treasureCommand.setExecutor(executorCmd);
+            treasureCommand.setTabCompleter(executorCmd);
+        }
+        getServer().getScheduler().runTaskTimer(this, service::showHints, 20L, 20L);
+        getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::announceLegendaryDigs), 20L * 60, 20L * 60);
     }
 
     private void enableCustomFarming(YeowoolCoreAPI core) {

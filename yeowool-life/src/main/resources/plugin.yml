@@ -34,3 +34,10 @@ commands:
     description: 현재 보유중인(AddCook 레시피북을 사용해 배운) 요리 레시피 목록을 보여줍니다
   폐기장설정:
     description: 관리진 전용 - 여울 폐기장의 진입점/출구/귀환지점/구역/상자/몹 스폰 지점을 등록합니다
+  보물지도:
+    description: 들고 있는 보물지도 정보 (관리진은 보상설정/지급)
+
+permissions:
+  yeowool.life.treasure.manage:
+    description: 보물지도 보상 후보 편집 및 지급
+    default: op
