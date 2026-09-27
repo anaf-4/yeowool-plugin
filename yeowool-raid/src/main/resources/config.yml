@@ -2,3 +2,19 @@ betterhud:
   # BetterHud 설치 후 이 이름으로 팝업(YAML) 파일을 만들어주세요.
   boss-warning-popup: yeowool_raid_boss_warning
   result-popup: yeowool_raid_result
+
+# 필드 월드보스 — 매일 spawn-time에 world의 등록된 위치(/월드보스 위치추가) 중 한 곳에 MythicMobs 보스가 나타납니다.
+# world가 있는 서버(야생)가 진행을 맡고, 다른 서버는 공지만 받습니다. announce-minutes분 전 예고, fight-minutes분 안에 못 잡으면 도망.
+# 보스 최대 체력의 min-damage-percent% 이상 피해를 준 사람 모두 participation-reward, 그중 피해량 1~3위는 rank-rewards를 추가로 받습니다.
+# 아이템 드롭은 MythicMobs 보스 설정의 드롭표를 그대로 씁니다(기본 alocTheDemonicMech 팩은 드롭표가 없음). 세 서버 설정을 똑같이 맞춰주세요.
+# 주의: 기본 알록 보스 팩은 원래 경기장용이라 스킬이 주변(반경 약 60블록) 블록을 바꿉니다 — 위치는 건축물에서 멀리 떨어진 곳에 등록하세요.
+world-boss:
+  enabled: true
+  world: wild_world
+  mythic-mob: alocTheDemonicMech
+  spawn-time: "21:00"
+  announce-minutes: 10
+  fight-minutes: 30
+  rank-rewards: [100000, 50000, 30000]
+  participation-reward: 5000
+  min-damage-percent: 1
