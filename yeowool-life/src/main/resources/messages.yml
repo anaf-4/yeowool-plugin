@@ -69,3 +69,7 @@ treasure:
   granted: "<green><player>님에게 <tier> 보물지도를 지급했습니다.</green>"
   rewards-saved: "<green><tier> 보물 보상 후보 <count>개를 저장했습니다.</green>"
   error: "<red>처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</red>"
+
+dex:
+  reward: "<gold>[도감]</gold> <yellow><category> 도감 <percent>% 달성! 보상으로 <money>온을 받았습니다.</yellow>"
+  reward-no-money: "<gold>[도감]</gold> <yellow><category> 도감 <percent>% 달성! 보상을 받았습니다.</yellow>"

@@ -40,6 +40,11 @@ public final class CustomFishingNativeFishExporter {
         return id.startsWith(ID_PREFIX);
     }
 
+    /** Our own species id for one of our exported loot ids ({@code yw_salmon} → {@code salmon}); other ids unchanged. */
+    public static String nativeId(String id) {
+        return isExportedId(id) ? id.substring(ID_PREFIX.length()) : id;
+    }
+
     public static void export(JavaPlugin plugin, List<FishRarity> rarities) {
         Plugin customFishing = Bukkit.getPluginManager().getPlugin("CustomFishing");
         if (customFishing == null) {

@@ -10,6 +10,7 @@ import com.yeowool.core.data.PlayerCache;
 import com.yeowool.core.data.PlayerDataServiceImpl;
 import com.yeowool.core.data.repository.LogRepository;
 import com.yeowool.core.data.repository.MailboxRepository;
+import com.yeowool.core.data.repository.PayoutRepository;
 import com.yeowool.core.data.repository.PlayerInventoryRepository;
 import com.yeowool.core.data.repository.PlayerRepository;
 import com.yeowool.core.data.repository.PunishmentRepository;
@@ -28,11 +29,14 @@ import com.yeowool.core.mailbox.MailboxCommand;
 import com.yeowool.core.mailbox.MailboxJoinListener;
 import com.yeowool.core.mailbox.MailboxManager;
 import com.yeowool.core.message.MessageManager;
+import com.yeowool.core.payout.PayoutManager;
 import com.yeowool.core.punishment.PunishmentManager;
 import com.yeowool.core.sound.SoundManager;
 import com.yeowool.core.util.ConfigMerger;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Entry point for the common foundation every other Yeowool plugin builds
@@ -47,6 +51,7 @@ public final class YeowoolCore extends JavaPlugin {
     private PlayerDataServiceImpl playerDataService;
     private MessageManager messageManager;
     private SoundManager soundManager;
+    private PayoutManager payoutManager;
 
     @Override
     public void onEnable() {
@@ -80,6 +85,8 @@ public final class YeowoolCore extends JavaPlugin {
 
         this.messageManager = new MessageManager(this);
         this.soundManager = new SoundManager(this);
+        this.payoutManager = new PayoutManager(this, new PayoutRepository(databaseManager.getDataSource()),
+                economyDataService, messageManager, databaseManager.getExecutor());
 
         YeowoolCoreAPI api = new YeowoolCoreAPIImpl(
                 playerDataService,
@@ -90,6 +97,7 @@ public final class YeowoolCore extends JavaPlugin {
                 logManager,
                 mailboxManager,
                 punishmentManager,
+                payoutManager,
                 databaseManager.getDataSource()
         );
         getServer().getServicesManager().register(YeowoolCoreAPI.class, api, this, ServicePriority.Normal);
@@ -99,6 +107,8 @@ public final class YeowoolCore extends JavaPlugin {
                 new PlayerInventorySyncListener(this, playerInventoryRepository), this);
         getServer().getPluginManager().registerEvents(new GuiListener(this), this);
         getServer().getPluginManager().registerEvents(new MailboxJoinListener(this, mailboxManager, messageManager), this);
+        getServer().getPluginManager().registerEvents(payoutManager, this);
+        getServer().getScheduler().runTaskTimer(this, payoutManager::claimAllOnline, 20L * 60, 20L * 60);
 
         CoreCommand coreCommand = new CoreCommand(coreConfig, messageManager, soundManager);
         var command = getCommand("yeowoolcore");
@@ -151,6 +161,18 @@ public final class YeowoolCore extends JavaPlugin {
     public void onDisable() {
         if (playerDataService != null) {
             playerDataService.saveAll().join();
+        }
+        if (databaseManager != null && payoutManager != null) {
+            var executor = databaseManager.getExecutor();
+            executor.shutdown();
+            try {
+                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    getLogger().warning("DB 작업이 5초 안에 끝나지 않았습니다 — 일부 작업(지급 장부 포함)이 유실되었을 수 있습니다.");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            payoutManager.restoreUnpaid();
         }
         if (databaseManager != null) {
             databaseManager.shutdown();

@@ -126,6 +126,17 @@ public final class SchemaInitializer {
                 INDEX idx_target (target),
                 INDEX idx_type_active (type, active)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS yw_payouts (
+                id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                player CHAR(36) NOT NULL,
+                amount BIGINT NOT NULL,
+                source VARCHAR(32) NOT NULL,
+                reason VARCHAR(128) NOT NULL,
+                created_at BIGINT NOT NULL,
+                INDEX idx_player (player)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """
     );
 
