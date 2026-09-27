@@ -7,7 +7,6 @@ import java.util.Optional;
 import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -42,11 +41,6 @@ class SurpriseEventRulesTest {
         assertEquals(60 * 60_000L, SurpriseEventRules.nextDelayMillis(new Random(1), 60, 10));
     }
 
-    @Test
-    void stillOursComparesWithTolerance() {
-        assertTrue(SurpriseEventRules.stillOurs(2.0, 2.0));
-        assertFalse(SurpriseEventRules.stillOurs(3.0, 2.0));
-    }
 
     @Test
     void multipliersFormatWithoutTrailingZero() {

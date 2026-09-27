@@ -29,10 +29,6 @@ public final class SurpriseEventRules {
         return (min + (long) random.nextInt(max - min + 1)) * 60_000L;
     }
 
-    /** Whether a shared multiplier still holds the value we set — if not, someone else (a manual event) owns it now. */
-    public static boolean stillOurs(double current, double applied) {
-        return Math.abs(current - applied) < 1e-9;
-    }
 
     public static String formatMultiplier(double multiplier) {
         return multiplier == Math.rint(multiplier) ? String.valueOf((long) multiplier) : String.valueOf(multiplier);

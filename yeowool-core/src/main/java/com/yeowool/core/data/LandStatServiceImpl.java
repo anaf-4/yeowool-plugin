@@ -15,6 +15,8 @@ public final class LandStatServiceImpl implements LandStatService {
     private final PlayerDataService playerDataService;
     private volatile double xpMultiplier = 1.0;
     private volatile double cropDropMultiplier = 1.0;
+    private volatile double autoXpBoost = 1.0;
+    private volatile double autoCropDropBoost = 1.0;
 
     public LandStatServiceImpl(PlayerDataService playerDataService) {
         this.playerDataService = playerDataService;
@@ -42,7 +44,7 @@ public final class LandStatServiceImpl implements LandStatService {
 
     @Override
     public long addLandXp(UUID uuid, long amount) {
-        long adjusted = Math.round(amount * xpMultiplier);
+        long adjusted = Math.round(amount * Math.max(xpMultiplier, autoXpBoost));
         long newTotal = require(uuid).addLandXp(adjusted);
         Bukkit.getPluginManager().callEvent(new PlayerLandXpChangeEvent(uuid, adjusted, newTotal));
         return newTotal;
@@ -65,7 +67,17 @@ public final class LandStatServiceImpl implements LandStatService {
 
     @Override
     public double getCropDropMultiplier() {
-        return cropDropMultiplier;
+        return Math.max(cropDropMultiplier, autoCropDropBoost);
+    }
+
+    @Override
+    public void setAutoXpBoost(double multiplier) {
+        this.autoXpBoost = multiplier;
+    }
+
+    @Override
+    public void setAutoCropDropBoost(double multiplier) {
+        this.autoCropDropBoost = multiplier;
     }
 
     @Override

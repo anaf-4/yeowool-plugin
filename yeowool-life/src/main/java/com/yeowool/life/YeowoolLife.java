@@ -638,9 +638,15 @@ public final class YeowoolLife extends JavaPlugin {
         Map<SurpriseEventType, Double> multipliers = new LinkedHashMap<>();
         for (SurpriseEventType type : SurpriseEventType.values()) {
             String path = "surprise-event.types." + type.key();
-            if (config.getBoolean(path + ".enabled", true)) {
-                multipliers.put(type, config.getDouble(path + ".multiplier", type == SurpriseEventType.TREASURE_DROP ? 3.0 : 2.0));
+            if (!config.getBoolean(path + ".enabled", true)) {
+                continue;
             }
+            double multiplier = config.getDouble(path + ".multiplier", type == SurpriseEventType.TREASURE_DROP ? 3.0 : 2.0);
+            if (multiplier <= 0) {
+                getLogger().warning(path + ".multiplier는 0보다 커야 합니다 — 이 종류를 건너뜁니다.");
+                continue;
+            }
+            multipliers.put(type, multiplier);
         }
         SurpriseEventService.Settings settings = new SurpriseEventService.Settings(
                 Math.max(1, config.getInt("surprise-event.duration-minutes", 30)),

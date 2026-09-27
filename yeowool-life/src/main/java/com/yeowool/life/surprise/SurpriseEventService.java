@@ -62,6 +62,7 @@ public final class SurpriseEventService {
         try {
             long now = System.currentTimeMillis();
             SurpriseEventRepository.State state = repository.state();
+            long seqBefore = state.seq();
             if (!state.active() && now >= state.nextAt()) {
                 Optional<SurpriseEventType> type = SurpriseEventRules.pickType(random,
                         List.copyOf(settings.multipliers().keySet()), state.lastType());
@@ -76,10 +77,12 @@ public final class SurpriseEventService {
             }
             SurpriseEventRepository.State latest = state;
             if (plugin.isEnabled()) {
-                Bukkit.getScheduler().runTask(plugin, () -> apply(latest));
+                Bukkit.getScheduler().runTask(plugin, () -> apply(latest, seqBefore));
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "깜짝 이벤트 상태 처리 실패", e);
+        } catch (RuntimeException e) { // e.g. scheduling while the plugin is disabling
+            plugin.getLogger().log(Level.WARNING, "깜짝 이벤트 처리 중단: " + e.getMessage());
         }
     }
 
@@ -122,42 +125,34 @@ public final class SurpriseEventService {
 
     // ---- main thread ----
 
-    private void apply(SurpriseEventRepository.State state) {
+    /** {@code seqBefore}: the seq this tick read before making any transition — the startup baseline. */
+    private void apply(SurpriseEventRepository.State state, long seqBefore) {
         if (current != null && state.seq() < current.seq()) {
             return; // an older read finished late
         }
         current = state;
         SurpriseEventType wanted = state.active() ? state.type() : null;
-        if (appliedType != wanted) {
+        if (appliedType != wanted || (wanted != null && appliedValue != state.multiplier())) {
             revert();
             if (wanted != null) {
                 applyBoost(wanted, state.multiplier());
             }
         }
         if (announcedSeq < 0) {
-            announcedSeq = state.seq(); // first read after startup isn't news
-        } else if (state.seq() != announcedSeq) {
+            announcedSeq = seqBefore; // what was already true before this boot isn't news; a transition this tick made is
+        }
+        if (state.seq() != announcedSeq) {
             announcedSeq = state.seq();
             announce(state);
         }
         updateBossBar();
     }
 
-    /** Sets the boost; for shared landStats multipliers only when they're at 1.0 (a manual /이벤트 otherwise owns them — retried next tick). */
+    /** Our own boost layer — core keeps it apart from manual /이벤트 multipliers and applies the larger. */
     private void applyBoost(SurpriseEventType type, double multiplier) {
         switch (type) {
-            case LAND_XP -> {
-                if (!SurpriseEventRules.stillOurs(core.landStats().getXpMultiplier(), 1.0)) {
-                    return;
-                }
-                core.landStats().setXpMultiplier(multiplier);
-            }
-            case CROP_DROP -> {
-                if (!SurpriseEventRules.stillOurs(core.landStats().getCropDropMultiplier(), 1.0)) {
-                    return;
-                }
-                core.landStats().setCropDropMultiplier(multiplier);
-            }
+            case LAND_XP -> core.landStats().setAutoXpBoost(multiplier);
+            case CROP_DROP -> core.landStats().setAutoCropDropBoost(multiplier);
             case TREASURE_DROP -> LifeBoosts.setTreasureDropMultiplier(multiplier);
             case JOB_XP -> LifeBoosts.setJobXpMultiplier(multiplier);
         }
@@ -170,16 +165,8 @@ public final class SurpriseEventService {
             return;
         }
         switch (appliedType) {
-            case LAND_XP -> {
-                if (SurpriseEventRules.stillOurs(core.landStats().getXpMultiplier(), appliedValue)) {
-                    core.landStats().setXpMultiplier(1.0);
-                }
-            }
-            case CROP_DROP -> {
-                if (SurpriseEventRules.stillOurs(core.landStats().getCropDropMultiplier(), appliedValue)) {
-                    core.landStats().setCropDropMultiplier(1.0);
-                }
-            }
+            case LAND_XP -> core.landStats().setAutoXpBoost(1.0);
+            case CROP_DROP -> core.landStats().setAutoCropDropBoost(1.0);
             case TREASURE_DROP -> LifeBoosts.setTreasureDropMultiplier(1.0);
             case JOB_XP -> LifeBoosts.setJobXpMultiplier(1.0);
         }
@@ -206,6 +193,9 @@ public final class SurpriseEventService {
 
     /** Main thread, every second: boss bar while our boost is applied, removed otherwise. */
     public void updateBossBar() {
+        if (appliedType != null && current != null && System.currentTimeMillis() > current.endsAt() + 60_000) {
+            revert(); // DB unreachable past the end — don't keep boosting on stale state
+        }
         if (current == null || !current.active() || appliedType == null) {
             if (bossBar != null) {
                 bossBar.removeAll();
