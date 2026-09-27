@@ -6,6 +6,7 @@ import com.yeowool.core.api.service.LandStatService;
 import com.yeowool.core.api.service.LogService;
 import com.yeowool.core.api.service.MailboxService;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.core.api.service.PayoutService;
 import com.yeowool.core.api.service.PlayerDataService;
 import com.yeowool.core.api.service.PunishmentService;
 import com.yeowool.core.api.service.SoundService;
@@ -22,6 +23,7 @@ final class YeowoolCoreAPIImpl implements YeowoolCoreAPI {
     private final LogService logService;
     private final MailboxService mailboxService;
     private final PunishmentService punishmentService;
+    private final PayoutService payoutService;
     private final DataSource dataSource;
 
     YeowoolCoreAPIImpl(PlayerDataService playerDataService,
@@ -32,6 +34,7 @@ final class YeowoolCoreAPIImpl implements YeowoolCoreAPI {
                         LogService logService,
                         MailboxService mailboxService,
                         PunishmentService punishmentService,
+                        PayoutService payoutService,
                         DataSource dataSource) {
         this.playerDataService = playerDataService;
         this.economyDataService = economyDataService;
@@ -41,6 +44,7 @@ final class YeowoolCoreAPIImpl implements YeowoolCoreAPI {
         this.logService = logService;
         this.mailboxService = mailboxService;
         this.punishmentService = punishmentService;
+        this.payoutService = payoutService;
         this.dataSource = dataSource;
     }
 
@@ -82,6 +86,11 @@ final class YeowoolCoreAPIImpl implements YeowoolCoreAPI {
     @Override
     public PunishmentService punishments() {
         return punishmentService;
+    }
+
+    @Override
+    public PayoutService payouts() {
+        return payoutService;
     }
 
     @Override

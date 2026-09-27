@@ -18,3 +18,6 @@ mailbox:
   pending-notice: "<yellow>우편함에 아직 받지 못한 아이템이 <count>개 있습니다. /우편함 으로 확인하세요.</yellow>"
   already-claimed: "<red>이미 수령했거나 존재하지 않는 항목입니다.</red>"
   claim-success: "<green>아이템을 수령했습니다.</green>"
+
+payout:
+  received: "<green><reason>: <amount>온을 받았습니다.</green>"
