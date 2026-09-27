@@ -40,6 +40,8 @@ commands:
     description: 보유한 탈것 목록을 열고 소환 메뉴로 이동합니다
   탈것이용권:
     description: 관리진 전용 - 탈것 이용권 아이템을 지급합니다
+  깜짝이벤트:
+    description: 진행 중인 깜짝 이벤트 확인 (관리진은 시작/종료)
 
 permissions:
   yeowool.life.treasure.manage:

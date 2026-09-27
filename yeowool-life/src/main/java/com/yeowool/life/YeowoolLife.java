@@ -100,6 +100,11 @@ import com.yeowool.life.scrapyard.ScrapyardRepository;
 import com.yeowool.life.scrapyard.ScrapyardSchemaInitializer;
 import com.yeowool.life.scrapyard.ScrapyardSessionManager;
 import com.yeowool.life.scrapyard.ScrapyardTickTask;
+import com.yeowool.life.surprise.SurpriseEventCommand;
+import com.yeowool.life.surprise.SurpriseEventRepository;
+import com.yeowool.life.surprise.SurpriseEventRules;
+import com.yeowool.life.surprise.SurpriseEventService;
+import com.yeowool.life.surprise.SurpriseEventType;
 import com.yeowool.life.treasure.TreasureCommand;
 import com.yeowool.life.treasure.TreasureListener;
 import com.yeowool.life.treasure.TreasureMapItem;
@@ -116,8 +121,10 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Supplier;
@@ -131,6 +138,7 @@ public final class YeowoolLife extends JavaPlugin {
     private ExecutorService executor;
     private LifeCompetitionService lifeCompetition;
     private BagManager bagManager;
+    private SurpriseEventService surpriseEvents;
 
     @Override
     public void onEnable() {
@@ -428,6 +436,7 @@ public final class YeowoolLife extends JavaPlugin {
         enableTreasureMaps(core, messages);
         enableLifeCompetition(core, messages);
         enableMounts(core, messages);
+        enableSurpriseEvents(core, messages);
 
         getLogger().info("YeowoolLife가 활성화되었습니다.");
     }
@@ -619,6 +628,49 @@ public final class YeowoolLife extends JavaPlugin {
         }
     }
 
+    /** 깜짝 이벤트 — surprise-event.worlds의 월드가 있는 서버(마을·야생)끼리 같은 짧은 버프 이벤트를 자동으로 연다. */
+    private void enableSurpriseEvents(YeowoolCoreAPI core, MessageManager messages) {
+        var config = getConfig();
+        if (!config.getBoolean("surprise-event.enabled", true)) {
+            return;
+        }
+        boolean participating = config.getStringList("surprise-event.worlds").stream().anyMatch(world -> Bukkit.getWorld(world) != null);
+        Map<SurpriseEventType, Double> multipliers = new LinkedHashMap<>();
+        for (SurpriseEventType type : SurpriseEventType.values()) {
+            String path = "surprise-event.types." + type.key();
+            if (config.getBoolean(path + ".enabled", true)) {
+                multipliers.put(type, config.getDouble(path + ".multiplier", type == SurpriseEventType.TREASURE_DROP ? 3.0 : 2.0));
+            }
+        }
+        SurpriseEventService.Settings settings = new SurpriseEventService.Settings(
+                Math.max(1, config.getInt("surprise-event.duration-minutes", 30)),
+                config.getInt("surprise-event.interval-min-minutes", 60),
+                config.getInt("surprise-event.interval-max-minutes", 120),
+                multipliers);
+        SurpriseEventRepository repository = new SurpriseEventRepository(core.dataSource());
+        try {
+            repository.createTables(System.currentTimeMillis()
+                    + SurpriseEventRules.nextDelayMillis(new Random(), settings.intervalMinMinutes(), settings.intervalMaxMinutes()));
+        } catch (Exception e) {
+            getLogger().severe("깜짝 이벤트 데이터베이스 초기화 실패 — 깜짝 이벤트를 끕니다: " + e.getMessage());
+            return;
+        }
+        SurpriseEventService service = new SurpriseEventService(this, core, messages, repository, settings);
+        var command = getCommand("깜짝이벤트");
+        if (command != null) {
+            var executorCmd = new SurpriseEventCommand(this, messages, service, executor, participating);
+            command.setExecutor(executorCmd);
+            command.setTabCompleter(executorCmd);
+        }
+        if (!participating) {
+            return;
+        }
+        this.surpriseEvents = service;
+        getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::tick), 20L * 5, 20L * 20);
+        getServer().getScheduler().runTaskTimer(this, service::updateBossBar, 20L, 20L);
+        getLogger().info("깜짝 이벤트 참여 서버입니다. 종류: " + multipliers.keySet());
+    }
+
     private void enableCustomFarming(YeowoolCoreAPI core) {
         CustomCropRegistry registry = new CustomCropRegistry(this);
         if (registry.isEmpty()) {
@@ -726,6 +778,9 @@ public final class YeowoolLife extends JavaPlugin {
         }
         if (lifeCompetition != null) {
             lifeCompetition.flushNow();
+        }
+        if (surpriseEvents != null) {
+            surpriseEvents.shutdown();
         }
         if (executor != null) {
             executor.shutdown();

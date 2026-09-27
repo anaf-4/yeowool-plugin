@@ -95,3 +95,18 @@ mount:
   target-unknown: "<red>한 번도 접속한 적 없는 플레이어입니다.</red>"
   issued: "<green><player>님에게 <mount> 탈것 이용권 <amount>장을 지급했습니다. (접속 중이 아니면 우편함)</green>"
   grant-failed: "<red>탈것을 해금하지 못했습니다. 이용권은 그대로 남아 있으니 관리자에게 문의하세요.</red>"
+
+surprise:
+  started: "<gold>🎉 깜짝 이벤트!</gold> <yellow><type> <multiplier>배 — <minutes>분 동안 (마을·야생)</yellow>"
+  ended: "<gray>깜짝 이벤트(<type> <multiplier>배)가 끝났습니다. 다음 이벤트도 곧 찾아옵니다!</gray>"
+  status-active: "<gold>깜짝 이벤트 진행 중: <type> <multiplier>배 — 남은 시간 <remaining></gold>"
+  status-idle: "<gray>다음 깜짝 이벤트까지 약 <remaining></gray>"
+  status-soon: "<gray>곧 다음 깜짝 이벤트가 시작됩니다.</gray>"
+  not-here: "<gray>깜짝 이벤트는 마을·야생 서버에서 열립니다.</gray>"
+  usage: "<gray>/깜짝이벤트 [시작 [토지경험치|작물수확량|보물지도발견|직업경험치] | 종료]</gray>"
+  unknown-type: "<red>종류는 토지경험치, 작물수확량, 보물지도발견, 직업경험치 중 하나입니다.</red>"
+  admin-started: "<green>깜짝 이벤트를 시작했습니다.</green>"
+  already-active: "<red>이미 깜짝 이벤트가 진행 중입니다.</red>"
+  admin-ended: "<green>깜짝 이벤트를 종료했습니다.</green>"
+  none: "<gray>진행 중인 깜짝 이벤트가 없습니다.</gray>"
+  error: "<red>처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</red>"

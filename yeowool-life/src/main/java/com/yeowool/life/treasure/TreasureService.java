@@ -2,6 +2,7 @@ package com.yeowool.life.treasure;
 
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
+import com.yeowool.life.surprise.LifeBoosts;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -77,7 +78,7 @@ public final class TreasureService {
 
     /** Main thread: a mining/fishing/hunting action just finished. */
     public void onAction(Player player, String activity) {
-        double chance = settings.dropChances().getOrDefault(activity, 0.0);
+        double chance = settings.dropChances().getOrDefault(activity, 0.0) * LifeBoosts.treasureDropMultiplier();
         if (chance <= 0 || random.nextDouble() >= chance) {
             return;
         }
