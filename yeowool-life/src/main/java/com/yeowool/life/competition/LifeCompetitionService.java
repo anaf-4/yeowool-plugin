@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
 /**
@@ -53,6 +54,7 @@ public final class LifeCompetitionService {
     private String announcedStart;
 
     private volatile long resultsAnnouncedUntil = System.currentTimeMillis();
+    private final AtomicBoolean settling = new AtomicBoolean();
 
     public LifeCompetitionService(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, CompetitionRepository repository,
                                   CompetitionSchedule schedule, Map<Integer, Long> rewardsByRank, Executor executor) {
@@ -95,6 +97,11 @@ public final class LifeCompetitionService {
         flush();
     }
 
+    /** Main thread, from onDisable before the executor drains: saves the last few seconds of scores. */
+    public void flushNow() {
+        flush();
+    }
+
     private void flush() {
         if (pending.isEmpty()) {
             return;
@@ -122,15 +129,20 @@ public final class LifeCompetitionService {
 
     /** Worker thread, every minute on every server: pay out ended competitions once, then announce new results. */
     public void settleAndAnnounce() {
+        if (!settling.compareAndSet(false, true)) {
+            return; // previous run still going (slow DB) — don't announce the same results twice
+        }
         long now = System.currentTimeMillis();
         try {
             for (CompetitionRepository.Competition competition : repository.unpaidEnded(now - SETTLE_GRACE_MILLIS)) {
+                String label = CompetitionActivity.byKey(competition.activity()).map(CompetitionActivity::label).orElse(competition.activity());
+                int ranks = rewardsByRank.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
+                // Read the (already final, grace has passed) standings before claiming, so a failed read
+                // leaves the competition unpaid for the next attempt instead of claimed with no rewards.
+                List<CompetitionRepository.Standing> top = repository.top(competition.dateKey(), ranks);
                 if (!repository.claimPayout(competition.dateKey(), now - SETTLE_GRACE_MILLIS, now)) {
                     continue;
                 }
-                String label = CompetitionActivity.byKey(competition.activity()).map(CompetitionActivity::label).orElse(competition.activity());
-                int ranks = rewardsByRank.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
-                List<CompetitionRepository.Standing> top = repository.top(competition.dateKey(), ranks);
                 // ponytail: the claim and these inserts aren't one transaction — a crash in between loses the rewards; each is logged to pay by hand.
                 for (int i = 0; i < top.size(); i++) {
                     long reward = rewardsByRank.getOrDefault(i + 1, 0L);
@@ -158,6 +170,8 @@ public final class LifeCompetitionService {
             }
         } catch (SQLException e) {
             plugin.getLogger().log(Level.SEVERE, "생활 대회 정산/공지 처리 실패", e);
+        } finally {
+            settling.set(false);
         }
     }
 

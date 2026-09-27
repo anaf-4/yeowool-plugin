@@ -123,6 +123,7 @@ import java.util.function.Supplier;
 public final class YeowoolLife extends JavaPlugin {
 
     private ExecutorService executor;
+    private LifeCompetitionService lifeCompetition;
     private BagManager bagManager;
 
     @Override
@@ -266,8 +267,9 @@ public final class YeowoolLife extends JavaPlugin {
             CustomFishingNativeFishExporter.export(this, fishRarities);
         }
         getServer().getPluginManager().registerEvents(new BaitEquipListener(core, messages, fishBaits), this);
-        getServer().getPluginManager().registerEvents(
-                new MiningListener(core, config.getLong("mining.xp-per-ore", 4)), this);
+        MiningListener miningListener = new MiningListener(core, config.getLong("mining.xp-per-ore", 4));
+        getServer().getPluginManager().registerEvents(miningListener, this);
+        getServer().getScheduler().runTaskTimer(this, miningListener::pruneStaleEntries, 20L * 60 * 20, 20L * 60 * 20);
         getServer().getPluginManager().registerEvents(
                 new HuntingListener(core, config.getLong("hunting.xp-per-kill", 3)), this);
 
@@ -566,6 +568,7 @@ public final class YeowoolLife extends JavaPlugin {
                 config.getInt("life-competition.duration-minutes", 60),
                 rotation);
         LifeCompetitionService service = new LifeCompetitionService(this, core, messages, repository, schedule, rewards, executor);
+        this.lifeCompetition = service;
         getServer().getPluginManager().registerEvents(new LifeCompetitionListener(service), this);
         var command = getCommand("생활대회");
         if (command != null) {
@@ -686,6 +689,9 @@ public final class YeowoolLife extends JavaPlugin {
     public void onDisable() {
         if (bagManager != null) {
             bagManager.saveAllBlocking();
+        }
+        if (lifeCompetition != null) {
+            lifeCompetition.flushNow();
         }
         if (executor != null) {
             executor.shutdown();
