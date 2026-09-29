@@ -230,16 +230,19 @@ public final class CookingOrderService {
             messages.send(player, "cooking-orders.suspended");
             return;
         }
-        if (order.completed()) {
-            messages.send(player, "cooking-orders.already-completed");
-            return;
-        }
         UUID uuid = player.getUniqueId();
         if (busy.contains(uuid)) {
             return;
         }
         String day = gui.view().day();
         String name = player.getName();
+        if (order.completed()) {
+            messages.send(player, "cooking-orders.already-completed");
+            // an all-done bonus lost to an interrupted completion is retried here (claimBonus is once-only)
+            busy.add(uuid);
+            executor.execute(() -> completeIfFull(uuid, name, day, order));
+            return;
+        }
         if (order.delivered() >= order.required()) {
             // full but never completed (the completion step was interrupted) — finish it now
             busy.add(uuid);
@@ -441,7 +444,7 @@ public final class CookingOrderService {
                 }
             }
             boolean ok = replaced;
-            runMain(() -> {
+            runMain(() -> guarded(uuid, () -> {
                 if (!ok && cost > 0) {
                     payMain(uuid, cost, "요리 주문 교체 취소 환불");
                 }
@@ -452,7 +455,7 @@ public final class CookingOrderService {
                 }
                 busy.remove(uuid);
                 refresh(uuid);
-            }, !ok && cost > 0 ? "요리 주문 교체 환불 " + cost + "온 (" + uuid + ")" : null);
+            }), !ok && cost > 0 ? "요리 주문 교체 환불 " + cost + "온 (" + uuid + ")" : null);
         });
     }
 

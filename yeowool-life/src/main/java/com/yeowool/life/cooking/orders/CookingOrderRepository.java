@@ -553,7 +553,7 @@ public final class CookingOrderRepository {
                 T result = work.run(connection);
                 connection.commit();
                 return result;
-            } catch (SQLException e) {
+            } catch (SQLException | RuntimeException e) {
                 connection.rollback();
                 throw e;
             } finally {
