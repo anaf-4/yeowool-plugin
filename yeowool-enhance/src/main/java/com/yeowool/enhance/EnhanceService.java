@@ -93,8 +93,10 @@ public final class EnhanceService {
             return Result.INSUFFICIENT_MATERIAL;
         }
 
-        core.economyData().modifyBalance(uuid, -currency, "YeowoolEnhance",
-                "강화 시도 (+" + level + " -> +" + (level + 1) + (stage > 0 ? ", " + stage + "차 초월" : "") + ")");
+        if (!core.economyData().modifyBalance(uuid, -currency, "YeowoolEnhance",
+                "강화 시도 (+" + level + " -> +" + (level + 1) + (stage > 0 ? ", " + stage + "차 초월" : "") + ")")) {
+            return Result.INSUFFICIENT_FUNDS;
+        }
         EnhanceMaterialResolver.removeAmount(player, cost.materialId(), cost.materialAmount());
 
         boolean success = ThreadLocalRandom.current().nextDouble(100) < config.successRate(level);
