@@ -7,6 +7,7 @@ import com.yeowool.core.api.service.LogService;
 import com.yeowool.core.api.service.MailboxService;
 import com.yeowool.core.api.service.MessageService;
 import com.yeowool.core.api.service.PayoutService;
+import com.yeowool.core.api.service.StardustService;
 import com.yeowool.core.api.service.PlayerDataService;
 import com.yeowool.core.api.service.PunishmentService;
 import com.yeowool.core.api.service.SoundService;
@@ -24,6 +25,7 @@ final class YeowoolCoreAPIImpl implements YeowoolCoreAPI {
     private final MailboxService mailboxService;
     private final PunishmentService punishmentService;
     private final PayoutService payoutService;
+    private final StardustService stardustService;
     private final DataSource dataSource;
 
     YeowoolCoreAPIImpl(PlayerDataService playerDataService,
@@ -35,6 +37,7 @@ final class YeowoolCoreAPIImpl implements YeowoolCoreAPI {
                         MailboxService mailboxService,
                         PunishmentService punishmentService,
                         PayoutService payoutService,
+                        StardustService stardustService,
                         DataSource dataSource) {
         this.playerDataService = playerDataService;
         this.economyDataService = economyDataService;
@@ -45,6 +48,7 @@ final class YeowoolCoreAPIImpl implements YeowoolCoreAPI {
         this.mailboxService = mailboxService;
         this.punishmentService = punishmentService;
         this.payoutService = payoutService;
+        this.stardustService = stardustService;
         this.dataSource = dataSource;
     }
 
@@ -91,6 +95,11 @@ final class YeowoolCoreAPIImpl implements YeowoolCoreAPI {
     @Override
     public PayoutService payouts() {
         return payoutService;
+    }
+
+    @Override
+    public StardustService stardust() {
+        return stardustService;
     }
 
     @Override

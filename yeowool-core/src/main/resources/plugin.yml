@@ -22,6 +22,8 @@ commands:
     description: 받지 못한 아이템을 확인하고 수령합니다
   앱연동:
     description: 서버 동반 앱에 내 계정을 연동할 일회용 코드를 발급합니다
+  별조각:
+    description: 내 별조각(교환소 포인트)을 확인합니다 (관리진은 확인/지급/회수)
   여울도움말:
     aliases: [도움말]
     description: 전체 명령어 목록을 카테고리별로 확인합니다

@@ -137,6 +137,21 @@ public final class SchemaInitializer {
                 created_at BIGINT NOT NULL,
                 INDEX idx_player (player)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS yw_stardust (
+                uuid CHAR(36) NOT NULL PRIMARY KEY,
+                balance BIGINT NOT NULL DEFAULT 0
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS yw_stardust_daily (
+                uuid CHAR(36) NOT NULL,
+                cap_key VARCHAR(32) NOT NULL,
+                day VARCHAR(10) NOT NULL,
+                amount BIGINT NOT NULL DEFAULT 0,
+                PRIMARY KEY (uuid, cap_key, day)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """
     );
 
