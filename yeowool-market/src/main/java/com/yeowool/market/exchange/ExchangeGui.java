@@ -74,7 +74,11 @@ final class ExchangeGui extends YeowoolGui {
             lore.add(line(entry.limit().label() + " 교환 " + used + "/" + entry.limitCount() + "회", full ? NamedTextColor.RED : NamedTextColor.AQUA));
         }
         lore.add(Component.empty());
-        lore.add(full ? line("교환 한도에 도달했습니다", NamedTextColor.RED) : line("클릭하여 교환", NamedTextColor.GREEN));
+        if (ExchangeService.freeAndUnlimited(entry)) {
+            lore.add(line("교환할 수 없는 항목입니다 (관리진 설정 필요)", NamedTextColor.RED));
+        } else {
+            lore.add(full ? line("교환 한도에 도달했습니다", NamedTextColor.RED) : line("클릭하여 교환", NamedTextColor.GREEN));
+        }
         lore(icon, lore);
         return icon;
     }

@@ -102,6 +102,11 @@ public final class ExchangeService {
     /** Main thread: one GUI click. */
     public void exchange(Player player, Entry entry, int page) {
         UUID uuid = player.getUniqueId();
+        if (freeAndUnlimited(entry)) {
+            // never hand out a reward for nothing, even if such a row got into the DB some other way
+            messages.send(player, "exchange.free-blocked");
+            return;
+        }
         if (!busy.add(uuid)) {
             return;
         }
@@ -206,6 +211,11 @@ public final class ExchangeService {
                 }
             }
         }
+    }
+
+    /** No items, 온 or 별조각 asked and no daily/weekly limit — an endless free reward. */
+    static boolean freeAndUnlimited(Entry entry) {
+        return entry.costItems().isEmpty() && entry.costMoney() <= 0 && entry.costStardust() <= 0 && entry.limit() == ExchangeRepository.Limit.NONE;
     }
 
     /** One kind of cost item; {@code amount} may be more than a stack. */
