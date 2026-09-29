@@ -29,7 +29,7 @@ public final class EnhanceService {
     public enum Result {
         SUCCESS, SUCCESS_TIER_UP, FAIL_SAFE, FAIL_PROTECTED, FAIL_DOWNGRADE, FAIL_DESTROYED,
         NOT_ENHANCEABLE, MAX_LEVEL, NEEDS_TRANSCEND, INSUFFICIENT_FUNDS, INSUFFICIENT_MATERIAL,
-        TRANSCEND_SUCCESS, TRANSCEND_FAIL, NOT_AT_GATE, INSUFFICIENT_STONE
+        TRANSCEND_SUCCESS, TRANSCEND_SUCCESS_NEW_MATERIAL, TRANSCEND_FAIL, NOT_AT_GATE, INSUFFICIENT_STONE
     }
 
     private final YeowoolCoreAPI core;
@@ -150,7 +150,9 @@ public final class EnhanceService {
         if (!EnhanceMaterialResolver.hasAmount(player, target.stoneItemId(), target.stoneAmount())) {
             return Result.INSUFFICIENT_STONE;
         }
-        core.economyData().modifyBalance(uuid, -target.currency(), "YeowoolEnhance", "초월 시도 (" + target.name() + ")");
+        if (!core.economyData().modifyBalance(uuid, -target.currency(), "YeowoolEnhance", "초월 시도 (" + target.name() + ")")) {
+            return Result.INSUFFICIENT_FUNDS;
+        }
         EnhanceMaterialResolver.removeAmount(player, target.stoneItemId(), target.stoneAmount());
 
         if (ThreadLocalRandom.current().nextDouble(100) >= target.successRate()) {
@@ -158,6 +160,7 @@ public final class EnhanceService {
         }
         ItemStack result = item;
         int newLevel = level;
+        Material originalType = item.getType();
         if (target.stage() == 1) {
             newLevel = 0;
             Material netherite = Material.matchMaterial(TranscendRules.netheriteVariant(item.getType().name()));
@@ -167,6 +170,6 @@ public final class EnhanceService {
         }
         itemData.applyState(result, target.stage(), newLevel);
         player.getInventory().setItemInMainHand(result);
-        return Result.TRANSCEND_SUCCESS;
+        return result.getType() != originalType ? Result.TRANSCEND_SUCCESS_NEW_MATERIAL : Result.TRANSCEND_SUCCESS;
     }
 }

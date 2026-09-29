@@ -18,6 +18,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -100,6 +101,21 @@ public final class EnhanceItemData {
         }
         Integer value = meta.getPersistentDataContainer().get(key, PersistentDataType.INTEGER);
         return value == null ? 0 : value;
+    }
+
+    /**
+     * Re-applies the item's own state so its name/lore/attributes match the current rules — used to
+     * repair gear enhanced before the base-stat fix. No-op for items that were never enhanced.
+     */
+    public void repair(ItemStack item) {
+        if (!isEnhanceable(item)) {
+            return;
+        }
+        int stage = stage(item);
+        int level = level(item);
+        if (level > 0 || stage > 0) {
+            applyState(item, stage, level);
+        }
     }
 
     /** Sets the enhance level, keeping the current transcend stage. */
@@ -186,16 +202,21 @@ public final class EnhanceItemData {
     }
 
     /**
-     * Keeps other plugins' modifiers, drops vanilla-namespace copies and our own, then — whenever the
+     * Keeps every modifier except our own and copies of the material defaults, then — whenever the
      * item will carry any modifier — re-adds the material defaults first (otherwise 1.21 drops them).
+     * Only the default modifiers' keys are dropped, so other plugins' or legacy {@code minecraft:<uuid>}
+     * modifiers survive.
      */
     private void rebuildAttributes(ItemStack item, ItemMeta meta, boolean enhanced, MaterialCategory category, double bonus) {
+        Multimap<Attribute, AttributeModifier> defaults = item.getType().getDefaultAttributeModifiers();
+        Set<NamespacedKey> defaultKeys = new HashSet<>();
+        defaults.values().forEach(modifier -> defaultKeys.add(modifier.getKey()));
         Multimap<Attribute, AttributeModifier> kept = ArrayListMultimap.create();
         Multimap<Attribute, AttributeModifier> existing = meta.getAttributeModifiers();
         if (existing != null) {
             existing.forEach((attribute, modifier) -> {
                 NamespacedKey key = modifier.getKey();
-                if (!NamespacedKey.MINECRAFT.equals(key.getNamespace()) && !ownModifierKeys.contains(key)) {
+                if (!defaultKeys.contains(key) && !ownModifierKeys.contains(key)) {
                     kept.put(attribute, modifier);
                 }
             });
@@ -204,7 +225,7 @@ public final class EnhanceItemData {
         if (!enhanced && kept.isEmpty()) {
             return; // no modifiers at all → vanilla defaults apply by themselves
         }
-        item.getType().getDefaultAttributeModifiers().forEach(meta::addAttributeModifier);
+        defaults.forEach(meta::addAttributeModifier);
         kept.forEach(meta::addAttributeModifier);
         if (!enhanced || bonus <= 0) {
             return;

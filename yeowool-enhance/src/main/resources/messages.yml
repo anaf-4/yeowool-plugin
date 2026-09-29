@@ -9,6 +9,7 @@ enhance:
   not-at-gate: "<red>지금은 초월할 수 없습니다. (1차: 30강, 2차: 1차 초월 후 10강, 3차: 2차 초월 후 20강)</red>"
   insufficient-stone: "<red><stone>이(가) 부족합니다. (필요: <amount>개)</red>"
   transcend-success: "<gold>✦ 초월 성공! <stage> 달성!</gold>"
+  transcend-success-restart: "<gold>✦ 초월 성공! <stage> — 0강부터 다시 강화해 더 강해질 수 있습니다!</gold>"
   transcend-success-netherite: "<gold>✦ 초월 성공! <stage> — 네더라이트 장비로 다시 태어났습니다! (0강부터 다시 강화)</gold>"
   transcend-fail: "<red>초월에 실패했습니다. 장비는 그대로이며 초월석과 온만 소모되었습니다.</red>"
   transcend-broadcast: "<gold>✦ <player>님이 <stage>에 성공했습니다!</gold>"

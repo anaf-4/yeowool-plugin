@@ -10,6 +10,8 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -33,6 +35,7 @@ public final class EnhanceGui extends YeowoolGui {
 
     private final EnhanceService service;
     private final MessageService messages;
+    private long lastActionAt;
 
     public EnhanceGui(EnhanceService service, MessageService messages, int backgroundOffsetPx) {
         super(36, EnhanceBackgroundImages.title(backgroundOffsetPx, "enhance_bg",
@@ -40,14 +43,28 @@ public final class EnhanceGui extends YeowoolGui {
         this.service = service;
         this.messages = messages;
 
-        setButton(SLOT_ACTION, GuiButton.of(actionIcon(null), event -> onAction((Player) event.getWhoClicked())));
+        setButton(SLOT_ACTION, GuiButton.of(actionIcon(null), this::handleAction));
         setButton(SLOT_CLOSE, GuiButton.of(EnhanceIcons.closeIcon(), event -> event.getWhoClicked().closeInventory()));
     }
 
     @Override
     public void open(Player player) {
+        service.itemData().repair(player.getInventory().getItemInMainHand());
         refresh(player);
         super.open(player);
+    }
+
+    /** Ignores double-click echoes and clicks within 400ms of the last one, so one intent = one paid attempt. */
+    private void handleAction(InventoryClickEvent event) {
+        if (event.getClick() == ClickType.DOUBLE_CLICK) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastActionAt < 400) {
+            return;
+        }
+        lastActionAt = now;
+        onAction((Player) event.getWhoClicked());
     }
 
     private void onAction(Player player) {
@@ -64,11 +81,12 @@ public final class EnhanceGui extends YeowoolGui {
         var target = service.config().transcendStage(nextStage);
         EnhanceService.Result result = service.transcend(player);
         switch (result) {
-            case TRANSCEND_SUCCESS -> {
+            case TRANSCEND_SUCCESS, TRANSCEND_SUCCESS_NEW_MATERIAL -> {
                 playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE);
                 String name = target.map(TranscendStage::name).orElse(nextStage + "차 초월");
-                messages.send(player, nextStage == 1 ? "enhance.transcend-success-netherite" : "enhance.transcend-success",
-                        Placeholder.unparsed("stage", name));
+                String key = result == EnhanceService.Result.TRANSCEND_SUCCESS_NEW_MATERIAL ? "enhance.transcend-success-netherite"
+                        : nextStage == 1 ? "enhance.transcend-success-restart" : "enhance.transcend-success";
+                messages.send(player, key, Placeholder.unparsed("stage", name));
                 messages.broadcast("enhance.transcend-broadcast",
                         Placeholder.unparsed("player", player.getName()), Placeholder.unparsed("stage", name));
             }
@@ -97,13 +115,14 @@ public final class EnhanceGui extends YeowoolGui {
 
     private void attempt(Player player) {
         ItemStack hand = player.getInventory().getItemInMainHand();
+        int level = service.itemData().level(hand); // before the attempt changes it
         EnhanceService.Result result = service.attempt(player, hand);
-        int level = service.itemData().level(hand);
-        EnhanceTier tier = service.config().tierFor(level);
+        EnhanceTier tier = service.config().tierFor(level + 1);
 
         switch (result) {
             case NOT_ENHANCEABLE -> messages.send(player, "enhance.not-enhanceable");
-            case MAX_LEVEL -> messages.send(player, "enhance.max-level", Placeholder.unparsed("max", String.valueOf(service.config().maxLevel())));
+            case MAX_LEVEL -> messages.send(player, "enhance.max-level",
+                    Placeholder.unparsed("max", String.valueOf(TranscendRules.levelCap(service.itemData().stage(hand), service.config().maxLevel()))));
             case NEEDS_TRANSCEND -> messages.send(player, "enhance.needs-transcend");
             case INSUFFICIENT_FUNDS -> messages.send(player, "enhance.insufficient-funds",
                     Placeholder.unparsed("cost", String.format("%,d", service.enhanceCurrency(hand))));
@@ -119,7 +138,7 @@ public final class EnhanceGui extends YeowoolGui {
             }
             case SUCCESS_TIER_UP -> {
                 playSound(player,Sound.UI_TOAST_CHALLENGE_COMPLETE);
-                messages.send(player, "enhance.success-tier-up", Placeholder.unparsed("level", String.valueOf(level)), Placeholder.unparsed("tier", tier.name()));
+                messages.send(player, "enhance.success-tier-up", Placeholder.unparsed("level", String.valueOf(level + 1)), Placeholder.unparsed("tier", tier.name()));
             }
             case FAIL_SAFE -> {
                 playSound(player,Sound.ENTITY_VILLAGER_NO);
@@ -149,8 +168,8 @@ public final class EnhanceGui extends YeowoolGui {
     private void refresh(Player player) {
         ItemStack hand = player.getInventory().getItemInMainHand();
         boolean enhanceable = service.itemData().isEnhanceable(hand);
-        setButton(SLOT_PREVIEW, GuiButton.of(previewIcon(enhanceable ? hand : null), event -> onAction((Player) event.getWhoClicked())));
-        setButton(SLOT_ACTION, GuiButton.of(actionIcon(enhanceable ? hand : null), event -> onAction((Player) event.getWhoClicked())));
+        setButton(SLOT_PREVIEW, GuiButton.of(previewIcon(enhanceable ? hand : null), this::handleAction));
+        setButton(SLOT_ACTION, GuiButton.of(actionIcon(enhanceable ? hand : null), this::handleAction));
         player.updateInventory();
     }
 
@@ -185,18 +204,22 @@ public final class EnhanceGui extends YeowoolGui {
             EnhanceConfig config = service.config();
             int stage = service.itemData().stage(hand);
             if (level >= TranscendRules.levelCap(stage, config.maxLevel())) {
-                lore.add(Component.text("이미 최대 강화 수치입니다. (+" + config.maxLevel() + ")", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
+                lore.add(Component.text("이미 최대 강화 수치입니다. (+" + TranscendRules.levelCap(stage, config.maxLevel()) + ")", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
             } else {
                 EnhanceTier currentTier = config.tierFor(level);
                 var cost = service.costs().costFor(level);
                 lore.add(Component.text("현재: +" + level + "강 (", NamedTextColor.GRAY)
-                        .append(Component.text(gradeName(hand), stage > 0 ? NamedTextColor.GOLD : currentTier.color()))
+                        .append(Component.text(gradeName(hand), stage > 0
+                                ? config.transcendStage(stage).map(TranscendStage::color).orElse(NamedTextColor.DARK_PURPLE)
+                                : currentTier.color()))
                         .append(Component.text(")", NamedTextColor.GRAY)).decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.text("성공 확률: " + config.successRate(level) + "%", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.text("필요 온: " + String.format("%,d", service.enhanceCurrency(hand)), NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.text("필요 " + EnhanceMaterialResolver.displayName(cost.materialId()) + ": " + cost.materialAmount() + "개", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
                 if (config.isFailRisky(level)) {
-                    lore.add(Component.text("⚠ 실패 시 하락/파괴 위험이 있습니다!", NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));
+                    boolean noDestroy = stage > 0 && config.transcendProtectFromDestroy();
+                    lore.add(Component.text(noDestroy ? "⚠ 실패 시 하락 위험이 있습니다! (초월 장비는 파괴되지 않음)" : "⚠ 실패 시 하락/파괴 위험이 있습니다!",
+                            NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));
                     String protection = config.protectionItemId();
                     if (protection != null && !protection.isBlank()) {
                         lore.add(Component.text(EnhanceMaterialResolver.displayName(protection) + " 소지 시 자동으로 보호됩니다.", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
@@ -224,7 +247,9 @@ public final class EnhanceGui extends YeowoolGui {
         meta.displayName(Component.text("✦ 초월하기 — " + target.name(), target.color(), TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
         List<Component> lore = new ArrayList<>();
         if (nextStage == 1) {
-            lore.add(Component.text("성공 시 네더라이트 장비로 바뀌고 0강부터 다시 강화합니다.", NamedTextColor.LIGHT_PURPLE).decoration(TextDecoration.ITALIC, false));
+            boolean becomesNetherite = !TranscendRules.netheriteVariant(hand.getType().name()).equals(hand.getType().name());
+            lore.add(Component.text(becomesNetherite ? "성공 시 네더라이트 장비로 바뀌고 0강부터 다시 강화합니다."
+                    : "성공 시 0강부터 다시 강화합니다. (이 장비는 모양이 그대로 유지됩니다)", NamedTextColor.LIGHT_PURPLE).decoration(TextDecoration.ITALIC, false));
         } else {
             lore.add(Component.text("성공 시 강화 수치를 유지한 채 " + target.name() + "로 올라갑니다.", NamedTextColor.LIGHT_PURPLE).decoration(TextDecoration.ITALIC, false));
         }

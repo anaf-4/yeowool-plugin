@@ -77,6 +77,8 @@ public final class YeowoolEnhance extends JavaPlugin {
             settingsCommand.setExecutor(executorCmd);
             settingsCommand.setTabCompleter(executorCmd);
         }
+        getServer().getPluginManager().registerEvents(new EnhanceRepairListener(this, itemData), this);
+
         var stoneCommand = getCommand("초월석");
         if (stoneCommand != null) {
             var stoneExecutor = new TranscendStoneCommand(core, messages, config);
