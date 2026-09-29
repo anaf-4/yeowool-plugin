@@ -20,6 +20,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
@@ -116,7 +117,8 @@ public final class ExchangeService {
             String fail = null;
             boolean claimed = false;
             try {
-                if (!repository.exists(entry.id())) {
+                // the GUI may be older than an edit or delete — only trade on exactly what the player saw
+                if (!repository.get(entry.id()).equals(Optional.of(entry))) {
                     fail = "exchange.gone";
                 } else if (period != null && !(claimed = repository.claimUse(uuid, entry.id(), period, entry.limitCount()))) {
                     fail = "exchange.limit-reached";
