@@ -40,6 +40,21 @@ class TranscendRulesTest {
     }
 
     @Test
+    void transcendedArmorDefaultsReachToughnessCapAndFortyHealthAtTheTop() {
+        // per piece, netherite base toughness is 3 → 12 for a set; the cap is 20
+        double toughnessPerPiece = TranscendRules.bonus(3, 30, 30, 0.008, 0, 4.2);
+        assertEquals(20.0, 12 + 4 * toughnessPerPiece, 0.1);
+        assertEquals(40.3, 4 * TranscendRules.bonus(3, 30, 30, 0.04, 0, 4.2), 0.1);
+        assertEquals(15.4, 4 * TranscendRules.bonus(1, 0, 30, 0.04, 0, 3.2), 0.1);
+    }
+
+    @Test
+    void toolDefaultPeaksAroundEfficiencyFive() {
+        assertEquals(9.0, TranscendRules.bonus(0, 30, 30, 0.1, 3.0, 0), 1e-9);
+        assertEquals(25.2, TranscendRules.bonus(3, 30, 30, 0.1, 1.0, 4.2), 1e-9);
+    }
+
+    @Test
     void bonusNeverDropsWhenTranscendingAndPeaksAtStageThree() {
         double beforeTranscend = TranscendRules.bonus(0, 30, 30, 0.4, 3.0, 0);
         double firstStageStart = TranscendRules.bonus(1, 0, 30, 0.4, 1.0, 3.2);

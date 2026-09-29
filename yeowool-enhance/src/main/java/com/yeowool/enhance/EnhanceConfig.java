@@ -30,6 +30,8 @@ public final class EnhanceConfig {
     private final double weaponAttackDamagePerLevel;
     private final double armorArmorPerLevel;
     private final double toolMiningEfficiencyPerLevel;
+    private final double armorToughnessPerLevel;
+    private final double armorHealthPerLevel;
     private final List<TranscendStage> transcendStages;
     private final boolean transcendProtectFromDestroy;
 
@@ -38,7 +40,8 @@ public final class EnhanceConfig {
                            double failDestroyChancePercent, double failDowngradeChancePercent, String protectionItemId,
                            double weaponAttackDamagePerLevel, double armorArmorPerLevel,
                            double toolMiningEfficiencyPerLevel, List<TranscendStage> transcendStages,
-                           boolean transcendProtectFromDestroy) {
+                           boolean transcendProtectFromDestroy,
+                           double armorToughnessPerLevel, double armorHealthPerLevel) {
         this.maxLevel = maxLevel;
         this.tiers = tiers;
         this.defaultSuccessRate = defaultSuccessRate;
@@ -50,6 +53,8 @@ public final class EnhanceConfig {
         this.weaponAttackDamagePerLevel = weaponAttackDamagePerLevel;
         this.armorArmorPerLevel = armorArmorPerLevel;
         this.toolMiningEfficiencyPerLevel = toolMiningEfficiencyPerLevel;
+        this.armorToughnessPerLevel = armorToughnessPerLevel;
+        this.armorHealthPerLevel = armorHealthPerLevel;
         this.transcendStages = transcendStages;
         this.transcendProtectFromDestroy = transcendProtectFromDestroy;
     }
@@ -121,7 +126,9 @@ public final class EnhanceConfig {
                 root.getDouble("armor-armor-per-level", 0.25),
                 root.getDouble("tool-mining-efficiency-per-level", 0.3),
                 transcendStages,
-                root.getBoolean("transcend.protect-from-destroy", true)
+                root.getBoolean("transcend.protect-from-destroy", true),
+                root.getDouble("armor-toughness-per-level", 0.008),
+                root.getDouble("armor-health-per-level", 0.04)
         );
     }
 
@@ -183,6 +190,16 @@ public final class EnhanceConfig {
 
     public double toolMiningEfficiencyPerLevel() {
         return toolMiningEfficiencyPerLevel;
+    }
+
+    /** Transcended armor only: armor toughness per (30 + level), times the stage multiplier. */
+    public double armorToughnessPerLevel() {
+        return armorToughnessPerLevel;
+    }
+
+    /** Transcended armor only: max health per (30 + level), times the stage multiplier. */
+    public double armorHealthPerLevel() {
+        return armorHealthPerLevel;
     }
 
     /** The configured stage {@code stage} (1..3), if any — a missing stage means transcendence stops before it. */
