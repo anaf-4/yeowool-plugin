@@ -63,6 +63,8 @@ public final class EnhanceItemData {
     private final NamespacedKey attackDamageModifierKey;
     private final NamespacedKey armorModifierKey;
     private final NamespacedKey miningModifierKey;
+    private final NamespacedKey toughnessModifierKey;
+    private final NamespacedKey healthModifierKey;
     private final Set<NamespacedKey> ownModifierKeys;
     private final EnhanceConfig config;
 
@@ -74,7 +76,10 @@ public final class EnhanceItemData {
         this.attackDamageModifierKey = new NamespacedKey(plugin, "enhance_attack_damage");
         this.armorModifierKey = new NamespacedKey(plugin, "enhance_armor");
         this.miningModifierKey = new NamespacedKey(plugin, "enhance_mining");
-        this.ownModifierKeys = Set.of(attackDamageModifierKey, armorModifierKey, miningModifierKey);
+        this.toughnessModifierKey = new NamespacedKey(plugin, "enhance_toughness");
+        this.healthModifierKey = new NamespacedKey(plugin, "enhance_health");
+        this.ownModifierKeys = Set.of(attackDamageModifierKey, armorModifierKey, miningModifierKey,
+                toughnessModifierKey, healthModifierKey);
         this.config = config;
     }
 
@@ -166,14 +171,32 @@ public final class EnhanceItemData {
 
         MaterialCategory category = MaterialCategory.of(item.getType());
         double bonus = TranscendRules.bonus(stage, level, config.maxLevel(), perLevel(category), tier.statMultiplier(), stageMultiplier);
+        // Vanilla caps total armor at 30, so past the pre-transcend peak armor growth moves to toughness and max health.
+        boolean transcendedArmor = category == MaterialCategory.ARMOR && stage > 0;
+        if (transcendedArmor) {
+            bonus = TranscendRules.bonus(0, config.maxLevel(), config.maxLevel(), config.armorArmorPerLevel(),
+                    config.tierFor(config.maxLevel()).statMultiplier(), 0);
+        }
+        double toughness = transcendedArmor
+                ? TranscendRules.bonus(stage, level, config.maxLevel(), config.armorToughnessPerLevel(), 0, stageMultiplier) : 0;
+        double health = transcendedArmor
+                ? TranscendRules.bonus(stage, level, config.maxLevel(), config.armorHealthPerLevel(), 0, stageMultiplier) : 0;
         if (enhanced) {
             lore.add(Component.text("등급: ", NamedTextColor.GRAY).append(Component.text(gradeName, gradeColor))
                     .decoration(TextDecoration.ITALIC, false));
             switch (category) {
                 case WEAPON -> lore.add(Component.text(String.format("공격력 +%.1f", bonus), NamedTextColor.RED)
                         .decoration(TextDecoration.ITALIC, false));
-                case ARMOR -> lore.add(Component.text(String.format("방어력 +%.1f", bonus), NamedTextColor.AQUA)
-                        .decoration(TextDecoration.ITALIC, false));
+                case ARMOR -> {
+                    lore.add(Component.text(String.format("방어력 +%.1f", bonus), NamedTextColor.AQUA)
+                            .decoration(TextDecoration.ITALIC, false));
+                    if (transcendedArmor) {
+                        lore.add(Component.text(String.format("방어 강도 +%.2f", toughness), NamedTextColor.DARK_AQUA)
+                                .decoration(TextDecoration.ITALIC, false));
+                        lore.add(Component.text(String.format("최대 체력 +%.1f", health), NamedTextColor.RED)
+                                .decoration(TextDecoration.ITALIC, false));
+                    }
+                }
                 case TOOL -> lore.add(Component.text(String.format("채굴 속도 +%.1f", bonus), NamedTextColor.YELLOW)
                         .decoration(TextDecoration.ITALIC, false));
                 default -> {
@@ -182,7 +205,7 @@ public final class EnhanceItemData {
         }
         meta.lore(lore.isEmpty() ? null : lore);
 
-        rebuildAttributes(item, meta, enhanced, category, bonus);
+        rebuildAttributes(item, meta, enhanced, category, bonus, toughness, health);
         item.setItemMeta(meta);
 
         if (enhanced) {
@@ -207,7 +230,8 @@ public final class EnhanceItemData {
      * Only the default modifiers' keys are dropped, so other plugins' or legacy {@code minecraft:<uuid>}
      * modifiers survive.
      */
-    private void rebuildAttributes(ItemStack item, ItemMeta meta, boolean enhanced, MaterialCategory category, double bonus) {
+    private void rebuildAttributes(ItemStack item, ItemMeta meta, boolean enhanced, MaterialCategory category, double bonus,
+                                   double toughness, double health) {
         Multimap<Attribute, AttributeModifier> defaults = item.getType().getDefaultAttributeModifiers();
         Set<NamespacedKey> defaultKeys = new HashSet<>();
         defaults.values().forEach(modifier -> defaultKeys.add(modifier.getKey()));
@@ -233,8 +257,18 @@ public final class EnhanceItemData {
         switch (category) {
             case WEAPON -> meta.addAttributeModifier(Attribute.ATTACK_DAMAGE, new AttributeModifier(
                     attackDamageModifierKey, bonus, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
-            case ARMOR -> meta.addAttributeModifier(Attribute.ARMOR, new AttributeModifier(
-                    armorModifierKey, bonus, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.ARMOR));
+            case ARMOR -> {
+                meta.addAttributeModifier(Attribute.ARMOR, new AttributeModifier(
+                        armorModifierKey, bonus, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.ARMOR));
+                if (toughness > 0) {
+                    meta.addAttributeModifier(Attribute.ARMOR_TOUGHNESS, new AttributeModifier(
+                            toughnessModifierKey, toughness, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.ARMOR));
+                }
+                if (health > 0) {
+                    meta.addAttributeModifier(Attribute.MAX_HEALTH, new AttributeModifier(
+                            healthModifierKey, health, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.ARMOR));
+                }
+            }
             case TOOL -> meta.addAttributeModifier(Attribute.MINING_EFFICIENCY, new AttributeModifier(
                     miningModifierKey, bonus, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
             default -> {

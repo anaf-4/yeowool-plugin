@@ -125,5 +125,7 @@ class EnhanceConfigTest {
         assertTrue(config.transcendStage(2).isEmpty());
         assertFalse(config.transcendProtectFromDestroy());
         assertEquals(0.5, config.toolMiningEfficiencyPerLevel());
+        assertEquals(0.008, config.armorToughnessPerLevel());
+        assertEquals(0.04, config.armorHealthPerLevel());
     }
 }
