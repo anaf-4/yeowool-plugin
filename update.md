@@ -8,6 +8,7 @@
 - **Warlord Kragan, The Bloodfury** (MythicMobs 보스 + 아레나): `MythicMobs/packs/WarlordKraganTheBloodfury`, 아레나 스키매틱 `WorldEdit/schematics/warlord_kragan_the_bloodfury_arena.schem`, ItemsAdder 보스바 `contents/khan_warlord_boss_bar` (ItemsAdder 옵션에 빠져 있던 보스바 이미지는 Nexo 옵션에서 가져와 넣음). 소환: `/mm mobs spawn warlord_kragan_the_bloodfury`.
 - **Fantasy Metals Bundle** (광석·금속 블록 203종, `bundle_metals`): ItemsAdder 3 형식이라 ItemsAdder 4 `contents/bundle_metals` 구조로 옮겨 설치. 월드 생성(자연 광석 생성)은 없음.
 - **Casino Machines Pack** (`contents/iavegastables`, 카지노 테이블 모델 16종, BARRIER model_id 66601~66616): 실제 게임 동작은 Vegas 플러그인이 있어야 함 (현재 미설치 → 모델만 추가됨).
+  - 원본 카지노 아이템은 Vegas 전용 배리어 아이템이라 바닥에 놓으면 배리어 블록이 됨 → 같은 모델을 쓰는 **장식용 가구 16종**(`iavegastables:<이름>_decor`, 아머스탠드 가구, ItemsAdder 카테고리 "카지노 장식")을 `configs/items/yeowool_casino_decor.yml`로 추가. 원본 파일은 그대로.
 - 적용: 재시작 후 각 서버에서 `/iazip`.
 
 ### 서버 목록 MOTD 실시간 설정 + 순환 (yeowool-proxy, yeowool-admin)
