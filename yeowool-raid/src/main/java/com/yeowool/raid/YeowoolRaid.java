@@ -15,7 +15,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -109,6 +111,17 @@ public final class YeowoolRaid extends JavaPlugin {
             spawnTime = LocalTime.of(21, 0);
         }
         List<Long> rankRewards = getConfig().getLongList("world-boss.rank-rewards");
+        Map<Integer, List<String>> rankCommands = new HashMap<>();
+        var rankSection = getConfig().getConfigurationSection("world-boss.rank-commands");
+        if (rankSection != null) {
+            for (String key : rankSection.getKeys(false)) {
+                try {
+                    rankCommands.put(Integer.parseInt(key), rankSection.getStringList(key));
+                } catch (NumberFormatException e) {
+                    getLogger().warning("world-boss.rank-commands의 '" + key + "'는 순위 숫자여야 합니다 — 건너뜁니다.");
+                }
+            }
+        }
         WorldBossService.Settings settings = new WorldBossService.Settings(
                 getConfig().getString("world-boss.world", "wild_world"),
                 getConfig().getString("world-boss.mythic-mob", "alocTheDemonicMech"),
@@ -117,7 +130,10 @@ public final class YeowoolRaid extends JavaPlugin {
                 Math.max(1, getConfig().getInt("world-boss.fight-minutes", 30)),
                 rankRewards,
                 getConfig().getLong("world-boss.participation-reward", 5000),
-                getConfig().getDouble("world-boss.min-damage-percent", 1) / 100.0);
+                getConfig().getDouble("world-boss.min-damage-percent", 1) / 100.0,
+                rankCommands,
+                getConfig().getStringList("world-boss.participation-commands"),
+                getConfig().getDouble("world-boss.participation-command-chance", 20.0));
         MessageManager messages = new MessageManager(this);
         this.worldBoss = new WorldBossService(this, core, messages, repository, executor, settings);
         getServer().getPluginManager().registerEvents(worldBoss, this);
