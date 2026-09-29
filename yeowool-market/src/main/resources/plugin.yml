@@ -64,6 +64,9 @@ commands:
     description: 내가 올린 의뢰 목록을 엽니다 (의뢰 게시판은 게시판 가구를 우클릭)
   떠돌이상인:
     description: 떠돌이 상인의 현재 위치를 확인합니다 (관리진은 후보 지점 관리·소환·퇴장)
+  교환소관리:
+    description: 교환소 항목 추가/목록/삭제, 교환소 NPC 연결 (관리진)
+    permission: yeowool.market.shop.manage
 
 permissions:
   yeowool.market.shop.manage:

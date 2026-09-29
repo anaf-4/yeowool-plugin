@@ -28,6 +28,10 @@ import com.yeowool.market.command.ShopRotationAddCommand;
 import com.yeowool.market.command.ShopRotationClearCommand;
 import com.yeowool.market.command.ShopRotationSetCommand;
 import com.yeowool.market.command.TradeCommand;
+import com.yeowool.market.exchange.ExchangeCommand;
+import com.yeowool.market.exchange.ExchangeNpcListener;
+import com.yeowool.market.exchange.ExchangeRepository;
+import com.yeowool.market.exchange.ExchangeService;
 import com.yeowool.market.merchant.MerchantCommand;
 import com.yeowool.market.merchant.MerchantRepository;
 import com.yeowool.market.merchant.MerchantRules;
@@ -251,6 +255,22 @@ public final class YeowoolMarket extends JavaPlugin {
             }, 20L * 60, 20L * 60);
         } catch (Exception e) {
             getLogger().severe("의뢰 게시판 초기화 실패 — 의뢰 게시판을 끕니다: " + e.getMessage());
+        }
+
+        // 교환소 — 플레이어는 교환소 NPC(Citizens)로만 엶. 실패해도 나머지 기능은 그대로.
+        try {
+            ExchangeRepository exchangeRepository = new ExchangeRepository(core.dataSource());
+            exchangeRepository.createTables();
+            ExchangeService exchange = new ExchangeService(this, core, messages, exchangeRepository, executor);
+            var exchangeCommand = new ExchangeCommand(this, messages, exchange, executor);
+            bindCommand("교환소관리", exchangeCommand, exchangeCommand);
+            if (getServer().getPluginManager().isPluginEnabled("Citizens")) {
+                getServer().getPluginManager().registerEvents(new ExchangeNpcListener(exchange), this);
+            } else {
+                getLogger().warning("Citizens가 없어 이 서버에서는 교환소 NPC를 쓸 수 없습니다.");
+            }
+        } catch (Exception e) {
+            getLogger().severe("교환소 초기화 실패 — 교환소를 끕니다: " + e.getMessage());
         }
 
         getLogger().info("YeowoolMarket이 활성화되었습니다.");
