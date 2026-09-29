@@ -524,7 +524,8 @@ public final class YeowoolLife extends JavaPlugin {
             rewards.put(tier, new TreasureService.TierReward(
                     config.getLong("treasure.tiers." + key + ".money-min", 0),
                     config.getLong("treasure.tiers." + key + ".money-max", 0),
-                    config.getInt("treasure.tiers." + key + ".item-rolls", 0)));
+                    config.getInt("treasure.tiers." + key + ".item-rolls", 0),
+                    config.getLong("treasure.tiers." + key + ".stardust", 0)));
             itemIds.put(tier, config.getString("treasure.tiers." + key + ".item-id", ""));
         }
         TreasureService.Settings settings = new TreasureService.Settings(
@@ -550,6 +551,22 @@ public final class YeowoolLife extends JavaPlugin {
         getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::announceLegendaryDigs), 20L * 60, 20L * 60);
     }
 
+    /** {@code <path>.<순위>: 값} → rank map; non-numeric keys are skipped with a warning. */
+    private Map<Integer, Long> rankMap(String path) {
+        Map<Integer, Long> result = new HashMap<>();
+        ConfigurationSection section = getConfig().getConfigurationSection(path);
+        if (section != null) {
+            for (String rank : section.getKeys(false)) {
+                try {
+                    result.put(Integer.parseInt(rank), section.getLong(rank));
+                } catch (NumberFormatException e) {
+                    getLogger().warning(path + "의 '" + rank + "'는 순위 숫자여야 합니다 — 건너뜁니다.");
+                }
+            }
+        }
+        return result;
+    }
+
     /** 생활 대회 — 매일 같은 시각, 세 서버 합산 행동 횟수로 순위 (종목은 날짜별 순환). */
     private void enableLifeCompetition(YeowoolCoreAPI core, MessageManager messages) {
         var config = getConfig();
@@ -568,22 +585,13 @@ public final class YeowoolLife extends JavaPlugin {
             CompetitionActivity.byKey(key).ifPresentOrElse(rotation::add, () -> getLogger().warning(
                     "life-competition.rotation의 '" + key + "'는 fishing/mining/hunting/farming 중 하나여야 합니다 — 건너뜁니다."));
         }
-        Map<Integer, Long> rewards = new HashMap<>();
-        ConfigurationSection rewardSection = config.getConfigurationSection("life-competition.rewards");
-        if (rewardSection != null) {
-            for (String rank : rewardSection.getKeys(false)) {
-                try {
-                    rewards.put(Integer.parseInt(rank), rewardSection.getLong(rank));
-                } catch (NumberFormatException e) {
-                    getLogger().warning("life-competition.rewards의 '" + rank + "'는 순위 숫자여야 합니다 — 건너뜁니다.");
-                }
-            }
-        }
+        Map<Integer, Long> rewards = rankMap("life-competition.rewards");
+        Map<Integer, Long> stardustRewards = rankMap("life-competition.stardust-rewards");
         CompetitionSchedule schedule = new CompetitionSchedule(ZoneId.systemDefault(),
                 config.getInt("life-competition.start-hour", 18),
                 config.getInt("life-competition.duration-minutes", 60),
                 rotation);
-        LifeCompetitionService service = new LifeCompetitionService(this, core, messages, repository, schedule, rewards, executor);
+        LifeCompetitionService service = new LifeCompetitionService(this, core, messages, repository, schedule, rewards, stardustRewards, executor);
         this.lifeCompetition = service;
         getServer().getPluginManager().registerEvents(new LifeCompetitionListener(service), this);
         var command = getCommand("생활대회");

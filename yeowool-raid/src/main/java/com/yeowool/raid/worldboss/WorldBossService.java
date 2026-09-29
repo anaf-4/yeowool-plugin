@@ -50,7 +50,7 @@ public final class WorldBossService implements Listener {
     public record Settings(String world, String mobId, LocalTime spawnTime, int announceMinutes, int fightMinutes,
                            List<Long> rankRewards, long participationReward, double minDamageShare,
                            Map<Integer, List<String>> rankCommands, List<String> participationCommands,
-                           double participationCommandChance) {
+                           double participationCommandChance, List<Long> rankStardust, long participationStardust) {
     }
 
     private static final String SOURCE = "YeowoolRaid";
@@ -280,6 +280,10 @@ public final class WorldBossService implements Listener {
     /** Console commands per reward ({player} replaced) — e.g. transcendence stones via YeowoolEnhance. */
     private void runRewardCommands(List<WorldBossRules.Reward> rewards) {
         for (WorldBossRules.Reward reward : rewards) {
+            long dust = reward.rank() > 0 && reward.rank() <= settings.rankStardust().size()
+                    ? settings.rankStardust().get(reward.rank() - 1) : settings.participationStardust();
+            core.stardust().grant(reward.player(), dust, SOURCE,
+                    "월드보스 " + (reward.rank() > 0 ? reward.rank() + "위" : "참여"));
             String name = names.get(reward.player());
             if (name == null) {
                 continue;

@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -55,6 +56,8 @@ public final class QuestManager {
     private final YeowoolCoreAPI core;
     private final Map<Period, List<QuestDefinition>> pools = new EnumMap<>(Period.class);
     private final Map<Period, Map<QuestDifficulty, Integer>> counts = new EnumMap<>(Period.class);
+    /** 별조각 per completed quest — {@code <daily|weekly>.stardust.<easy|medium|hard>}. */
+    private final Map<Period, Map<QuestDifficulty, Long>> stardust = new EnumMap<>(Period.class);
     private BattlePassManager battlePassManager;
 
     public QuestManager(JavaPlugin plugin, YeowoolCoreAPI core) {
@@ -86,6 +89,14 @@ public final class QuestManager {
             periodCounts.put(QuestDifficulty.MEDIUM, plugin.getConfig().getInt(period.configKey() + ".medium-count", 4));
             periodCounts.put(QuestDifficulty.HARD, plugin.getConfig().getInt(period.configKey() + ".hard-count", 4));
             counts.put(period, periodCounts);
+
+            long[] dustDefaults = period == Period.DAILY ? new long[]{1, 2, 3} : new long[]{3, 5, 8};
+            Map<QuestDifficulty, Long> dust = new EnumMap<>(QuestDifficulty.class);
+            for (QuestDifficulty difficulty : QuestDifficulty.values()) {
+                dust.put(difficulty, plugin.getConfig().getLong(
+                        period.configKey() + ".stardust." + difficulty.name().toLowerCase(Locale.ROOT), dustDefaults[difficulty.ordinal()]));
+            }
+            stardust.put(period, dust);
         }
     }
 
@@ -218,6 +229,11 @@ public final class QuestManager {
         if (quest.rewardOn() > 0) {
             core.economyData().modifyBalance(player.getUniqueId(), quest.rewardOn(), "YeowoolCommunity",
                     (period == Period.DAILY ? "일일" : "주간") + " 퀘스트: " + quest.id());
+        }
+        long dust = stardust.get(period).getOrDefault(quest.difficulty(), 0L);
+        if (dust > 0) {
+            core.stardust().grant(player.getUniqueId(), dust, "YeowoolCommunity",
+                    (period == Period.DAILY ? "일일" : "주간") + " 퀘스트 완료");
         }
         data.addStatistic(TOTAL_COMPLETED_STAT_KEY, 1);
         if (battlePassManager != null) {

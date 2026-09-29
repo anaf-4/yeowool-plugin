@@ -21,3 +21,14 @@ mailbox:
 
 payout:
   received: "<green><reason>: <amount>온을 받았습니다.</green>"
+
+stardust:
+  received: "<light_purple>✦ 별조각 +<amount></light_purple> <gray>(<reason>)</gray>"
+  balance: "<light_purple>✦ 내 별조각: <amount>개</light_purple> <gray>(교환소 NPC에서 사용)</gray>"
+  balance-other: "<light_purple><player>님의 별조각: <amount>개</light_purple>"
+  granted: "<green><player>님에게 별조각 <amount>개를 지급했습니다.</green>"
+  taken: "<green><player>님의 별조각 <amount>개를 회수했습니다.</green>"
+  insufficient: "<red><player>님의 별조각이 <amount>개보다 적습니다.</red>"
+  unknown-player: "<red>한 번도 접속한 적 없는 플레이어입니다.</red>"
+  usage: "<gray>/별조각 | /별조각 확인 [닉네임] | /별조각 지급 [닉네임] [개수] | /별조각 회수 [닉네임] [개수]</gray>"
+  error: "<red>처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</red>"

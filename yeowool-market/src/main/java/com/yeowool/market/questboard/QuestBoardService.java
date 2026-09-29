@@ -30,7 +30,8 @@ import java.util.logging.Level;
  */
 public final class QuestBoardService {
 
-    public record Settings(String furnitureId, int feePercent, long durationMillis, int maxOpenPerPlayer, int maxQuantity) {
+    public record Settings(String furnitureId, int feePercent, long durationMillis, int maxOpenPerPlayer, int maxQuantity,
+                           long stardustPerReward, long stardustDailyCap) {
     }
 
     /** A player partway through the chat prompts; quantity 0 means we're still asking for the quantity. */
@@ -298,6 +299,11 @@ public final class QuestBoardService {
             return;
         }
         giveStacks(request.requester(), request.sample(), amount, "의뢰 #" + request.id() + " 납품품");
+        if (settings.stardustPerReward() > 0) {
+            // Capped per day: an alt posting requests only pays the fee, so this can't be the main 별조각 source.
+            core.stardust().grantCapped(deliverer, reward / settings.stardustPerReward(), SOURCE, "의뢰 납품",
+                    "quest-delivery", settings.stardustDailyCap());
+        }
         if (player != null) {
             messages.send(player, "questboard.delivered",
                     Placeholder.unparsed("item", request.itemLabel()),

@@ -6,6 +6,7 @@ import com.yeowool.core.api.service.LogService;
 import com.yeowool.core.api.service.MailboxService;
 import com.yeowool.core.api.service.MessageService;
 import com.yeowool.core.api.service.PayoutService;
+import com.yeowool.core.api.service.StardustService;
 import com.yeowool.core.api.service.PlayerDataService;
 import com.yeowool.core.api.service.PunishmentService;
 import com.yeowool.core.api.service.SoundService;
@@ -43,6 +44,9 @@ public interface YeowoolCoreAPI {
 
     /** Cross-server money payouts for players who may be offline or elsewhere — see {@link PayoutService}. */
     PayoutService payouts();
+
+    /** 별조각 point currency — see {@link StardustService}. */
+    StardustService stardust();
 
     /**
      * Shared connection pool, for Yeowool plugins that need their own tables

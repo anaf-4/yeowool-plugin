@@ -30,6 +30,8 @@ import com.yeowool.core.mailbox.MailboxJoinListener;
 import com.yeowool.core.mailbox.MailboxManager;
 import com.yeowool.core.message.MessageManager;
 import com.yeowool.core.payout.PayoutManager;
+import com.yeowool.core.stardust.StardustCommand;
+import com.yeowool.core.stardust.StardustManager;
 import com.yeowool.core.punishment.PunishmentManager;
 import com.yeowool.core.sound.SoundManager;
 import com.yeowool.core.util.ConfigMerger;
@@ -87,6 +89,8 @@ public final class YeowoolCore extends JavaPlugin {
         this.soundManager = new SoundManager(this);
         this.payoutManager = new PayoutManager(this, new PayoutRepository(databaseManager.getDataSource()),
                 economyDataService, messageManager, databaseManager.getExecutor());
+        StardustManager stardustManager = new StardustManager(this, databaseManager.getDataSource(),
+                databaseManager.getExecutor(), logManager, messageManager);
 
         YeowoolCoreAPI api = new YeowoolCoreAPIImpl(
                 playerDataService,
@@ -98,6 +102,7 @@ public final class YeowoolCore extends JavaPlugin {
                 mailboxManager,
                 punishmentManager,
                 payoutManager,
+                stardustManager,
                 databaseManager.getDataSource()
         );
         getServer().getServicesManager().register(YeowoolCoreAPI.class, api, this, ServicePriority.Normal);
@@ -126,6 +131,13 @@ public final class YeowoolCore extends JavaPlugin {
         var appLinkCommand = getCommand("앱연동");
         if (appLinkCommand != null) {
             appLinkCommand.setExecutor(new AppLinkCommand(this, databaseManager.getDataSource(), databaseManager.getExecutor()));
+        }
+
+        var stardustCommand = getCommand("별조각");
+        if (stardustCommand != null) {
+            var executorCmd = new StardustCommand(this, messageManager, stardustManager);
+            stardustCommand.setExecutor(executorCmd);
+            stardustCommand.setTabCompleter(executorCmd);
         }
 
         var helpCommand = getCommand("여울도움말");

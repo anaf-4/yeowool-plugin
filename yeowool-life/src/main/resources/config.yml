@@ -891,7 +891,7 @@ treasure:
     common: 80
     rare: 17
     legendary: 3
-  # 등급별 보상: 온(범위 내 무작위) + 아이템 후보 중 item-rolls개 (/보물지도 보상설정으로 후보 편집)
+  # 등급별 보상: 온(범위 내 무작위) + 아이템 후보 중 item-rolls개 (/보물지도 보상설정으로 후보 편집) + 별조각 stardust개
   # item-id: 지도 아이템으로 쓸 ItemsAdder 아이템 ID (비우면 종이)
   tiers:
     common:
@@ -899,16 +899,19 @@ treasure:
       money-max: 5000
       item-rolls: 1
       item-id: ""
+      stardust: 2
     rare:
       money-min: 10000
       money-max: 30000
       item-rolls: 2
       item-id: ""
+      stardust: 5
     legendary:
       money-min: 50000
       money-max: 150000
       item-rolls: 3
       item-id: ""
+      stardust: 15
 
 # 도감 완성 보상 — 물고기/광물/사냥/작물 도감마다 수집률이 아래 퍼센트를 넘으면 자동 지급(각 단계 한 번씩).
 # 접속 5초 뒤와 1분마다 확인합니다. commands는 콘솔로 실행되며 {player}, {category}(한글), {category_key}(fishing/mining/hunting/farming) 치환.
@@ -943,6 +946,11 @@ life-competition:
     1: 50000
     2: 30000
     3: 10000
+  # 순위 보상 별조각(교환소 포인트)
+  stardust-rewards:
+    1: 20
+    2: 15
+    3: 10
 
 # 깜짝 이벤트 — 아래 worlds 중 하나가 있는 서버(마을·야생)끼리 같은 짧은 버프 이벤트를 자동으로 엽니다(로비는 자동 제외).
 # 끝난 뒤 interval-min~max분 사이 무작위로 다음 이벤트, duration-minutes분 진행. 직전과 같은 종류는 피합니다.
