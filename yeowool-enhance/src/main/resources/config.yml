@@ -1,4 +1,4 @@
-# 강화 시스템 — 무기(검/도끼/활/석궁/삼지창)와 방어구(투구/흉갑/각반/신발)만 강화 가능합니다.
+# 강화 시스템 — 무기(검/도끼/활/석궁/삼지창), 방어구(투구/흉갑/각반/신발), 도구(곡괭이/삽/괭이)를 강화할 수 있습니다.
 # 9강까지는 "일반" 등급, 10강 성공 시 "희귀", 15강 성공 시 "에픽"으로 등급이 자동으로 올라갑니다.
 # (이 목록에 항목을 추가하면 그 이상 등급도 계속 이어집니다 — level 오름차순으로 정렬되어 있어야 합니다)
 enhance:
@@ -57,6 +57,44 @@ enhance:
   # 능력치 보너스 — 무기는 공격력, 방어구는 방어력에 (강화 수치 * 아래 값 * 등급 배율)만큼 추가됩니다.
   weapon-attack-damage-per-level: 0.4
   armor-armor-per-level: 0.25
+  # 도구(곡괭이/삽/괭이)는 강화 수치 * 아래 값 * 등급 배율만큼 채굴 속도가 오릅니다.
+  tool-mining-efficiency-per-level: 0.3
+
+  # 초월 — 30강 → 1차 초월(네더라이트로 변경, 0강부터 다시) → 10강에서 2차 초월 → 20강에서 3차 초월 → 30강이 최고 성능.
+  # 초월한 뒤 능력치 = (30 + 강화 수치) * 1강당 보너스 * stat-multiplier (신화 등급 배율보다 커야 초월 직후 하락이 없습니다).
+  # 초월 시도: stone-item(ItemsAdder 초월석) stone-amount개 + currency온, success-rate% — 실패해도 장비는 그대로(초월석·온만 소모).
+  # 초월한 장비의 일반 강화 비용(온)은 단계별 비용 * enhance-cost-multiplier.
+  transcend:
+    # true면 초월한 장비는 강화 실패로 파괴되지 않고 하락만 합니다.
+    protect-from-destroy: true
+    stages:
+      - stage: 1
+        name: "1차 초월"
+        color: DARK_AQUA
+        stat-multiplier: 3.2
+        stone-item: "yeowool_enhance:transcend_stone_1"
+        stone-amount: 1
+        currency: 500000
+        success-rate: 60.0
+        enhance-cost-multiplier: 2.0
+      - stage: 2
+        name: "2차 초월"
+        color: DARK_PURPLE
+        stat-multiplier: 3.6
+        stone-item: "yeowool_enhance:transcend_stone_2"
+        stone-amount: 1
+        currency: 1000000
+        success-rate: 40.0
+        enhance-cost-multiplier: 3.0
+      - stage: 3
+        name: "3차 초월"
+        color: DARK_RED
+        stat-multiplier: 4.2
+        stone-item: "yeowool_enhance:transcend_stone_3"
+        stone-amount: 1
+        currency: 2000000
+        success-rate: 25.0
+        enhance-cost-multiplier: 4.0
 
 # /인챈트강화 — /강화(+N강)와 완전히 별도인 시스템입니다. AdvancedEnchantments 원작 그대로
 # 엔챈터(우클릭으로 등급별 인챈트북 구매) → 틴커러(책을 넣으면 마법 가루+온으로 거래) →

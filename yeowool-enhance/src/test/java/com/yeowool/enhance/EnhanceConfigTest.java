@@ -96,4 +96,34 @@ class EnhanceConfigTest {
         assertTrue(config.isFailRisky(15));
         assertTrue(config.isFailRisky(29));
     }
+
+    @Test
+    void transcendStagesParseAndMissingStageIsEmpty() {
+        String yaml = YAML + """
+                  tool-mining-efficiency-per-level: 0.5
+                  transcend:
+                    protect-from-destroy: false
+                    stages:
+                      - stage: 1
+                        name: "1차 초월"
+                        color: DARK_AQUA
+                        stat-multiplier: 3.2
+                        stone-item: "yeowool_enhance:transcend_stone_1"
+                        stone-amount: 1
+                        currency: 500000
+                        success-rate: 60.0
+                        enhance-cost-multiplier: 2.0
+                """;
+        EnhanceConfig config = EnhanceConfig.load(YamlConfiguration.loadConfiguration(new StringReader(yaml)));
+        TranscendStage first = config.transcendStage(1).orElseThrow();
+        assertEquals("1차 초월", first.name());
+        assertEquals(3.2, first.statMultiplier());
+        assertEquals("yeowool_enhance:transcend_stone_1", first.stoneItemId());
+        assertEquals(500000L, first.currency());
+        assertEquals(60.0, first.successRate());
+        assertEquals(2.0, first.enhanceCostMultiplier());
+        assertTrue(config.transcendStage(2).isEmpty());
+        assertFalse(config.transcendProtectFromDestroy());
+        assertEquals(0.5, config.toolMiningEfficiencyPerLevel());
+    }
 }
