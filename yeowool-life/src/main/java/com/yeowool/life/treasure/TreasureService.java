@@ -33,7 +33,7 @@ import java.util.logging.Level;
  */
 public final class TreasureService {
 
-    public record TierReward(long moneyMin, long moneyMax, int itemRolls) {
+    public record TierReward(long moneyMin, long moneyMax, int itemRolls, long stardust) {
     }
 
     public record Settings(String digWorld, int centerX, int centerZ, int minRadius, int maxRadius, long expireMillis,
@@ -227,6 +227,7 @@ public final class TreasureService {
         for (ItemStack item : items) {
             core.mailbox().deliverOrStore(uuid, item.clone(), SOURCE, "보물 발굴 (" + data.tier().label() + ")");
         }
+        core.stardust().grant(uuid, reward.stardust(), SOURCE, "보물 발굴 (" + data.tier().label() + ")");
         if (player == null) {
             // ponytail: sub-tick window between the claim and here — money can't be credited offline, so leave a trail for staff.
             plugin.getLogger().warning("보물 발굴 직후 접속 종료로 온 보상 미지급 — 수동 지급 필요: " + uuid + " " + money + "온 (지도 #" + data.id() + ")");

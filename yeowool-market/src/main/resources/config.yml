@@ -102,6 +102,9 @@ quest-board:
   max-open-per-player: 5
   # 의뢰 하나의 최대 수량
   max-quantity: 100000
+  # 납품 보상 이 금액(온)당 별조각 1개, 한 사람당 하루 최대 stardust-daily-cap개 (0이면 끔)
+  stardust-per-reward: 10000
+  stardust-daily-cap: 10
 
 # 떠돌이 상인 — 등록한 후보 지점(세 서버 어디든) 중 한 곳에 가끔 나타나 정해진 시간 동안 상점을 엽니다.
 # 세 서버에 한 명만 존재하며, 세 서버 설정을 똑같이 맞춰주세요. 서버 식별은 위 npc-shop.this-server-id를 씁니다.

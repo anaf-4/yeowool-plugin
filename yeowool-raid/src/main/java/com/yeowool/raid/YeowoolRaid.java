@@ -133,7 +133,9 @@ public final class YeowoolRaid extends JavaPlugin {
                 getConfig().getDouble("world-boss.min-damage-percent", 1) / 100.0,
                 rankCommands,
                 getConfig().getStringList("world-boss.participation-commands"),
-                getConfig().getDouble("world-boss.participation-command-chance", 20.0));
+                getConfig().getDouble("world-boss.participation-command-chance", 20.0),
+                getConfig().getLongList("world-boss.rank-stardust"),
+                getConfig().getLong("world-boss.participation-stardust", 5));
         MessageManager messages = new MessageManager(this);
         this.worldBoss = new WorldBossService(this, core, messages, repository, executor, settings);
         getServer().getPluginManager().registerEvents(worldBoss, this);

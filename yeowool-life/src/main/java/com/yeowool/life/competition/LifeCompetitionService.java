@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
+import java.util.stream.Stream;
 
 /**
  * Daily cross-server life competition. Scores are buffered per server and
@@ -45,6 +46,7 @@ public final class LifeCompetitionService {
     private final CompetitionRepository repository;
     private final CompetitionSchedule schedule;
     private final Map<Integer, Long> rewardsByRank;
+    private final Map<Integer, Long> stardustByRank;
     private final Executor executor;
 
     // main thread only
@@ -57,13 +59,15 @@ public final class LifeCompetitionService {
     private final AtomicBoolean settling = new AtomicBoolean();
 
     public LifeCompetitionService(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, CompetitionRepository repository,
-                                  CompetitionSchedule schedule, Map<Integer, Long> rewardsByRank, Executor executor) {
+                                  CompetitionSchedule schedule, Map<Integer, Long> rewardsByRank, Map<Integer, Long> stardustByRank,
+                                  Executor executor) {
         this.plugin = plugin;
         this.core = core;
         this.messages = messages;
         this.repository = repository;
         this.schedule = schedule;
         this.rewardsByRank = rewardsByRank;
+        this.stardustByRank = stardustByRank;
         this.executor = executor;
     }
 
@@ -136,7 +140,8 @@ public final class LifeCompetitionService {
         try {
             for (CompetitionRepository.Competition competition : repository.unpaidEnded(now - SETTLE_GRACE_MILLIS)) {
                 String label = CompetitionActivity.byKey(competition.activity()).map(CompetitionActivity::label).orElse(competition.activity());
-                int ranks = rewardsByRank.keySet().stream().mapToInt(Integer::intValue).max().orElse(0);
+                int ranks = Stream.concat(rewardsByRank.keySet().stream(), stardustByRank.keySet().stream())
+                        .mapToInt(Integer::intValue).max().orElse(0);
                 // Read the (already final, grace has passed) standings before claiming, so a failed read
                 // leaves the competition unpaid for the next attempt instead of claimed with no rewards.
                 List<CompetitionRepository.Standing> top = repository.top(competition.dateKey(), ranks);
@@ -148,12 +153,15 @@ public final class LifeCompetitionService {
                     long reward = rewardsByRank.getOrDefault(i + 1, 0L);
                     CompetitionRepository.Standing standing = top.get(i);
                     String reason = "생활 대회(" + label + ") " + (i + 1) + "위";
-                    try {
-                        core.payouts().enqueue(standing.player(), reward, SOURCE, reason);
-                    } catch (SQLException e) {
-                        plugin.getLogger().log(Level.SEVERE, "생활 대회 보상 장부 기록 실패 — 수동 지급 필요: "
-                                + standing.player() + " " + reward + "온 (" + reason + ")", e);
+                    if (reward > 0) {
+                        try {
+                            core.payouts().enqueue(standing.player(), reward, SOURCE, reason);
+                        } catch (SQLException e) {
+                            plugin.getLogger().log(Level.SEVERE, "생활 대회 보상 장부 기록 실패 — 수동 지급 필요: "
+                                    + standing.player() + " " + reward + "온 (" + reason + ")", e);
+                        }
                     }
+                    core.stardust().grant(standing.player(), stardustByRank.getOrDefault(i + 1, 0L), SOURCE, reason);
                 }
             }
             List<CompetitionRepository.Finished> finished = repository.paidSince(resultsAnnouncedUntil);

@@ -226,7 +226,9 @@ public final class YeowoolMarket extends JavaPlugin {
                     getConfig().getInt("quest-board.fee-percent", 5),
                     getConfig().getLong("quest-board.duration-hours", 72L) * 3_600_000L,
                     getConfig().getInt("quest-board.max-open-per-player", 5),
-                    getConfig().getInt("quest-board.max-quantity", 100000));
+                    getConfig().getInt("quest-board.max-quantity", 100000),
+                    getConfig().getLong("quest-board.stardust-per-reward", 10000),
+                    getConfig().getLong("quest-board.stardust-daily-cap", 10));
             payoutClaimer = new QuestPayoutClaimer(this, core, messages, questRepository, executor);
             questBoard = new QuestBoardService(this, core, messages, questRepository, payoutClaimer, executor, questSettings);
             getServer().getPluginManager().registerEvents(new QuestBoardListener(this, questBoard, payoutClaimer), this);
