@@ -1,5 +1,6 @@
 package com.yeowool.admin;
 
+import com.yeowool.admin.motd.MotdCommand;
 import com.yeowool.admin.antiexploit.AntiExploitListener;
 import com.yeowool.admin.antiexploit.DuplicationScanTask;
 import com.yeowool.admin.antiexploit.MacroDetectionListener;
@@ -160,6 +161,10 @@ public final class YeowoolAdmin extends JavaPlugin {
 
         // 관리자 아이템 카탈로그
         bindCommand("관리자아이템", new AdminItemCatalogCommand(messages, CatalogConfigLoader.load(this)));
+
+        // 서버 목록 MOTD (프록시에 실시간 반영)
+        var motdCommand = new MotdCommand(this, messages);
+        bindCommand("motd", motdCommand, motdCommand);
 
         // 플레이어 신고
         var reportCommand = new ReportCommand(this, core, messages);

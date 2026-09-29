@@ -11,6 +11,7 @@ import com.velocitypowered.api.event.connection.PluginMessageEvent;
 import com.velocitypowered.api.event.player.KickedFromServerEvent;
 import com.velocitypowered.api.event.player.PlayerChooseInitialServerEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
+import com.velocitypowered.api.event.proxy.ProxyPingEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
@@ -18,6 +19,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import com.yeowool.proxy.command.ServerCommand;
+import com.yeowool.proxy.motd.MotdManager;
 import com.yeowool.proxy.queue.QueueManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
@@ -49,6 +51,7 @@ public final class YeowoolProxy {
 
     private static final MinecraftChannelIdentifier CHAT_CHANNEL = MinecraftChannelIdentifier.create("yeowool", "chat");
     private static final MinecraftChannelIdentifier TARGETED_CHANNEL = MinecraftChannelIdentifier.create("yeowool", "targeted");
+    private static final MinecraftChannelIdentifier MOTD_CHANNEL = MinecraftChannelIdentifier.create("yeowool", "motd");
 
     private final ProxyServer server;
     private final Logger logger;
@@ -57,6 +60,7 @@ public final class YeowoolProxy {
     private Set<String> maintenanceServers = Set.of();
     private int maxPlayersPerServer = 100;
     private QueueManager queueManager;
+    private MotdManager motdManager;
 
     @Inject
     public YeowoolProxy(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory) {
@@ -75,6 +79,8 @@ public final class YeowoolProxy {
 
         server.getChannelRegistrar().register(CHAT_CHANNEL);
         server.getChannelRegistrar().register(TARGETED_CHANNEL);
+        server.getChannelRegistrar().register(MOTD_CHANNEL);
+        this.motdManager = new MotdManager(server, logger, dataDirectory);
 
         server.getScheduler().buildTask(this, () ->
                 server.getAllServers().forEach(registered -> queueManager.tick(registered, maxPlayersPerServer))
@@ -90,9 +96,15 @@ public final class YeowoolProxy {
      */
     @Subscribe
     public void onPluginMessage(PluginMessageEvent event) {
-        if ((event.getIdentifier().equals(TARGETED_CHANNEL) || event.getIdentifier().equals(CHAT_CHANNEL))
-                && !(event.getSource() instanceof com.velocitypowered.api.proxy.ServerConnection)) {
+        boolean ours = event.getIdentifier().equals(TARGETED_CHANNEL) || event.getIdentifier().equals(CHAT_CHANNEL)
+                || event.getIdentifier().equals(MOTD_CHANNEL);
+        if (ours && !(event.getSource() instanceof com.velocitypowered.api.proxy.ServerConnection)) {
             event.setResult(PluginMessageEvent.ForwardResult.handled());
+            return;
+        }
+        if (event.getIdentifier().equals(MOTD_CHANNEL)) {
+            event.setResult(PluginMessageEvent.ForwardResult.handled());
+            motdManager.handle(event.getData());
             return;
         }
         if (event.getIdentifier().equals(TARGETED_CHANNEL)) {
@@ -145,6 +157,16 @@ public final class YeowoolProxy {
         }
         for (java.util.UUID recipient : recipients) {
             server.getPlayer(recipient).ifPresent(player -> player.sendMessage(message));
+        }
+    }
+
+    /** Server list ping: the live MOTD from {@link MotdManager}, or velocity.toml's when none is set. */
+    @Subscribe
+    public void onProxyPing(ProxyPingEvent event) {
+        int max = event.getPing().getPlayers().map(players -> players.getMax()).orElse(server.getConfiguration().getShowMaxPlayers());
+        Component motd = motdManager.current(server.getPlayerCount(), max);
+        if (motd != null) {
+            event.setPing(event.getPing().asBuilder().description(motd).build());
         }
     }
 

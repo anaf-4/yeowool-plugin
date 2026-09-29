@@ -124,6 +124,10 @@ commands:
     description: "W6 Custom Mining 팩의 위장 채굴 몹을 자기 위치에 소환합니다 (예: /광석소환 다이아 3)"
     permission: yeowool.admin
     default: op
+  motd:
+    description: 서버 목록 MOTD를 실시간으로 설정합니다 (여러 개 등록 시 순환)
+    permission: yeowool.admin
+    default: op
   npc태그:
     description: 바라보고 있는 NPC(엔티티)의 이름표에 태그 아이콘을 붙이거나 제거합니다
     permission: yeowool.admin
