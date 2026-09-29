@@ -106,6 +106,7 @@ exchange:
   error: "<red>처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</red>"
   usage: "<gray>/교환소관리 추가 (보상 아이템을 들고) | 수정 [번호] | 목록 | 삭제 [번호] | 열기 | npc (/npc select로 고른 NPC 연결·해제)</gray>"
   hold-reward: "<red>교환해 줄 보상 아이템을 손에 들고 입력하세요.</red>"
+  free-blocked: "<red>대가 없이 무제한으로 받을 수 있게 설정된 항목이라 교환할 수 없습니다. 관리진에게 알려주세요.</red>"
   free-unlimited: "<red>재료·온·별조각이 모두 없으면 교환 제한(일일/주간)을 걸어야 저장할 수 있습니다.</red>"
   ask-money: "<yellow>필요한 온을 채팅으로 입력하세요. (0이면 없음, 그만두려면 '취소')</yellow>"
   ask-stardust: "<yellow>필요한 별조각 개수를 채팅으로 입력하세요. (0이면 없음, 그만두려면 '취소')</yellow>"
