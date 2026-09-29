@@ -229,3 +229,9 @@ raffle:
   broadcast-start: "<gold>🎉 <item> 추첨이 시작됩니다! (<count>명 당첨)</gold>"
   broadcast-winner: "<green>🎊 <winner>님이 <item>에 당첨되었습니다! (우편함으로 발송됨)</green>"
   broadcast-finish: "<gold>추첨이 종료되었습니다. <item> 당첨자: <winners></gold>"
+
+motd:
+  usage: "<gray>/motd 보기 | 추가 [첫 줄] | [둘째 줄] | 수정 [번호] [첫 줄] | [둘째 줄] | 삭제 [번호] | 간격 [초] | 초기화 — 색상은 MiniMessage, {online}·{max} 사용 가능</gray>"
+  no-carrier: "<red>접속한 플레이어가 없어 프록시에 전달할 수 없습니다. (게임 안에서 입력하세요)</red>"
+  proxy-missing: "<red>프록시가 MOTD 채널을 받지 않습니다. 프록시(YeowoolProxy)를 새 버전으로 재시작했는지 확인하세요.</red>"
+  sent-console: "<green>프록시에 전달했습니다. 결과는 프록시 콘솔에 표시됩니다.</green>"
