@@ -32,6 +32,12 @@ import com.yeowool.life.farming.customcrops.CustomCropsHarvestListener;
 import com.yeowool.life.farming.customcrops.CustomCropsSeasonSyncTask;
 import com.yeowool.life.cooking.addcook.CookXpListener;
 import com.yeowool.life.cooking.addcook.MyRecipesCommand;
+import com.yeowool.life.cooking.addcook.AddCookRecipeIndex;
+import com.yeowool.life.cooking.orders.CookingNpcListener;
+import com.yeowool.life.cooking.orders.CookingOrderCommand;
+import com.yeowool.life.cooking.orders.CookingOrderRepository;
+import com.yeowool.life.cooking.orders.CookingOrderRules;
+import com.yeowool.life.cooking.orders.CookingOrderService;
 import com.yeowool.life.pets.MCPetsXpListener;
 import com.yeowool.life.farming.database.FarmingSchemaInitializer;
 import com.yeowool.life.farming.repository.CropRepository;
@@ -437,6 +443,7 @@ public final class YeowoolLife extends JavaPlugin {
         enableLifeCompetition(core, messages);
         enableMounts(core, messages);
         enableSurpriseEvents(core, messages);
+        enableCookingOrders(core, messages);
 
         getLogger().info("YeowoolLife가 활성화되었습니다.");
     }
@@ -683,6 +690,51 @@ public final class YeowoolLife extends JavaPlugin {
         getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::tick), 20L * 5, 20L * 20);
         getServer().getScheduler().runTaskTimer(this, service::updateBossBar, 20L, 20L);
         getLogger().info("깜짝 이벤트 참여 서버입니다. 종류: " + multipliers.keySet());
+    }
+
+    /** 요리 주문 — 식당 NPC(Citizens)의 개인 주문·VIP·세 서버 단체 주문·요리사 명성 (AddCook·ItemsAdder 필요). */
+    private void enableCookingOrders(YeowoolCoreAPI core, MessageManager messages) {
+        var config = getConfig();
+        if (!config.getBoolean("cooking-orders.enabled", true)) {
+            getLogger().info("cooking-orders.enabled가 false라 요리 주문을 끕니다.");
+            return;
+        }
+        if (!getServer().getPluginManager().isPluginEnabled("AddCook") || !getServer().getPluginManager().isPluginEnabled("ItemsAdder")) {
+            getLogger().warning("AddCook 또는 ItemsAdder가 없어 요리 주문을 끕니다.");
+            return;
+        }
+        List<AddCookRecipeIndex.RecipeEntry> recipes = AddCookRecipeIndex.load();
+        if (recipes.isEmpty()) {
+            getLogger().warning("AddCook 레시피를 하나도 읽지 못해 요리 주문을 끕니다.");
+            return;
+        }
+        CookingOrderRepository repository = new CookingOrderRepository(core.dataSource());
+        long announcedUntil;
+        try {
+            repository.createTables();
+            announcedUntil = repository.maxAnnouncementId();
+        } catch (Exception e) {
+            getLogger().severe("요리 주문 데이터베이스 초기화 실패 — 요리 주문을 끕니다: " + e.getMessage());
+            return;
+        }
+        ConfigurationSection section = config.getConfigurationSection("cooking-orders");
+        CookingOrderRules rules = new CookingOrderRules(CookingOrderService.settings(
+                section != null ? section : config.createSection("cooking-orders"), getLogger()));
+        CookingOrderService service = new CookingOrderService(this, core, messages, repository, rules, executor, recipes, announcedUntil);
+        var command = getCommand("요리주문관리");
+        if (command != null) {
+            var executorCmd = new CookingOrderCommand(this, messages, service, executor);
+            command.setExecutor(executorCmd);
+            command.setTabCompleter(executorCmd);
+        }
+        if (getServer().getPluginManager().isPluginEnabled("Citizens")) {
+            getServer().getPluginManager().registerEvents(new CookingNpcListener(service), this);
+        } else {
+            getLogger().warning("Citizens가 없어 이 서버에서는 식당 NPC를 쓸 수 없습니다 (단체 주문 일정은 계속 처리).");
+        }
+        getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::tickGroups), 20L * 30, 20L * 60);
+        getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::pollAnnouncements), 20L * 20, 20L * 20);
+        getLogger().info("요리 주문이 활성화되었습니다 (레시피 " + recipes.size() + "종).");
     }
 
     private void enableCustomFarming(YeowoolCoreAPI core) {

@@ -975,3 +975,42 @@ surprise-event:
     job_xp:
       enabled: true
       multiplier: 2.0
+
+# 요리 주문 — 식당 NPC(Citizens) 우클릭으로 여는 개인 주문·VIP 손님·세 서버 단체 주문·요리사 명성 (AddCook·ItemsAdder 필요).
+# 난이도는 레시피의 재료 단계 수(1=쉬움, 2=보통, 3 이상=어려움). 별조각(개인·VIP·완료 보너스)은 하루 stardust-daily-cap개까지.
+# 단체 주문은 days의 start-time(서버 시간)에 시작해 duration-hours 동안. 세 서버 설정을 똑같이 맞춰주세요.
+cooking-orders:
+  enabled: true
+  orders-per-day: 3
+  difficulty:
+    easy:   { amount-min: 3, amount-max: 6, money-per-dish: 1500,  stardust: 1, fame: 1 }
+    normal: { amount-min: 2, amount-max: 4, money-per-dish: 4000,  stardust: 2, fame: 2 }
+    hard:   { amount-min: 1, amount-max: 3, money-per-dish: 10000, stardust: 3, fame: 3 }
+  quality-multiplier: { normal: 1.0, silver: 1.5, golden: 3.0 }
+  all-done-bonus: { money: 5000, stardust: 3 }
+  reroll-cost: 5000
+  stardust-daily-cap: 20
+  vip:
+    chance-percent: 10
+    amount-min: 1
+    amount-max: 2
+    money-multiplier: 5
+    stardust: 5
+    fame: 5
+  group:
+    days: [MONDAY, THURSDAY]
+    start-time: "19:00"
+    duration-hours: 72
+    target: { easy: 300, normal: 150 }
+    money-share: 0.5
+    min-contribution: 5
+    participation-stardust: 5
+    rank-stardust: [15, 10, 5]
+  fame-levels:
+    - { name: 견습, fame: 0, multiplier: 1.0 }
+    - { name: 요리사, fame: 30, multiplier: 1.1 }
+    - { name: 숙련, fame: 100, multiplier: 1.2 }
+    - { name: 명셰프, fame: 250, multiplier: 1.35 }
+    - { name: 여울 명장, fame: 500, multiplier: 1.5 }
+  level-up-commands: {}   # 예: { "명셰프": ["칭호 지급 {player} 명셰프"] }
+  overrides: {}           # 예: { ramen: { difficulty: normal, money-per-dish: 3000 } }

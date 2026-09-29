@@ -5,7 +5,7 @@ api-version: '1.21'
 author: Yeowool
 description: 생활 콘텐츠 (농사, 벌목, 목축, 낚시, 채광)
 depend: [YeowoolCore]
-softdepend: [ItemsAdder, CustomFishing, CustomCrops, AddCook, MCPets, LuckPerms]
+softdepend: [ItemsAdder, CustomFishing, CustomCrops, AddCook, MCPets, LuckPerms, Citizens]
 
 commands:
   도감:
@@ -42,6 +42,8 @@ commands:
     description: 관리진 전용 - 탈것 이용권 아이템을 지급합니다
   깜짝이벤트:
     description: 진행 중인 깜짝 이벤트 확인 (관리진은 시작/종료)
+  요리주문관리:
+    description: 관리진 전용 - 식당 NPC 연결, 단체 주문 시작/종료, 주문 초기화, 명성 설정
 
 permissions:
   yeowool.life.treasure.manage:
@@ -49,4 +51,7 @@ permissions:
     default: op
   yeowool.life.mount.manage:
     description: 탈것 이용권 지급
+    default: op
+  yeowool.life.cooking.manage:
+    description: 요리 주문 관리 (/요리주문관리)
     default: op

@@ -1,6 +1,7 @@
 dependencies {
     compileOnly("io.papermc.paper:paper-api:${rootProject.property("paperApiVersion")}")
     compileOnly(project(":yeowool-core"))
+    compileOnly("net.citizensnpcs:citizensapi:${rootProject.property("citizensVersion")}")
     compileOnly("com.github.LoneDev6:API-ItemsAdder:${rootProject.property("itemsAdderApiVersion")}")
     compileOnly("net.momirealms:custom-fishing:2.3.24")
     compileOnly("net.momirealms:custom-crops:3.6.52")
