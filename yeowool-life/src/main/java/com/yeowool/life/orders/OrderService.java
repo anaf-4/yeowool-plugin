@@ -272,7 +272,7 @@ public final class OrderService {
             int fame;
             try {
                 // clamped to what's left right now — another server may have delivered since the window opened
-                added = repository.addDelivered(uuid, day, order.slot(), order.itemId(), amount);
+                added = repository.addDelivered(uuid, day, order, amount);
                 fame = repository.fame(uuid);
             } catch (SQLException | RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, catalog.label() + " 납품 처리 실패 (" + uuid + ")", e);
@@ -446,7 +446,7 @@ public final class OrderService {
             try {
                 claimed = !free && repository.claimReroll(uuid, day);
                 if (free || claimed) {
-                    replaced = repository.replaceOrder(uuid, day, order.slot(), order.itemId(), draw.get(), free);
+                    replaced = repository.replaceOrder(uuid, day, order, draw.get(), free);
                 }
             } catch (SQLException | RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, catalog.label() + " 교체 실패 (" + uuid + ")", e);

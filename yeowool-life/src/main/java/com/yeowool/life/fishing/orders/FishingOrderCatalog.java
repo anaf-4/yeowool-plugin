@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -94,6 +95,7 @@ public final class FishingOrderCatalog implements OrderCatalog {
     private final Logger log;
     private volatile Map<String, Species> species = Map.of();
     private volatile Map<String, Component> names = Map.of();
+    private boolean warnedConditions; // main thread only
 
     public FishingOrderCatalog(FishingOrderRules rules, YeowoolCoreAPI core, JobManager jobManager, List<FishRarity> nativeRarities, Logger log) {
         this.rules = rules;
@@ -114,8 +116,19 @@ public final class FishingOrderCatalog implements OrderCatalog {
 
     // ---- species index ----
 
-    /** Main thread: rebuilds the species index from CustomFishing's registered loots and its item/loot-condition files. */
+    /**
+     * Main thread: rebuilds the species index; on any failure logs and keeps the previous one.
+     * ponytail: parses CustomFishing's few item ymls on the main thread every 5 min (a few ms); move to the worker if that grows.
+     */
     public void refresh() {
+        try {
+            rebuild();
+        } catch (RuntimeException e) {
+            log.log(Level.WARNING, "어부 주문 물고기 목록 갱신 실패 — 이전 목록을 계속 씁니다", e);
+        }
+    }
+
+    private void rebuild() {
         Plugin customFishing = Bukkit.getPluginManager().getPlugin("CustomFishing");
         if (customFishing == null) {
             return;
@@ -194,11 +207,14 @@ public final class FishingOrderCatalog implements OrderCatalog {
         try {
             Matcher matcher = WEIGHT_ENTRY.matcher(Files.readString(file.toPath()));
             while (matcher.find()) {
-                Set<String> key = matcher.group(1) != null ? Set.of(matcher.group(2).split("&")) : Set.of("loot:" + matcher.group(2));
+                Set<String> key = matcher.group(1) != null ? Set.copyOf(Arrays.asList(matcher.group(2).split("&"))) : Set.of("loot:" + matcher.group(2));
                 weights.merge(key, Double.parseDouble(matcher.group(3)), Math::max);
             }
         } catch (IOException e) {
-            log.warning("CustomFishing loot-conditions.yml을 읽지 못해 가중치가 없는 물고기는 전설로 취급합니다: " + e.getMessage());
+            if (!warnedConditions) {
+                warnedConditions = true;
+                log.warning("CustomFishing loot-conditions.yml을 읽지 못해 가중치가 없는 물고기는 전설로 취급합니다: " + e.getMessage());
+            }
         }
         return weights;
     }

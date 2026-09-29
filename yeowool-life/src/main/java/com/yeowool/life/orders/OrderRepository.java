@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -212,17 +213,33 @@ public final class OrderRepository {
         }
     }
 
+    /** SQL + params matching {@code order}'s item and, where the table has them, its conditions (a stale window after 교체 must not hit the new row). */
+    private String sameOrder() {
+        return " AND {item} = ?" + (conditions ? " AND vip_kind <=> ? AND min_size_mm = ?" : "");
+    }
+
+    private Object[] sameOrderParams(Order order) {
+        return conditions ? new Object[]{order.itemId(), order.vipKind(), order.minSizeMm()} : new Object[]{order.itemId()};
+    }
+
+    private static Object[] concat(Object[] head, Object[] tail) {
+        Object[] all = Arrays.copyOf(head, head.length + tail.length);
+        System.arraycopy(tail, 0, all, head.length, tail.length);
+        return all;
+    }
+
     /**
-     * Adds up to {@code amount} to an open order that still has that item, never past {@code required}
-     * (the row is locked while the remaining amount is read). Returns how many were added — 0 if it's full.
+     * Adds up to {@code amount} to {@code order} if it's still open with the same item and conditions, never past
+     * {@code required} (the row is locked while the remaining amount is read). Returns how many were added — 0 if it's full.
      */
-    public int addDelivered(UUID uuid, String day, int slot, String itemId, int amount) throws SQLException {
+    public int addDelivered(UUID uuid, String day, Order order, int amount) throws SQLException {
+        int slot = order.slot();
         return inTransaction(connection -> {
             int remaining;
             try (PreparedStatement ps = connection.prepareStatement(sql(
-                    "SELECT required - delivered FROM {p}orders WHERE uuid = ? AND day = ? AND slot = ? "
-                            + "AND {item} = ? AND completed = 0 FOR UPDATE"))) {
-                bind(ps, uuid, day, slot, itemId);
+                    "SELECT required - delivered FROM {p}orders WHERE uuid = ? AND day = ? AND slot = ?"
+                            + sameOrder() + " AND completed = 0 FOR UPDATE"))) {
+                bind(ps, concat(new Object[]{uuid, day, slot}, sameOrderParams(order)));
                 try (ResultSet rs = ps.executeQuery()) {
                     remaining = rs.next() ? rs.getInt(1) : 0;
                 }
@@ -280,18 +297,18 @@ public final class OrderRepository {
      * Swaps an open order for {@code draw}. A paid 교체 also needs it untouched and non-VIP; a free one
      * (the item no longer exists) only needs it open.
      */
-    public boolean replaceOrder(UUID uuid, String day, int slot, String oldItemId, OrderRules.Draw draw, boolean free)
-            throws SQLException {
-        String where = " WHERE uuid = ? AND day = ? AND slot = ? AND {item} = ? AND completed = 0"
+    public boolean replaceOrder(UUID uuid, String day, Order old, OrderRules.Draw draw, boolean free) throws SQLException {
+        String where = " WHERE uuid = ? AND day = ? AND slot = ?" + sameOrder() + " AND completed = 0"
                 + (free ? "" : " AND delivered = 0 AND vip = 0");
+        Object[] match = concat(new Object[]{uuid, day, old.slot()}, sameOrderParams(old));
         if (conditions) {
             return update("UPDATE {p}orders SET {item} = ?, difficulty = ?, vip = ?, required = ?, delivered = 0, completed = 0, "
                             + "vip_kind = ?, min_size_mm = ?" + where,
-                    draw.itemId(), draw.difficulty().key(), draw.vip(), draw.required(), draw.vipKind(), draw.minSizeMm(),
-                    uuid, day, slot, oldItemId) == 1;
+                    concat(new Object[]{draw.itemId(), draw.difficulty().key(), draw.vip(), draw.required(), draw.vipKind(), draw.minSizeMm()},
+                            match)) == 1;
         }
         return update("UPDATE {p}orders SET {item} = ?, difficulty = ?, vip = ?, required = ?, delivered = 0, completed = 0" + where,
-                draw.itemId(), draw.difficulty().key(), draw.vip(), draw.required(), uuid, day, slot, oldItemId) == 1;
+                concat(new Object[]{draw.itemId(), draw.difficulty().key(), draw.vip(), draw.required()}, match)) == 1;
     }
 
     /** Admin 초기화: the next open draws the day's orders again (also resets 교체 and the all-done bonus). */
