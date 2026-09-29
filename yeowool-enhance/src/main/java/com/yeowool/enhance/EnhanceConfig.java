@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Static balance settings from {@code config.yml} — tiers, success rates,
@@ -28,11 +29,16 @@ public final class EnhanceConfig {
     private final String protectionItemId;
     private final double weaponAttackDamagePerLevel;
     private final double armorArmorPerLevel;
+    private final double toolMiningEfficiencyPerLevel;
+    private final List<TranscendStage> transcendStages;
+    private final boolean transcendProtectFromDestroy;
 
     private EnhanceConfig(int maxLevel, List<EnhanceTier> tiers, double defaultSuccessRate,
                            Map<Integer, Double> successRateOverrides, int failDestroyStartLevel,
                            double failDestroyChancePercent, double failDowngradeChancePercent, String protectionItemId,
-                           double weaponAttackDamagePerLevel, double armorArmorPerLevel) {
+                           double weaponAttackDamagePerLevel, double armorArmorPerLevel,
+                           double toolMiningEfficiencyPerLevel, List<TranscendStage> transcendStages,
+                           boolean transcendProtectFromDestroy) {
         this.maxLevel = maxLevel;
         this.tiers = tiers;
         this.defaultSuccessRate = defaultSuccessRate;
@@ -43,6 +49,9 @@ public final class EnhanceConfig {
         this.protectionItemId = protectionItemId;
         this.weaponAttackDamagePerLevel = weaponAttackDamagePerLevel;
         this.armorArmorPerLevel = armorArmorPerLevel;
+        this.toolMiningEfficiencyPerLevel = toolMiningEfficiencyPerLevel;
+        this.transcendStages = transcendStages;
+        this.transcendProtectFromDestroy = transcendProtectFromDestroy;
     }
 
     public static EnhanceConfig load(FileConfiguration config) {
@@ -79,6 +88,26 @@ public final class EnhanceConfig {
             }
         }
 
+        List<TranscendStage> transcendStages = new ArrayList<>();
+        for (Map<?, ?> raw : root.getMapList("transcend.stages")) {
+            try {
+                NamedTextColor stageColor = NamedTextColor.NAMES.value(String.valueOf(raw.get("color")).toLowerCase());
+                transcendStages.add(new TranscendStage(
+                        ((Number) raw.get("stage")).intValue(),
+                        String.valueOf(raw.get("name")),
+                        stageColor == null ? NamedTextColor.DARK_PURPLE : stageColor,
+                        ((Number) raw.get("stat-multiplier")).doubleValue(),
+                        String.valueOf(raw.get("stone-item")),
+                        raw.get("stone-amount") instanceof Number n ? n.intValue() : 1,
+                        raw.get("currency") instanceof Number n ? n.longValue() : 0L,
+                        raw.get("success-rate") instanceof Number n ? n.doubleValue() : 50.0,
+                        raw.get("enhance-cost-multiplier") instanceof Number n ? n.doubleValue() : 1.0));
+            } catch (RuntimeException e) {
+                // skip a malformed stage entry
+            }
+        }
+        transcendStages.sort(Comparator.comparingInt(TranscendStage::stage));
+
         return new EnhanceConfig(
                 root.getInt("max-level", 30),
                 tiers,
@@ -89,7 +118,10 @@ public final class EnhanceConfig {
                 root.getDouble("fail-downgrade-chance-percent", 35.0),
                 root.getString("protection-item", "NETHERITE_INGOT"),
                 root.getDouble("weapon-attack-damage-per-level", 0.4),
-                root.getDouble("armor-armor-per-level", 0.25)
+                root.getDouble("armor-armor-per-level", 0.25),
+                root.getDouble("tool-mining-efficiency-per-level", 0.3),
+                transcendStages,
+                root.getBoolean("transcend.protect-from-destroy", true)
         );
     }
 
@@ -147,5 +179,19 @@ public final class EnhanceConfig {
 
     public double armorArmorPerLevel() {
         return armorArmorPerLevel;
+    }
+
+    public double toolMiningEfficiencyPerLevel() {
+        return toolMiningEfficiencyPerLevel;
+    }
+
+    /** The configured stage {@code stage} (1..3), if any — a missing stage means transcendence stops before it. */
+    public Optional<TranscendStage> transcendStage(int stage) {
+        return transcendStages.stream().filter(s -> s.stage() == stage).findFirst();
+    }
+
+    /** Transcended gear is never destroyed by a failed enhance (the destroy roll becomes a downgrade). */
+    public boolean transcendProtectFromDestroy() {
+        return transcendProtectFromDestroy;
     }
 }

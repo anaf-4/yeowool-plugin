@@ -58,6 +58,19 @@ public final class EnhanceMaterialResolver {
         }
     }
 
+    /** A fresh stack of {@code id} (vanilla Material name or ItemsAdder id), or null if it can't be resolved. */
+    public static ItemStack createItem(String id, int amount) {
+        if (isCustomItem(id)) {
+            if (!Bukkit.getPluginManager().isPluginEnabled("ItemsAdder")) {
+                return null;
+            }
+            CustomStack custom = CustomStack.getInstance(id);
+            return custom == null ? null : custom.getItemStack().asQuantity(amount);
+        }
+        Material material = parseVanilla(id);
+        return material == null ? null : new ItemStack(material, amount);
+    }
+
     private static int countCustom(Player player, String id) {
         int total = 0;
         for (ItemStack stack : player.getInventory().getContents()) {

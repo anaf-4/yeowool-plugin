@@ -48,7 +48,9 @@ import java.util.logging.Level;
 public final class WorldBossService implements Listener {
 
     public record Settings(String world, String mobId, LocalTime spawnTime, int announceMinutes, int fightMinutes,
-                           List<Long> rankRewards, long participationReward, double minDamageShare) {
+                           List<Long> rankRewards, long participationReward, double minDamageShare,
+                           Map<Integer, List<String>> rankCommands, List<String> participationCommands,
+                           double participationCommandChance) {
     }
 
     private static final String SOURCE = "YeowoolRaid";
@@ -275,6 +277,32 @@ public final class WorldBossService implements Listener {
         names.put(attacker.getUniqueId(), attacker.getName());
     }
 
+    /** Console commands per reward ({player} replaced) — e.g. transcendence stones via YeowoolEnhance. */
+    private void runRewardCommands(List<WorldBossRules.Reward> rewards) {
+        for (WorldBossRules.Reward reward : rewards) {
+            String name = names.get(reward.player());
+            if (name == null) {
+                continue;
+            }
+            List<String> commands;
+            if (reward.rank() > 0) {
+                commands = settings.rankCommands().getOrDefault(reward.rank(), List.of());
+            } else if (random.nextDouble() * 100 < settings.participationCommandChance()) {
+                commands = settings.participationCommands();
+            } else {
+                commands = List.of();
+            }
+            for (String command : commands) {
+                String resolved = command.replace("{player}", name);
+                try {
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), resolved);
+                } catch (RuntimeException e) {
+                    plugin.getLogger().log(Level.WARNING, "월드보스 보상 명령어 실행 실패: " + resolved, e);
+                }
+            }
+        }
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDeath(EntityDeathEvent event) {
         if (!isBoss(event.getEntity())) {
@@ -282,6 +310,7 @@ public final class WorldBossService implements Listener {
         }
         List<WorldBossRules.Reward> rewards = WorldBossRules.rewards(damage, bossMaxHealth, settings.rankRewards(),
                 settings.participationReward(), settings.minDamageShare());
+        runRewardCommands(rewards);
         List<String> topNames = new ArrayList<>();
         for (UUID uuid : WorldBossRules.topByDamage(damage, 3)) {
             topNames.add(names.getOrDefault(uuid, "?"));

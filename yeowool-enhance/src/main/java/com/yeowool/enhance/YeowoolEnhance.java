@@ -17,7 +17,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 장비 강화 시스템: {@code /강화} GUI에서 무기/방어구를 강화합니다. 9강까지는
+ * 장비 강화 시스템: {@code /강화} GUI에서 무기/방어구/도구를 강화하고, 30강부터는 초월석으로 초월(1차: 네더라이트, 10강에서 2차, 20강에서 3차)합니다. 9강까지는
  * "일반" 등급, 10강 성공 시 "희귀", 15강 성공 시 "에픽"으로 등급이 자동으로
  * 올라가며(그 이상은 {@code config.yml}의 {@code enhance.tiers}에 계속 추가
  * 가능), 강화 수치가 오를수록 공격력/방어력도 함께 오릅니다. 단계별 필요
@@ -76,6 +76,14 @@ public final class YeowoolEnhance extends JavaPlugin {
             var executorCmd = new EnhanceSettingsCommand(costManager, config, messages, service, settingsAnvil);
             settingsCommand.setExecutor(executorCmd);
             settingsCommand.setTabCompleter(executorCmd);
+        }
+        getServer().getPluginManager().registerEvents(new EnhanceRepairListener(this, itemData), this);
+
+        var stoneCommand = getCommand("초월석");
+        if (stoneCommand != null) {
+            var stoneExecutor = new TranscendStoneCommand(core, messages, config);
+            stoneCommand.setExecutor(stoneExecutor);
+            stoneCommand.setTabCompleter(stoneExecutor);
         }
 
         // 인챈트강화 (별도 시스템 — /강화의 +N강과 완전히 무관, AdvancedEnchantments 방식 인챈트북 구매/분해/조합, 적용은 일반 모루)

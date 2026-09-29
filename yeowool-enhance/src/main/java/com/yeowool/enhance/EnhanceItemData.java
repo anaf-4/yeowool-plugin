@@ -1,5 +1,7 @@
 package com.yeowool.enhance;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
 import io.papermc.paper.datacomponent.DataComponentTypes;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
@@ -16,27 +18,32 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * PDC-backed enhance state on the item itself (survives inventory moves,
- * chests, trades — same rationale as {@code ItemFlags} in YeowoolAdmin). The
- * item's original display name/lore are captured once (first ever enhance)
- * so every later {@link #applyLevel} rebuild restores them exactly and just
- * layers the "+N강" prefix / enhance lore block on top, instead of
- * accumulating stale text. An empty captured name means "no custom name" —
+ * chests, trades — same rationale as {@code ItemFlags} in YeowoolAdmin): the
+ * enhance level and the transcend stage (0 = not transcended). The item's
+ * original display name/lore are captured once (first ever enhance) so every
+ * rebuild restores them exactly and just layers the "+N강 [초월]" prefix /
+ * enhance lore block on top. An empty captured name means "no custom name" —
  * rebuilt as {@link Component#translatable} so the vanilla client-side
- * translation (Korean included) still applies to the base item name.
+ * translation (Korean included) still applies, including after the first
+ * transcendence turns the item into its netherite version.
+ *
+ * <p>Attributes: since 1.21 an item that carries any attribute modifier no
+ * longer gets its material's default ones (base attack damage/speed, armor),
+ * so every rebuild re-adds the material defaults, keeps modifiers other
+ * plugins added (non-minecraft namespaces), then adds the enhance bonus.
  *
  * <p>Also drives the vanilla 1.21.2+ {@code minecraft:tooltip_style} item
- * component (Ultimate Tooltips resourcepack, {@code assets/minecraft/textures/
- * gui/sprites/tooltip/<style>_{background,frame}.png}, merged in as the
- * {@code yeowool_tooltips} ItemsAdder content pack): the item's hover tooltip
- * box itself gets a themed border/background matching its current
- * {@link EnhanceTier}, escalating through {@link #TOOLTIP_STYLES} by that
- * tier's ordinal position in {@link EnhanceConfig#tiers()} — so any tier an
- * admin adds to config.yml automatically gets the next style in line, up to
- * "artifact" for the 5th tier and beyond.
+ * component (Ultimate Tooltips resourcepack, merged in as the
+ * {@code yeowool_tooltips} ItemsAdder content pack): the tooltip frame
+ * escalates by tier position in {@link EnhanceConfig#tiers()}, and any
+ * transcended item uses the top style.
  */
 public final class EnhanceItemData {
 
@@ -50,18 +57,24 @@ public final class EnhanceItemData {
     };
 
     private final NamespacedKey levelKey;
+    private final NamespacedKey stageKey;
     private final NamespacedKey baseNameKey;
     private final NamespacedKey baseLoreKey;
     private final NamespacedKey attackDamageModifierKey;
     private final NamespacedKey armorModifierKey;
+    private final NamespacedKey miningModifierKey;
+    private final Set<NamespacedKey> ownModifierKeys;
     private final EnhanceConfig config;
 
     public EnhanceItemData(JavaPlugin plugin, EnhanceConfig config) {
         this.levelKey = new NamespacedKey(plugin, "enhance_level");
+        this.stageKey = new NamespacedKey(plugin, "enhance_transcend");
         this.baseNameKey = new NamespacedKey(plugin, "enhance_base_name");
         this.baseLoreKey = new NamespacedKey(plugin, "enhance_base_lore");
         this.attackDamageModifierKey = new NamespacedKey(plugin, "enhance_attack_damage");
         this.armorModifierKey = new NamespacedKey(plugin, "enhance_armor");
+        this.miningModifierKey = new NamespacedKey(plugin, "enhance_mining");
+        this.ownModifierKeys = Set.of(attackDamageModifierKey, armorModifierKey, miningModifierKey);
         this.config = config;
     }
 
@@ -70,6 +83,15 @@ public final class EnhanceItemData {
     }
 
     public int level(ItemStack item) {
+        return readInt(item, levelKey);
+    }
+
+    /** 0 = not transcended, 1..3 = transcend stage. */
+    public int stage(ItemStack item) {
+        return readInt(item, stageKey);
+    }
+
+    private int readInt(ItemStack item, NamespacedKey key) {
         if (item == null) {
             return 0;
         }
@@ -77,27 +99,57 @@ public final class EnhanceItemData {
         if (meta == null) {
             return 0;
         }
-        Integer value = meta.getPersistentDataContainer().get(levelKey, PersistentDataType.INTEGER);
+        Integer value = meta.getPersistentDataContainer().get(key, PersistentDataType.INTEGER);
         return value == null ? 0 : value;
     }
 
-    /** Sets the enhance level and fully rebuilds display name / lore / attribute modifiers from the captured base state. */
+    /**
+     * Re-applies the item's own state so its name/lore/attributes match the current rules — used to
+     * repair gear enhanced before the base-stat fix. No-op for items that were never enhanced.
+     */
+    public void repair(ItemStack item) {
+        if (!isEnhanceable(item)) {
+            return;
+        }
+        int stage = stage(item);
+        int level = level(item);
+        if (level > 0 || stage > 0) {
+            applyState(item, stage, level);
+        }
+    }
+
+    /** Sets the enhance level, keeping the current transcend stage. */
     public void applyLevel(ItemStack item, int level) {
+        applyState(item, stage(item), level);
+    }
+
+    /** Sets stage + level and fully rebuilds display name / lore / attribute modifiers from the captured base state. */
+    public void applyState(ItemStack item, int stage, int level) {
         ItemMeta meta = item.getItemMeta();
-        captureBaseIfAbsent(item, meta);
+        captureBaseIfAbsent(meta);
         var pdc = meta.getPersistentDataContainer();
         pdc.set(levelKey, PersistentDataType.INTEGER, level);
+        pdc.set(stageKey, PersistentDataType.INTEGER, stage);
 
         EnhanceTier tier = config.tierFor(level);
+        Optional<TranscendStage> transcend = stage > 0 ? config.transcendStage(stage) : Optional.empty();
+        String gradeName = transcend.map(TranscendStage::name).orElse(stage > 0 ? stage + "차 초월" : tier.name());
+        NamedTextColor gradeColor = transcend.map(TranscendStage::color).orElse(stage > 0 ? NamedTextColor.DARK_PURPLE : tier.color());
+        double stageMultiplier = transcend.map(TranscendStage::statMultiplier)
+                .orElse(config.tierFor(config.maxLevel()).statMultiplier());
+        boolean enhanced = level > 0 || stage > 0;
+
         String baseNameRaw = pdc.getOrDefault(baseNameKey, PersistentDataType.STRING, "");
         Component baseName = baseNameRaw.isEmpty()
                 ? Component.translatable(item.getType().getItemTranslationKey())
                 : MINI_MESSAGE.deserialize(baseNameRaw);
 
-        if (level > 0) {
-            meta.displayName(Component.text("+" + level + "강 ", tier.color())
-                    .append(baseName)
-                    .decoration(TextDecoration.ITALIC, false));
+        if (enhanced) {
+            Component prefix = Component.text("+" + level + "강 ", gradeColor);
+            if (stage > 0) {
+                prefix = prefix.append(Component.text("[" + gradeName + "] ", gradeColor));
+            }
+            meta.displayName(prefix.append(baseName).decoration(TextDecoration.ITALIC, false));
         } else if (!baseNameRaw.isEmpty()) {
             meta.displayName(baseName.decoration(TextDecoration.ITALIC, false));
         } else {
@@ -113,35 +165,80 @@ public final class EnhanceItemData {
         }
 
         MaterialCategory category = MaterialCategory.of(item.getType());
-        if (level > 0) {
-            lore.add(Component.text("등급: ", NamedTextColor.GRAY).append(Component.text(tier.name(), tier.color()))
+        double bonus = TranscendRules.bonus(stage, level, config.maxLevel(), perLevel(category), tier.statMultiplier(), stageMultiplier);
+        if (enhanced) {
+            lore.add(Component.text("등급: ", NamedTextColor.GRAY).append(Component.text(gradeName, gradeColor))
                     .decoration(TextDecoration.ITALIC, false));
-            if (category == MaterialCategory.WEAPON) {
-                lore.add(Component.text(String.format("공격력 +%.1f", weaponBonus(level, tier)), NamedTextColor.RED)
+            switch (category) {
+                case WEAPON -> lore.add(Component.text(String.format("공격력 +%.1f", bonus), NamedTextColor.RED)
                         .decoration(TextDecoration.ITALIC, false));
-            } else if (category == MaterialCategory.ARMOR) {
-                lore.add(Component.text(String.format("방어력 +%.1f", armorBonus(level, tier)), NamedTextColor.AQUA)
+                case ARMOR -> lore.add(Component.text(String.format("방어력 +%.1f", bonus), NamedTextColor.AQUA)
                         .decoration(TextDecoration.ITALIC, false));
+                case TOOL -> lore.add(Component.text(String.format("채굴 속도 +%.1f", bonus), NamedTextColor.YELLOW)
+                        .decoration(TextDecoration.ITALIC, false));
+                default -> {
+                }
             }
         }
         meta.lore(lore.isEmpty() ? null : lore);
 
-        meta.removeAttributeModifier(Attribute.ATTACK_DAMAGE);
-        meta.removeAttributeModifier(Attribute.ARMOR);
-        if (level > 0 && category == MaterialCategory.WEAPON) {
-            meta.addAttributeModifier(Attribute.ATTACK_DAMAGE, new AttributeModifier(
-                    attackDamageModifierKey, weaponBonus(level, tier), AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
-        } else if (level > 0 && category == MaterialCategory.ARMOR) {
-            meta.addAttributeModifier(Attribute.ARMOR, new AttributeModifier(
-                    armorModifierKey, armorBonus(level, tier), AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.ARMOR));
-        }
-
+        rebuildAttributes(item, meta, enhanced, category, bonus);
         item.setItemMeta(meta);
 
-        if (level > 0) {
-            item.setData(DataComponentTypes.TOOLTIP_STYLE, tooltipStyleFor(tier));
+        if (enhanced) {
+            item.setData(DataComponentTypes.TOOLTIP_STYLE, stage > 0 ? TOOLTIP_STYLES[TOOLTIP_STYLES.length - 1] : tooltipStyleFor(tier));
         } else {
             item.unsetData(DataComponentTypes.TOOLTIP_STYLE);
+        }
+    }
+
+    private double perLevel(MaterialCategory category) {
+        return switch (category) {
+            case WEAPON -> config.weaponAttackDamagePerLevel();
+            case ARMOR -> config.armorArmorPerLevel();
+            case TOOL -> config.toolMiningEfficiencyPerLevel();
+            default -> 0;
+        };
+    }
+
+    /**
+     * Keeps every modifier except our own and copies of the material defaults, then — whenever the
+     * item will carry any modifier — re-adds the material defaults first (otherwise 1.21 drops them).
+     * Only the default modifiers' keys are dropped, so other plugins' or legacy {@code minecraft:<uuid>}
+     * modifiers survive.
+     */
+    private void rebuildAttributes(ItemStack item, ItemMeta meta, boolean enhanced, MaterialCategory category, double bonus) {
+        Multimap<Attribute, AttributeModifier> defaults = item.getType().getDefaultAttributeModifiers();
+        Set<NamespacedKey> defaultKeys = new HashSet<>();
+        defaults.values().forEach(modifier -> defaultKeys.add(modifier.getKey()));
+        Multimap<Attribute, AttributeModifier> kept = ArrayListMultimap.create();
+        Multimap<Attribute, AttributeModifier> existing = meta.getAttributeModifiers();
+        if (existing != null) {
+            existing.forEach((attribute, modifier) -> {
+                NamespacedKey key = modifier.getKey();
+                if (!defaultKeys.contains(key) && !ownModifierKeys.contains(key)) {
+                    kept.put(attribute, modifier);
+                }
+            });
+        }
+        meta.setAttributeModifiers(null);
+        if (!enhanced && kept.isEmpty()) {
+            return; // no modifiers at all → vanilla defaults apply by themselves
+        }
+        defaults.forEach(meta::addAttributeModifier);
+        kept.forEach(meta::addAttributeModifier);
+        if (!enhanced || bonus <= 0) {
+            return;
+        }
+        switch (category) {
+            case WEAPON -> meta.addAttributeModifier(Attribute.ATTACK_DAMAGE, new AttributeModifier(
+                    attackDamageModifierKey, bonus, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
+            case ARMOR -> meta.addAttributeModifier(Attribute.ARMOR, new AttributeModifier(
+                    armorModifierKey, bonus, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.ARMOR));
+            case TOOL -> meta.addAttributeModifier(Attribute.MINING_EFFICIENCY, new AttributeModifier(
+                    miningModifierKey, bonus, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
+            default -> {
+            }
         }
     }
 
@@ -153,15 +250,7 @@ public final class EnhanceItemData {
         return TOOLTIP_STYLES[Math.min(index, TOOLTIP_STYLES.length - 1)];
     }
 
-    private double weaponBonus(int level, EnhanceTier tier) {
-        return level * config.weaponAttackDamagePerLevel() * tier.statMultiplier();
-    }
-
-    private double armorBonus(int level, EnhanceTier tier) {
-        return level * config.armorArmorPerLevel() * tier.statMultiplier();
-    }
-
-    private void captureBaseIfAbsent(ItemStack item, ItemMeta meta) {
+    private void captureBaseIfAbsent(ItemMeta meta) {
         var pdc = meta.getPersistentDataContainer();
         if (pdc.has(baseNameKey, PersistentDataType.STRING)) {
             return;
