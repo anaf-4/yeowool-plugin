@@ -188,10 +188,32 @@ public final class CookingOrderRepository {
         }
     }
 
-    /** Adds {@code amount} only while the order still has that recipe, is open and wouldn't go over. */
-    public boolean addDelivered(UUID uuid, String day, int slot, String recipeId, int amount) throws SQLException {
-        return update("UPDATE yw_cook_orders SET delivered = delivered + ? WHERE uuid = ? AND day = ? AND slot = ? "
-                + "AND recipe_id = ? AND completed = 0 AND delivered + ? <= required", amount, uuid, day, slot, recipeId, amount) == 1;
+    /**
+     * Adds up to {@code amount} to an open order that still has that recipe, never past {@code required}
+     * (the row is locked while the remaining amount is read). Returns how many were added — 0 if it's full.
+     */
+    public int addDelivered(UUID uuid, String day, int slot, String recipeId, int amount) throws SQLException {
+        return inTransaction(connection -> {
+            int remaining;
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT required - delivered FROM yw_cook_orders WHERE uuid = ? AND day = ? AND slot = ? "
+                            + "AND recipe_id = ? AND completed = 0 FOR UPDATE")) {
+                bind(ps, uuid, day, slot, recipeId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    remaining = rs.next() ? rs.getInt(1) : 0;
+                }
+            }
+            int added = Math.min(amount, remaining);
+            if (added <= 0) {
+                return 0;
+            }
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "UPDATE yw_cook_orders SET delivered = delivered + ? WHERE uuid = ? AND day = ? AND slot = ?")) {
+                bind(ps, added, uuid, day, slot);
+                ps.executeUpdate();
+            }
+            return added;
+        });
     }
 
     public void undoDelivered(UUID uuid, String day, int slot, int amount) throws SQLException {
@@ -301,6 +323,10 @@ public final class CookingOrderRepository {
         return groups("WHERE status = 'ACTIVE' AND ends_at <= ?", now);
     }
 
+    public List<GroupOrder> fullActiveGroups() throws SQLException {
+        return groups("WHERE status = 'ACTIVE' AND progress >= target");
+    }
+
     public List<GroupOrder> doneUnsettledGroups() throws SQLException {
         return groups("WHERE status = 'DONE' AND settled = 0");
     }
@@ -337,22 +363,37 @@ public final class CookingOrderRepository {
         }
     }
 
+    /** How many dishes a group delivery added, and the group's progress afterwards. */
+    public record GroupAdd(int added, int progress) {
+    }
+
     /**
-     * Adds {@code amount} to a running, unexpired group order without passing the target, and to the
-     * player's contribution, in one transaction. Returns the new progress, or empty if it didn't fit.
+     * Adds up to {@code amount} to a running, unexpired group order without passing the target, and the
+     * same to the player's contribution, in one transaction (the group row is locked while the remaining
+     * amount is read). Empty if the group isn't running any more; {@code added} 0 if it's already full.
      */
-    public OptionalInt addGroupProgress(int groupId, UUID uuid, String name, int amount, long now) throws SQLException {
+    public Optional<GroupAdd> addGroupProgress(int groupId, UUID uuid, String name, int amount, long now) throws SQLException {
         return inTransaction(connection -> {
+            int progress;
+            int remaining;
             try (PreparedStatement ps = connection.prepareStatement(
-                    "UPDATE yw_cook_group SET progress = progress + ? WHERE id = ? AND status = 'ACTIVE' "
-                            + "AND progress + ? <= target AND ends_at > ?")) {
-                ps.setInt(1, amount);
-                ps.setInt(2, groupId);
-                ps.setInt(3, amount);
-                ps.setLong(4, now);
-                if (ps.executeUpdate() == 0) {
-                    return OptionalInt.empty();
+                    "SELECT progress, target FROM yw_cook_group WHERE id = ? AND status = 'ACTIVE' AND ends_at > ? FOR UPDATE")) {
+                bind(ps, groupId, now);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        return Optional.empty();
+                    }
+                    progress = rs.getInt(1);
+                    remaining = rs.getInt(2) - progress;
                 }
+            }
+            int added = Math.min(amount, remaining);
+            if (added <= 0) {
+                return Optional.of(new GroupAdd(0, progress));
+            }
+            try (PreparedStatement ps = connection.prepareStatement("UPDATE yw_cook_group SET progress = progress + ? WHERE id = ?")) {
+                bind(ps, added, groupId);
+                ps.executeUpdate();
             }
             try (PreparedStatement ps = connection.prepareStatement(
                     "INSERT INTO yw_cook_group_contrib (group_id, uuid, name, amount) VALUES (?, ?, ?, ?) "
@@ -360,16 +401,10 @@ public final class CookingOrderRepository {
                 ps.setInt(1, groupId);
                 ps.setString(2, uuid.toString());
                 ps.setString(3, name);
-                ps.setInt(4, amount);
+                ps.setInt(4, added);
                 ps.executeUpdate();
             }
-            try (PreparedStatement ps = connection.prepareStatement("SELECT progress FROM yw_cook_group WHERE id = ?")) {
-                ps.setInt(1, groupId);
-                try (ResultSet rs = ps.executeQuery()) {
-                    rs.next();
-                    return OptionalInt.of(rs.getInt(1));
-                }
-            }
+            return Optional.of(new GroupAdd(added, progress + added));
         });
     }
 
@@ -397,9 +432,13 @@ public final class CookingOrderRepository {
                 + "WHERE id = ? AND status = 'ACTIVE' AND progress >= target", groupId) == 1;
     }
 
-    /** True only for the one caller that flips this running group order to FAILED. */
-    public boolean markGroupFailed(int groupId) throws SQLException {
-        return update("UPDATE yw_cook_group SET status = 'FAILED', active_lock = NULL WHERE id = ? AND status = 'ACTIVE'", groupId) == 1;
+    /**
+     * True only for the one caller that flips this running group order to FAILED. Unless {@code evenIfFull}
+     * (admin 단체종료), a full order is left for {@link #markGroupDone}.
+     */
+    public boolean markGroupFailed(int groupId, boolean evenIfFull) throws SQLException {
+        return update("UPDATE yw_cook_group SET status = 'FAILED', active_lock = NULL WHERE id = ? AND status = 'ACTIVE'"
+                + (evenIfFull ? "" : " AND progress < target"), groupId) == 1;
     }
 
     /** True only for the one caller that gets to pay this DONE group's rewards. */

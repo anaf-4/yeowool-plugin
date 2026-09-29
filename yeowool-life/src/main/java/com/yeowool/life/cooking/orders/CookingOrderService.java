@@ -45,7 +45,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -89,6 +88,7 @@ public final class CookingOrderService {
     private final Set<UUID> busy = new HashSet<>();
     private volatile long announcedUntilId;
     private final AtomicBoolean ticking = new AtomicBoolean();
+    private final AtomicBoolean polling = new AtomicBoolean();
 
     public CookingOrderService(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, CookingOrderRepository repository,
                                CookingOrderRules rules, Executor executor, List<RecipeEntry> recipes, long announcedUntilId) {
@@ -238,6 +238,15 @@ public final class CookingOrderService {
         if (busy.contains(uuid)) {
             return;
         }
+        String day = gui.view().day();
+        String name = player.getName();
+        if (order.delivered() >= order.required()) {
+            // full but never completed (the completion step was interrupted) — finish it now
+            busy.add(uuid);
+            gui.showBusy(guiSlot);
+            executor.execute(() -> completeIfFull(uuid, name, day, order));
+            return;
+        }
         List<Dish> dishes = dishes(recipe, order.vip());
         int amount = Math.min(count(player.getInventory(), dishes), order.required() - order.delivered());
         if (amount <= 0) {
@@ -247,24 +256,24 @@ public final class CookingOrderService {
         }
         busy.add(uuid);
         gui.showBusy(guiSlot);
-        String day = gui.view().day();
-        String name = player.getName();
         executor.execute(() -> {
-            boolean added;
+            int added;
             int fame;
             try {
+                // clamped to what's left right now — another server may have delivered since the window opened
                 added = repository.addDelivered(uuid, day, order.slot(), order.recipeId(), amount);
                 fame = repository.fame(uuid);
-            } catch (SQLException e) {
+            } catch (SQLException | RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, "요리 주문 납품 처리 실패 (" + uuid + ")", e);
                 finish(uuid, "cooking-orders.error");
                 return;
             }
-            if (!added) {
+            if (added == 0) {
                 finish(uuid, "cooking-orders.order-full");
                 return;
             }
-            runMain(() -> takeDishes(uuid, name, day, order, dishes, amount, fame), "요리 주문 납품 " + uuid + " " + order.recipeId() + " ×" + amount);
+            runMain(() -> guarded(uuid, () -> takeDishes(uuid, name, day, order, dishes, added, fame)),
+                    "요리 주문 납품 " + uuid + " " + order.recipeId() + " ×" + added);
         });
     }
 
@@ -305,30 +314,38 @@ public final class CookingOrderService {
     private void completeIfFull(UUID uuid, String name, String day, Order order) {
         Settings settings = rules.settings();
         try {
-            if (!repository.completeOrder(uuid, day, order.slot())) {
-                finish(uuid, null);
-                return;
+            boolean completedNow = repository.completeOrder(uuid, day, order.slot());
+            int fameGain = 0;
+            int newFame = 0;
+            if (completedNow) {
+                long stardust = order.vip() ? settings.vip().stardust() : rules.tier(difficultyOf(order)).stardust();
+                fameGain = order.vip() ? settings.vip().fame() : rules.tier(difficultyOf(order)).fame();
+                core.stardust().grantCapped(uuid, stardust, SOURCE, "요리 주문 완료 (" + order.recipeId() + ")", CAP_KEY, settings.stardustDailyCap());
+                newFame = repository.addFame(uuid, fameGain);
+                if (order.vip()) {
+                    repository.announce("cooking-orders.broadcast.vip-done", Map.of("player", name));
+                }
             }
-            long stardust = order.vip() ? settings.vip().stardust() : rules.tier(difficultyOf(order)).stardust();
-            int fameGain = order.vip() ? settings.vip().fame() : rules.tier(difficultyOf(order)).fame();
-            core.stardust().grantCapped(uuid, stardust, SOURCE, "요리 주문 완료 (" + order.recipeId() + ")", CAP_KEY, settings.stardustDailyCap());
-            int newFame = repository.addFame(uuid, fameGain);
-            if (order.vip()) {
-                repository.announce("cooking-orders.broadcast.vip-done", Map.of("player", name));
-            }
+            // checked even when this call didn't complete anything, so a bonus lost to an interrupted run is still paid (claimBonus is once-only)
             boolean bonus = repository.allCompleted(uuid, day) && repository.claimBonus(uuid, day);
             if (bonus) {
                 core.stardust().grantCapped(uuid, settings.allDoneStardust(), SOURCE, "요리 주문 모두 완료", CAP_KEY, settings.stardustDailyCap());
             }
-            runMain(() -> completed(uuid, name, order, fameGain, newFame, bonus),
+            if (!completedNow && !bonus) {
+                finish(uuid, null);
+                return;
+            }
+            int gained = fameGain;
+            int fame = newFame;
+            runMain(() -> guarded(uuid, () -> completed(uuid, name, order, completedNow, gained, fame, bonus)),
                     bonus ? "요리 주문 완료 보너스 " + settings.allDoneMoney() + "온 (" + uuid + ")" : null);
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             plugin.getLogger().log(Level.SEVERE, "요리 주문 완료 처리 실패 — 수동 확인 필요: " + uuid + " " + day + " 슬롯 " + order.slot(), e);
             finish(uuid, "cooking-orders.error");
         }
     }
 
-    private void completed(UUID uuid, String name, Order order, int fameGain, int newFame, boolean bonus) {
+    private void completed(UUID uuid, String name, Order order, boolean completedNow, int fameGain, int newFame, boolean bonus) {
         Settings settings = rules.settings();
         Player player = Bukkit.getPlayer(uuid);
         if (bonus && settings.allDoneMoney() > 0) {
@@ -338,9 +355,11 @@ public final class CookingOrderService {
         FameLevel after = rules.level(newFame);
         if (player != null) {
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.2f);
-            messages.send(player, "cooking-orders.order-completed",
-                    Placeholder.component("dish", dishName(order.recipeId())),
-                    Placeholder.unparsed("fame", String.valueOf(fameGain)));
+            if (completedNow) {
+                messages.send(player, "cooking-orders.order-completed",
+                        Placeholder.component("dish", dishName(order.recipeId())),
+                        Placeholder.unparsed("fame", String.valueOf(fameGain)));
+            }
             if (bonus) {
                 messages.send(player, "cooking-orders.all-done",
                         Placeholder.unparsed("money", String.format("%,d", settings.allDoneMoney())),
@@ -403,17 +422,23 @@ public final class CookingOrderService {
         gui.showBusy(guiSlot);
         String day = gui.view().day();
         executor.execute(() -> {
+            boolean claimed = false;
             boolean replaced = false;
             try {
-                boolean claimed = !free && repository.claimReroll(uuid, day);
+                claimed = !free && repository.claimReroll(uuid, day);
                 if (free || claimed) {
                     replaced = repository.replaceOrder(uuid, day, order.slot(), order.recipeId(), draw.get(), free);
                 }
-                if (claimed && !replaced) {
-                    repository.releaseReroll(uuid, day);
-                }
-            } catch (SQLException e) {
+            } catch (SQLException | RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, "요리 주문 교체 실패 (" + uuid + ")", e);
+            }
+            if (claimed && !replaced) {
+                // the money is refunded below, so give the day's 교체 back too
+                try {
+                    repository.releaseReroll(uuid, day);
+                } catch (SQLException | RuntimeException e) {
+                    plugin.getLogger().log(Level.SEVERE, "요리 주문 교체 횟수 되돌리기 실패 — 수동 확인 필요: " + uuid + " " + day, e);
+                }
             }
             boolean ok = replaced;
             runMain(() -> {
@@ -465,21 +490,26 @@ public final class CookingOrderService {
         gui.showBusy(guiSlot);
         String name = player.getName();
         executor.execute(() -> {
-            OptionalInt progress;
+            Optional<CookingOrderRepository.GroupAdd> result;
             try {
-                progress = repository.addGroupProgress(group.id(), uuid, name, amount, System.currentTimeMillis());
-            } catch (SQLException e) {
+                // clamped to what's left right now — other servers deliver to the same order
+                result = repository.addGroupProgress(group.id(), uuid, name, amount, System.currentTimeMillis());
+            } catch (SQLException | RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, "단체 주문 납품 처리 실패 (" + uuid + ")", e);
                 finish(uuid, "cooking-orders.error");
                 return;
             }
-            if (progress.isEmpty()) {
+            if (result.isEmpty()) {
+                finish(uuid, "cooking-orders.group-ended");
+                return;
+            }
+            CookingOrderRepository.GroupAdd add = result.get();
+            if (add.added() == 0) {
                 finish(uuid, "cooking-orders.group-full");
                 return;
             }
-            int newProgress = progress.getAsInt();
-            runMain(() -> takeGroupDishes(uuid, group, dishes, amount, newProgress),
-                    "단체 주문 납품 " + uuid + " #" + group.id() + " ×" + amount);
+            runMain(() -> guarded(uuid, () -> takeGroupDishes(uuid, group, dishes, add.added(), add.progress())),
+                    "단체 주문 납품 " + uuid + " #" + group.id() + " ×" + add.added());
         });
     }
 
@@ -526,10 +556,11 @@ public final class CookingOrderService {
                 if (newProgress >= group.target() && repository.markGroupDone(group.id())) {
                     settle(group);
                 }
-            } catch (SQLException e) {
+            } catch (SQLException | RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, "단체 주문 달성 처리 실패 (#" + group.id() + ") — 다음 정기 점검에서 다시 시도", e);
+            } finally {
+                finish(uuid, null);
             }
-            finish(uuid, null);
         });
     }
 
@@ -540,11 +571,13 @@ public final class CookingOrderService {
         }
         try {
             long now = System.currentTimeMillis();
+            // full orders whose DONE flip never happened (interrupted delivery) — also covers expired full ones
+            // ponytail: a delivery that just filled the order but hasn't confirmed yet can be flipped DONE here and then undone; sub-second window.
+            for (GroupOrder group : repository.fullActiveGroups()) {
+                repository.markGroupDone(group.id());
+            }
             for (GroupOrder group : repository.expiredActiveGroups(now)) {
-                // ponytail: a delivery that just filled the order but hasn't confirmed yet can be flipped DONE here and then undone; sub-second window.
-                if (group.progress() >= group.target()) {
-                    repository.markGroupDone(group.id());
-                } else if (repository.markGroupFailed(group.id())) {
+                if (repository.markGroupFailed(group.id(), false)) {
                     announceFailed(group);
                 }
             }
@@ -552,20 +585,21 @@ public final class CookingOrderService {
                 settle(group);
             }
             Optional<ZonedDateTime> start = rules.currentGroupStart(ZonedDateTime.now());
+            long durationMillis = rules.settings().group().durationHours() * 3_600_000L;
             if (start.isPresent()) {
                 long startsAt = start.get().toInstant().toEpochMilli();
-                if (!repository.groupBlocked(startsAt)) {
+                // a slot missed or blocked for more than half its window is skipped — wait for the next one
+                if (now <= startsAt + durationMillis / 2 && !repository.groupBlocked(startsAt)) {
                     rules.pickGroupRecipe(random, allRecipes()).ifPresent(recipe -> {
                         try {
-                            startGroup(recipe.id(), rules.groupTarget(rules.difficulty(recipe)), startsAt,
-                                    startsAt + rules.settings().group().durationHours() * 3_600_000L);
+                            startGroup(recipe.id(), rules.groupTarget(rules.difficulty(recipe)), startsAt, startsAt + durationMillis);
                         } catch (SQLException e) {
                             plugin.getLogger().log(Level.SEVERE, "단체 주문 시작 실패", e);
                         }
                     });
                 }
             }
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             plugin.getLogger().log(Level.SEVERE, "단체 주문 정기 점검 실패", e);
         } finally {
             ticking.set(false);
@@ -586,7 +620,7 @@ public final class CookingOrderService {
     /** Worker: fails the running group order (admin 단체종료); false if none was running. */
     boolean endGroup() throws SQLException {
         Optional<GroupOrder> group = repository.activeGroup();
-        if (group.isEmpty() || !repository.markGroupFailed(group.get().id())) {
+        if (group.isEmpty() || !repository.markGroupFailed(group.get().id(), true)) {
             return false;
         }
         announceFailed(group.get());
@@ -624,6 +658,9 @@ public final class CookingOrderService {
     // ---- announcements (worker, every ~20 s on every server) ----
 
     public void pollAnnouncements() {
+        if (!polling.compareAndSet(false, true)) {
+            return; // previous poll still running (slow DB) — don't broadcast the same rows twice
+        }
         try {
             List<CookingOrderRepository.Announcement> announcements = repository.announcementsAfter(announcedUntilId);
             if (announcements.isEmpty()) {
@@ -631,8 +668,10 @@ public final class CookingOrderService {
             }
             announcedUntilId = announcements.get(announcements.size() - 1).id();
             runMain(() -> announcements.forEach(this::broadcast), null);
-        } catch (SQLException e) {
+        } catch (SQLException | RuntimeException e) {
             plugin.getLogger().log(Level.SEVERE, "요리 주문 공지 조회 실패", e);
+        } finally {
+            polling.set(false);
         }
     }
 
@@ -714,6 +753,16 @@ public final class CookingOrderService {
                 plugin.getLogger().log(Level.SEVERE, "요리 주문 온 장부 기록 실패 — 수동 지급 필요: " + uuid + " " + amount + "온 (" + reason + ")", e);
             }
         });
+    }
+
+    /** Main thread: runs one step of a click's chain; an unexpected exception still releases the click lock. */
+    private void guarded(UUID uuid, Runnable step) {
+        try {
+            step.run();
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(Level.SEVERE, "요리 주문 처리 실패 — 수동 확인 필요 (" + uuid + ")", e);
+            finishNow(uuid, "cooking-orders.error");
+        }
     }
 
     /** Worker → main: clears the click lock, tells the player {@code key} (if any) and refreshes the window. */
