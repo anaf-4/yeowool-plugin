@@ -1,8 +1,7 @@
-package com.yeowool.life.cooking.orders;
+package com.yeowool.life.orders;
 
 import com.yeowool.core.api.service.MessageService;
-import com.yeowool.life.cooking.addcook.AddCookRecipeIndex.RecipeEntry;
-import com.yeowool.life.cooking.orders.CookingOrderRules.Difficulty;
+import com.yeowool.life.orders.OrderRules.Difficulty;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -20,10 +19,9 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.logging.Level;
 
-/** {@code /요리주문관리 npc|열기|단체시작|단체종료|초기화|명성} — staff only (spec §8). */
-public final class CookingOrderCommand implements CommandExecutor, TabCompleter {
+/** {@code /요리주문관리}·{@code /어부주문관리 npc|열기|단체시작|단체종료|초기화|명성} — staff only (specs §8). */
+public final class OrderCommand implements CommandExecutor, TabCompleter {
 
-    private static final String ADMIN = "yeowool.life.cooking.manage";
     private static final List<String> SUBCOMMANDS = List.of("npc", "열기", "단체시작", "단체종료", "초기화", "명성");
 
     @FunctionalInterface
@@ -33,20 +31,22 @@ public final class CookingOrderCommand implements CommandExecutor, TabCompleter 
 
     private final JavaPlugin plugin;
     private final MessageService messages;
-    private final CookingOrderService service;
+    private final OrderService service;
     private final Executor executor;
+    private final String permission;
     private final Random random = new Random();
 
-    public CookingOrderCommand(JavaPlugin plugin, MessageService messages, CookingOrderService service, Executor executor) {
+    public OrderCommand(JavaPlugin plugin, MessageService messages, OrderService service, Executor executor, String permission) {
         this.plugin = plugin;
         this.messages = messages;
         this.service = service;
         this.executor = executor;
+        this.permission = permission;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.hasPermission(ADMIN)) {
+        if (!sender.hasPermission(permission)) {
             messages.send(sender, "general.no-permission");
             return true;
         }
@@ -61,14 +61,14 @@ public final class CookingOrderCommand implements CommandExecutor, TabCompleter 
             }
             case "단체시작" -> startGroup(sender, args);
             case "단체종료" -> async(sender, () -> service.reply(sender,
-                    service.endGroup() ? "cooking-orders.admin.group-ended" : "cooking-orders.admin.group-none"));
+                    service.key(service.endGroup() ? "admin.group-ended" : "admin.group-none")));
             case "초기화" -> {
                 OfflinePlayer target = target(sender, args);
                 if (target != null) {
                     UUID uuid = target.getUniqueId();
                     async(sender, () -> {
-                        service.repository().resetDay(uuid, CookingOrderService.today());
-                        service.reply(sender, "cooking-orders.admin.reset", Placeholder.unparsed("player", String.valueOf(target.getName())));
+                        service.repository().resetDay(uuid, OrderService.today());
+                        service.reply(sender, service.key("admin.reset"), Placeholder.unparsed("player", String.valueOf(target.getName())));
                     });
                 }
             }
@@ -80,50 +80,46 @@ public final class CookingOrderCommand implements CommandExecutor, TabCompleter 
                     int value = Math.max(0, fame);
                     async(sender, () -> {
                         service.repository().setFame(uuid, value);
-                        service.reply(sender, "cooking-orders.admin.fame-set", Placeholder.unparsed("player", String.valueOf(target.getName())),
+                        service.reply(sender, service.key("admin.fame-set"), Placeholder.unparsed("player", String.valueOf(target.getName())),
                                 Placeholder.unparsed("fame", String.valueOf(value)));
                     });
                 }
             }
-            default -> messages.send(sender, "cooking-orders.admin.usage");
+            default -> messages.send(sender, service.key("admin.usage"));
         }
         return true;
     }
 
-    /** {@code 단체시작 [레시피ID] [수량] [시간]} — omitted parts: a random 쉬움/보통 recipe, its default target, the configured duration. */
+    /** {@code 단체시작 [ID] [수량] [시간]} — omitted parts: a random 쉬움/보통 item, its default target, the configured duration. */
     private void startGroup(CommandSender sender, String[] args) {
-        CookingOrderRules rules = service.rules();
-        String recipeId;
-        Difficulty difficulty;
+        OrderRules rules = service.rules();
+        String itemId;
         if (args.length >= 2) {
-            RecipeEntry recipe = service.recipe(args[1]);
-            if (recipe == null) {
-                messages.send(sender, "cooking-orders.admin.unknown-recipe", Placeholder.unparsed("id", args[1]));
+            itemId = service.catalog().resolve(args[1]);
+            if (itemId == null) {
+                messages.send(sender, service.key("admin.unknown-recipe"), Placeholder.unparsed("id", args[1]));
                 return;
             }
-            recipeId = recipe.id();
-            difficulty = service.groupDifficulty(recipeId).orElse(Difficulty.EASY);
         } else {
-            recipeId = rules.pickGroupRecipe(random, service.allRecipes()).map(CookingOrderRules.Recipe::id).orElse(null);
-            if (recipeId == null) {
-                messages.send(sender, "cooking-orders.admin.no-group-recipe");
+            itemId = rules.pickGroupItem(random, service.catalog().all()).map(OrderRules.Candidate::id).orElse(null);
+            if (itemId == null) {
+                messages.send(sender, service.key("admin.no-group-recipe"));
                 return;
             }
-            difficulty = service.groupDifficulty(recipeId).orElse(Difficulty.EASY);
         }
+        Difficulty difficulty = service.groupDifficulty(itemId).orElse(Difficulty.EASY);
         Integer target = args.length >= 3 ? number(sender, args, 2) : Integer.valueOf(rules.groupTarget(difficulty));
         Integer hours = args.length >= 4 ? number(sender, args, 3) : Integer.valueOf(rules.settings().group().durationHours());
         if (target == null || hours == null) {
             return;
         }
         if (target < 1 || hours < 1) {
-            messages.send(sender, "cooking-orders.admin.bad-number");
+            messages.send(sender, service.key("admin.bad-number"));
             return;
         }
         long now = System.currentTimeMillis();
         async(sender, () -> service.reply(sender,
-                service.startGroup(recipeId, target, now, now + hours * 3_600_000L)
-                        ? "cooking-orders.admin.group-started" : "cooking-orders.admin.group-already"));
+                service.key(service.startGroup(itemId, target, now, now + hours * 3_600_000L) ? "admin.group-started" : "admin.group-already")));
     }
 
     private void bindNpc(CommandSender sender) {
@@ -132,22 +128,22 @@ public final class CookingOrderCommand implements CommandExecutor, TabCompleter 
             return;
         }
         if (!Bukkit.getPluginManager().isPluginEnabled("Citizens")) {
-            messages.send(player, "cooking-orders.admin.no-citizens");
+            messages.send(player, service.key("admin.no-citizens"));
             return;
         }
-        Integer npcId = CookingNpcListener.selectedNpcId(player);
+        Integer npcId = OrderNpcListener.selectedNpcId(player);
         if (npcId == null) {
-            messages.send(player, "cooking-orders.admin.select-npc");
+            messages.send(player, service.key("admin.select-npc"));
             return;
         }
         boolean bound = service.toggleNpc(npcId);
-        messages.send(player, bound ? "cooking-orders.admin.npc-bound" : "cooking-orders.admin.npc-unbound",
+        messages.send(player, service.key(bound ? "admin.npc-bound" : "admin.npc-unbound"),
                 Placeholder.unparsed("id", String.valueOf(npcId)));
     }
 
     private OfflinePlayer target(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            messages.send(sender, "cooking-orders.admin.usage");
+            messages.send(sender, service.key("admin.usage"));
             return null;
         }
         OfflinePlayer target = Bukkit.getPlayerExact(args[1]);
@@ -155,7 +151,7 @@ public final class CookingOrderCommand implements CommandExecutor, TabCompleter 
             target = Bukkit.getOfflinePlayerIfCached(args[1]);
         }
         if (target == null) {
-            messages.send(sender, "cooking-orders.admin.player-not-found", Placeholder.unparsed("player", args[1]));
+            messages.send(sender, service.key("admin.player-not-found"), Placeholder.unparsed("player", args[1]));
         }
         return target;
     }
@@ -164,7 +160,7 @@ public final class CookingOrderCommand implements CommandExecutor, TabCompleter 
         try {
             return Integer.parseInt(args[index]);
         } catch (ArrayIndexOutOfBoundsException | NumberFormatException e) {
-            messages.send(sender, "cooking-orders.admin.bad-number");
+            messages.send(sender, service.key("admin.bad-number"));
             return null;
         }
     }
@@ -174,15 +170,15 @@ public final class CookingOrderCommand implements CommandExecutor, TabCompleter 
             try {
                 task.run();
             } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "요리 주문 관리 명령 처리 실패", e);
-                service.reply(sender, "cooking-orders.error");
+                plugin.getLogger().log(Level.SEVERE, service.catalog().label() + " 관리 명령 처리 실패", e);
+                service.reply(sender, service.key("error"));
             }
         });
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.hasPermission(ADMIN)) {
+        if (!sender.hasPermission(permission)) {
             return List.of();
         }
         if (args.length == 1) {

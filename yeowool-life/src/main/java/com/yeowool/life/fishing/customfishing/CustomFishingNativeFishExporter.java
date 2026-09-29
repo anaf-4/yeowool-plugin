@@ -9,6 +9,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -70,8 +71,18 @@ public final class CustomFishingNativeFishExporter {
                 yaml.set(key + ".material", materialValue);
                 yaml.set(key + ".show-in-fishfinder", true);
                 yaml.set(key + ".display.name", "<white>" + species.name() + "</white>");
+                List<String> lore = new ArrayList<>();
                 if (!species.description().isBlank()) {
-                    yaml.set(key + ".display.lore", List.of("<gray>" + species.description() + "</gray>"));
+                    lore.add("<gray>" + species.description() + "</gray>");
+                }
+                // CustomFishing only rolls (and stores) a size when the item has one — 어부 주문's size
+                // conditions/bonus read it back with ItemManager#getFishSize.
+                if (species.maxSizeCm() > species.minSizeCm()) {
+                    yaml.set(key + ".size", species.minSizeCm() + "~" + species.maxSizeCm());
+                    lore.add("<white>크기: {size_formatted}cm");
+                }
+                if (!lore.isEmpty()) {
+                    yaml.set(key + ".display.lore", lore);
                 }
                 yaml.set(key + ".weight", Math.max(1, rarity.weight()));
                 yaml.set(key + ".time", 20000);

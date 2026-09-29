@@ -1,4 +1,4 @@
-package com.yeowool.life.cooking.orders;
+package com.yeowool.life.orders;
 
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
@@ -7,18 +7,18 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
-/** Citizens-only (registered only when Citizens is on): right-clicking a bound NPC opens the restaurant. */
-public final class CookingNpcListener implements Listener {
+/** Citizens-only (registered only when Citizens is on): right-clicking a bound NPC opens that system's window. */
+public final class OrderNpcListener implements Listener {
 
-    private final CookingOrderService service;
+    private final OrderService service;
 
-    public CookingNpcListener(CookingOrderService service) {
+    public OrderNpcListener(OrderService service) {
         this.service = service;
     }
 
     @EventHandler
     public void onRightClick(NPCRightClickEvent event) {
-        if (service.isRestaurantNpc(event.getNPC().getId())) {
+        if (service.isNpc(event.getNPC().getId())) {
             service.open(event.getClicker());
         }
     }
