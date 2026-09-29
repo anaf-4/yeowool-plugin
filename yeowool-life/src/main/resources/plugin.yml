@@ -44,6 +44,8 @@ commands:
     description: 진행 중인 깜짝 이벤트 확인 (관리진은 시작/종료)
   요리주문관리:
     description: 관리진 전용 - 식당 NPC 연결, 단체 주문 시작/종료, 주문 초기화, 명성 설정
+  어부주문관리:
+    description: 관리진 전용 - 수산시장 NPC 연결, 단체 주문(수산시장 대목) 시작/종료, 주문 초기화, 어부 명성 설정
 
 permissions:
   yeowool.life.treasure.manage:
@@ -54,4 +56,7 @@ permissions:
     default: op
   yeowool.life.cooking.manage:
     description: 요리 주문 관리 (/요리주문관리)
+    default: op
+  yeowool.life.fishing-orders.manage:
+    description: 어부 주문 관리 (/어부주문관리)
     default: op

@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -216,7 +217,7 @@ public final class OrderService {
     }
 
     /** "35" / "35.5" — a size in mm shown as cm. */
-    static String cm(int mm) {
+    public static String cm(int mm) {
         return mm % 10 == 0 ? String.valueOf(mm / 10) : String.format("%.1f", mm / 10.0);
     }
 
@@ -766,9 +767,11 @@ public final class OrderService {
     /**
      * Reads an order config block ({@code cooking-orders} / {@code fishing-orders}); anything missing falls back
      * to {@code defaults}. {@code unit} names the money keys ({@code money-per-<unit>}), {@code multiplierKey}
-     * the normal/silver/golden block ({@code quality-multiplier} / {@code star-multiplier}).
+     * the normal/silver/golden block ({@code quality-multiplier} / {@code star-multiplier}); {@code overrideId} maps an
+     * {@code overrides} key to the catalog's item id.
      */
-    public static Settings settings(ConfigurationSection config, Logger log, String unit, String multiplierKey, Settings defaults) {
+    public static Settings settings(ConfigurationSection config, Logger log, String unit, String multiplierKey, Settings defaults,
+                                    UnaryOperator<String> overrideId) {
         String path = config.getName();
         Map<Difficulty, Tier> tiers = new EnumMap<>(Difficulty.class);
         for (Difficulty difficulty : Difficulty.values()) {
@@ -852,7 +855,7 @@ public final class OrderService {
                 if (difficultyKey != null && difficulty == null) {
                     log.warning(path + ".overrides." + id + ".difficulty는 easy/normal/hard 중 하나여야 합니다 — 무시합니다.");
                 }
-                overrides.put(id, new OrderRules.Override(difficulty, overrideSection.getLong(id + ".money-per-" + unit, 0)));
+                overrides.put(overrideId.apply(id), new OrderRules.Override(difficulty, overrideSection.getLong(id + ".money-per-" + unit, 0)));
             }
         }
         return new Settings(Math.max(1, Math.min(3, config.getInt("orders-per-day", defaults.ordersPerDay()))), tiers, itemMultipliers,
