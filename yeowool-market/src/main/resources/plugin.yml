@@ -65,7 +65,7 @@ commands:
   떠돌이상인:
     description: 떠돌이 상인의 현재 위치를 확인합니다 (관리진은 후보 지점 관리·소환·퇴장)
   교환소관리:
-    description: 교환소 항목 추가/목록/삭제, 교환소 NPC 연결 (관리진)
+    description: 교환소 항목 추가/수정/목록/삭제, 교환소 NPC 연결 (관리진)
     permission: yeowool.market.shop.manage
 
 permissions:

@@ -264,6 +264,7 @@ public final class YeowoolMarket extends JavaPlugin {
             ExchangeService exchange = new ExchangeService(this, core, messages, exchangeRepository, executor);
             var exchangeCommand = new ExchangeCommand(this, messages, exchange, executor);
             bindCommand("교환소관리", exchangeCommand, exchangeCommand);
+            getServer().getPluginManager().registerEvents(exchangeCommand, this);
             if (getServer().getPluginManager().isPluginEnabled("Citizens")) {
                 getServer().getPluginManager().registerEvents(new ExchangeNpcListener(exchange), this);
             } else {

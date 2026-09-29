@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /** 교환소 entries and per-player usage counts, shared by every server. JDBC only — call from a worker thread. */
@@ -93,26 +94,41 @@ public final class ExchangeRepository {
         }
     }
 
+    private static final String SELECT = "SELECT id, reward, cost_items, cost_money, cost_stardust, limit_type, limit_count FROM yw_exchange_entries";
+
     public List<Entry> list() throws SQLException {
         List<Entry> entries = new ArrayList<>();
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(
-                     "SELECT id, reward, cost_items, cost_money, cost_stardust, limit_type, limit_count FROM yw_exchange_entries ORDER BY id");
+             PreparedStatement ps = connection.prepareStatement(SELECT + " ORDER BY id");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                Limit limit;
-                try {
-                    limit = Limit.valueOf(rs.getString("limit_type"));
-                } catch (IllegalArgumentException e) {
-                    limit = Limit.NONE;
-                }
-                entries.add(new Entry(rs.getInt("id"),
-                        ItemStackSerializer.deserialize(rs.getString("reward")),
-                        Arrays.stream(ItemStackSerializer.deserializeArray(rs.getString("cost_items"))).filter(i -> i != null && !i.getType().isAir()).toList(),
-                        rs.getLong("cost_money"), rs.getLong("cost_stardust"), limit, rs.getInt("limit_count")));
+                entries.add(read(rs));
             }
         }
         return entries;
+    }
+
+    public Optional<Entry> get(int id) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(SELECT + " WHERE id = ?")) {
+            ps.setInt(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(read(rs)) : Optional.empty();
+            }
+        }
+    }
+
+    private static Entry read(ResultSet rs) throws SQLException {
+        Limit limit;
+        try {
+            limit = Limit.valueOf(rs.getString("limit_type"));
+        } catch (IllegalArgumentException e) {
+            limit = Limit.NONE;
+        }
+        return new Entry(rs.getInt("id"),
+                ItemStackSerializer.deserialize(rs.getString("reward")),
+                Arrays.stream(ItemStackSerializer.deserializeArray(rs.getString("cost_items"))).filter(i -> i != null && !i.getType().isAir()).toList(),
+                rs.getLong("cost_money"), rs.getLong("cost_stardust"), limit, rs.getInt("limit_count"));
     }
 
     public int insert(ItemStack reward, List<ItemStack> costItems, long costMoney, long costStardust, Limit limit, int limitCount) throws SQLException {
@@ -134,21 +150,26 @@ public final class ExchangeRepository {
         }
     }
 
+    public boolean update(int id, ItemStack reward, List<ItemStack> costItems, long costMoney, long costStardust, Limit limit, int limitCount) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "UPDATE yw_exchange_entries SET reward = ?, cost_items = ?, cost_money = ?, cost_stardust = ?, limit_type = ?, limit_count = ? WHERE id = ?")) {
+            ps.setString(1, ItemStackSerializer.serialize(reward));
+            ps.setString(2, ItemStackSerializer.serializeArray(costItems.toArray(new ItemStack[0])));
+            ps.setLong(3, costMoney);
+            ps.setLong(4, costStardust);
+            ps.setString(5, limit.name());
+            ps.setInt(6, limitCount);
+            ps.setInt(7, id);
+            return ps.executeUpdate() == 1;
+        }
+    }
+
     public boolean delete(int id) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement("DELETE FROM yw_exchange_entries WHERE id = ?")) {
             ps.setInt(1, id);
             return ps.executeUpdate() == 1;
-        }
-    }
-
-    public boolean exists(int id) throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement("SELECT 1 FROM yw_exchange_entries WHERE id = ?")) {
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
         }
     }
 
