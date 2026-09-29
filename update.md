@@ -4,6 +4,12 @@
 
 ## 2026-09-30
 
+### 리소스 팩 3종 추가 (서버 설정만, 세 서버 공통)
+- **Warlord Kragan, The Bloodfury** (MythicMobs 보스 + 아레나): `MythicMobs/packs/WarlordKraganTheBloodfury`, 아레나 스키매틱 `WorldEdit/schematics/warlord_kragan_the_bloodfury_arena.schem`, ItemsAdder 보스바 `contents/khan_warlord_boss_bar` (ItemsAdder 옵션에 빠져 있던 보스바 이미지는 Nexo 옵션에서 가져와 넣음). 소환: `/mm mobs spawn warlord_kragan_the_bloodfury`.
+- **Fantasy Metals Bundle** (광석·금속 블록 203종, `bundle_metals`): ItemsAdder 3 형식이라 ItemsAdder 4 `contents/bundle_metals` 구조로 옮겨 설치. 월드 생성(자연 광석 생성)은 없음.
+- **Casino Machines Pack** (`contents/iavegastables`, 카지노 테이블 모델 16종, BARRIER model_id 66601~66616): 실제 게임 동작은 Vegas 플러그인이 있어야 함 (현재 미설치 → 모델만 추가됨).
+- 적용: 재시작 후 각 서버에서 `/iazip`.
+
 ### 서버 목록 MOTD 실시간 설정 + 순환 (yeowool-proxy, yeowool-admin)
 - `/motd 추가 첫 줄 | 둘째 줄` (둘째 줄 생략 가능), `/motd 수정 번호 ...`, `/motd 삭제 번호`, `/motd 보기`, `/motd 간격 초`(기본 10초), `/motd 초기화`. 권한 `yeowool.admin`.
 - MiniMessage 색상(`<gold>`, `<#09add3>` 등)과 `{online}`(현재 접속자), `{max}`(최대 인원) 사용 가능. 여러 개를 등록하면 간격마다 번갈아 보입니다.
