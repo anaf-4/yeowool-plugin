@@ -1,4 +1,4 @@
-package com.yeowool.life.cooking.orders;
+package com.yeowool.life.orders;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -15,20 +15,23 @@ import java.util.OptionalInt;
 import java.util.UUID;
 
 /**
- * Shared (all three servers) 요리 주문 rows. Every step that must happen once — delivering past the
- * required amount, completing an order, the all-done bonus, 교체, group progress, starting/finishing
- * and settling a group order — is a conditional UPDATE / unique-key INSERT, so only one caller wins.
- * Blocking JDBC: worker thread only.
+ * Shared (all three servers) order rows of one system — {@code yw_cook_*} (item column {@code recipe_id})
+ * or {@code yw_fish_*} ({@code fish_id}, plus {@code vip_kind}/{@code min_size_mm} on orders). Every step
+ * that must happen once — delivering past the required amount, completing an order, the all-done bonus,
+ * 교체, group progress, starting/finishing and settling a group order — is a conditional UPDATE /
+ * unique-key INSERT, so only one caller wins. Blocking JDBC: worker thread only.
  */
-public final class CookingOrderRepository {
+public final class OrderRepository {
 
-    public record Order(int slot, String recipeId, String difficulty, boolean vip, int required, int delivered, boolean completed) {
+    /** {@code vipKind} null / {@code minSizeMm} 0 = no such condition (always so for cooking). */
+    public record Order(int slot, String itemId, String difficulty, boolean vip, String vipKind, int minSizeMm,
+                        int required, int delivered, boolean completed) {
     }
 
     public record Daily(boolean rerolled, boolean bonusPaid) {
     }
 
-    public record GroupOrder(int id, String recipeId, int target, int progress, long startsAt, long endsAt, String status) {
+    public record GroupOrder(int id, String itemId, int target, int progress, long startsAt, long endsAt, String status) {
     }
 
     public record Contribution(UUID player, String name, int amount) {
@@ -38,13 +41,13 @@ public final class CookingOrderRepository {
     }
 
     private static final String ORDERS_DDL = """
-            CREATE TABLE IF NOT EXISTS yw_cook_orders (
+            CREATE TABLE IF NOT EXISTS {p}orders (
                 uuid CHAR(36) NOT NULL,
                 day VARCHAR(10) NOT NULL,
                 slot TINYINT NOT NULL,
-                recipe_id VARCHAR(64) NOT NULL,
+                {item} VARCHAR(64) NOT NULL,
                 difficulty VARCHAR(8) NOT NULL,
-                vip TINYINT(1) NOT NULL DEFAULT 0,
+                vip TINYINT(1) NOT NULL DEFAULT 0,{conditions}
                 required INT NOT NULL,
                 delivered INT NOT NULL DEFAULT 0,
                 completed TINYINT(1) NOT NULL DEFAULT 0,
@@ -52,8 +55,13 @@ public final class CookingOrderRepository {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """;
 
+    private static final String CONDITIONS_DDL = """
+
+                vip_kind VARCHAR(8) NULL,
+                min_size_mm INT NOT NULL DEFAULT 0,""";
+
     private static final String DAILY_DDL = """
-            CREATE TABLE IF NOT EXISTS yw_cook_daily (
+            CREATE TABLE IF NOT EXISTS {p}daily (
                 uuid CHAR(36) NOT NULL,
                 day VARCHAR(10) NOT NULL,
                 rerolled TINYINT(1) NOT NULL DEFAULT 0,
@@ -63,7 +71,7 @@ public final class CookingOrderRepository {
             """;
 
     private static final String FAME_DDL = """
-            CREATE TABLE IF NOT EXISTS yw_cook_fame (
+            CREATE TABLE IF NOT EXISTS {p}fame (
                 uuid CHAR(36) NOT NULL PRIMARY KEY,
                 fame INT NOT NULL DEFAULT 0
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -72,9 +80,9 @@ public final class CookingOrderRepository {
     // active_lock is 1 while ACTIVE and NULL afterwards: its unique key allows only one running group order,
     // and the unique starts_at stops the three servers starting the same scheduled one twice.
     private static final String GROUP_DDL = """
-            CREATE TABLE IF NOT EXISTS yw_cook_group (
+            CREATE TABLE IF NOT EXISTS {p}group (
                 id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                recipe_id VARCHAR(64) NOT NULL,
+                {item} VARCHAR(64) NOT NULL,
                 target INT NOT NULL,
                 progress INT NOT NULL DEFAULT 0,
                 starts_at BIGINT NOT NULL,
@@ -88,7 +96,7 @@ public final class CookingOrderRepository {
             """;
 
     private static final String CONTRIB_DDL = """
-            CREATE TABLE IF NOT EXISTS yw_cook_group_contrib (
+            CREATE TABLE IF NOT EXISTS {p}group_contrib (
                 group_id INT NOT NULL,
                 uuid CHAR(36) NOT NULL,
                 name VARCHAR(16) NOT NULL,
@@ -98,7 +106,7 @@ public final class CookingOrderRepository {
             """;
 
     private static final String ANNOUNCEMENTS_DDL = """
-            CREATE TABLE IF NOT EXISTS yw_cook_announcements (
+            CREATE TABLE IF NOT EXISTS {p}announcements (
                 id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                 msg_key VARCHAR(64) NOT NULL,
                 args VARCHAR(1024) NOT NULL,
@@ -106,23 +114,34 @@ public final class CookingOrderRepository {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """;
 
-    private static final String GROUP_COLUMNS = "id, recipe_id, target, progress, starts_at, ends_at, status";
-
     @FunctionalInterface
     private interface SqlWork<T> {
         T run(Connection connection) throws SQLException;
     }
 
     private final DataSource dataSource;
+    private final String prefix;
+    private final String itemColumn;
+    private final boolean conditions;
 
-    public CookingOrderRepository(DataSource dataSource) {
+    /** {@code conditions}: the orders table has {@code vip_kind}/{@code min_size_mm} (fishing). */
+    public OrderRepository(DataSource dataSource, String prefix, String itemColumn, boolean conditions) {
         this.dataSource = dataSource;
+        this.prefix = prefix;
+        this.itemColumn = itemColumn;
+        this.conditions = conditions;
+    }
+
+    /** {@code {p}} → table prefix, {@code {item}} → item column. */
+    private String sql(String template) {
+        return template.replace("{p}", prefix).replace("{item}", itemColumn)
+                .replace("{conditions}", conditions ? CONDITIONS_DDL : "");
     }
 
     public void createTables() throws SQLException {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
             for (String ddl : List.of(ORDERS_DDL, DAILY_DDL, FAME_DDL, GROUP_DDL, CONTRIB_DDL, ANNOUNCEMENTS_DDL)) {
-                statement.executeUpdate(ddl);
+                statement.executeUpdate(sql(ddl));
             }
         }
     }
@@ -131,16 +150,16 @@ public final class CookingOrderRepository {
 
     public List<Order> orders(UUID uuid, String day) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(
-                     "SELECT slot, recipe_id, difficulty, vip, required, delivered, completed FROM yw_cook_orders "
-                             + "WHERE uuid = ? AND day = ? ORDER BY slot")) {
+             PreparedStatement ps = connection.prepareStatement(sql(
+                     "SELECT slot, {item}, difficulty, vip, " + (conditions ? "vip_kind, min_size_mm" : "NULL, 0")
+                             + ", required, delivered, completed FROM {p}orders WHERE uuid = ? AND day = ? ORDER BY slot"))) {
             ps.setString(1, uuid.toString());
             ps.setString(2, day);
             List<Order> orders = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     orders.add(new Order(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getBoolean(4),
-                            rs.getInt(5), rs.getInt(6), rs.getBoolean(7)));
+                            rs.getString(5), rs.getInt(6), rs.getInt(7), rs.getInt(8), rs.getBoolean(9)));
                 }
             }
             return orders;
@@ -148,26 +167,31 @@ public final class CookingOrderRepository {
     }
 
     /** Stores {@code draws} as the day's orders unless another server already did (the daily row decides who). */
-    public void insertOrdersIfAbsent(UUID uuid, String day, List<CookingOrderRules.Draw> draws) throws SQLException {
+    public void insertOrdersIfAbsent(UUID uuid, String day, List<OrderRules.Draw> draws) throws SQLException {
         inTransaction(connection -> {
-            try (PreparedStatement ps = connection.prepareStatement("INSERT IGNORE INTO yw_cook_daily (uuid, day) VALUES (?, ?)")) {
+            try (PreparedStatement ps = connection.prepareStatement(sql("INSERT IGNORE INTO {p}daily (uuid, day) VALUES (?, ?)"))) {
                 ps.setString(1, uuid.toString());
                 ps.setString(2, day);
                 if (ps.executeUpdate() == 0) {
                     return null;
                 }
             }
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO yw_cook_orders (uuid, day, slot, recipe_id, difficulty, vip, required) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+            try (PreparedStatement ps = connection.prepareStatement(sql(conditions
+                    ? "INSERT INTO {p}orders (uuid, day, slot, {item}, difficulty, vip, required, vip_kind, min_size_mm) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    : "INSERT INTO {p}orders (uuid, day, slot, {item}, difficulty, vip, required) VALUES (?, ?, ?, ?, ?, ?, ?)"))) {
                 for (int slot = 0; slot < draws.size(); slot++) {
-                    CookingOrderRules.Draw draw = draws.get(slot);
+                    OrderRules.Draw draw = draws.get(slot);
                     ps.setString(1, uuid.toString());
                     ps.setString(2, day);
                     ps.setInt(3, slot);
-                    ps.setString(4, draw.recipeId());
+                    ps.setString(4, draw.itemId());
                     ps.setString(5, draw.difficulty().key());
                     ps.setBoolean(6, draw.vip());
                     ps.setInt(7, draw.required());
+                    if (conditions) {
+                        ps.setString(8, draw.vipKind());
+                        ps.setInt(9, draw.minSizeMm());
+                    }
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -178,8 +202,8 @@ public final class CookingOrderRepository {
 
     public Daily daily(UUID uuid, String day) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(
-                     "SELECT rerolled, bonus_paid FROM yw_cook_daily WHERE uuid = ? AND day = ?")) {
+             PreparedStatement ps = connection.prepareStatement(sql(
+                     "SELECT rerolled, bonus_paid FROM {p}daily WHERE uuid = ? AND day = ?"))) {
             ps.setString(1, uuid.toString());
             ps.setString(2, day);
             try (ResultSet rs = ps.executeQuery()) {
@@ -189,16 +213,16 @@ public final class CookingOrderRepository {
     }
 
     /**
-     * Adds up to {@code amount} to an open order that still has that recipe, never past {@code required}
+     * Adds up to {@code amount} to an open order that still has that item, never past {@code required}
      * (the row is locked while the remaining amount is read). Returns how many were added — 0 if it's full.
      */
-    public int addDelivered(UUID uuid, String day, int slot, String recipeId, int amount) throws SQLException {
+    public int addDelivered(UUID uuid, String day, int slot, String itemId, int amount) throws SQLException {
         return inTransaction(connection -> {
             int remaining;
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "SELECT required - delivered FROM yw_cook_orders WHERE uuid = ? AND day = ? AND slot = ? "
-                            + "AND recipe_id = ? AND completed = 0 FOR UPDATE")) {
-                bind(ps, uuid, day, slot, recipeId);
+            try (PreparedStatement ps = connection.prepareStatement(sql(
+                    "SELECT required - delivered FROM {p}orders WHERE uuid = ? AND day = ? AND slot = ? "
+                            + "AND {item} = ? AND completed = 0 FOR UPDATE"))) {
+                bind(ps, uuid, day, slot, itemId);
                 try (ResultSet rs = ps.executeQuery()) {
                     remaining = rs.next() ? rs.getInt(1) : 0;
                 }
@@ -207,8 +231,8 @@ public final class CookingOrderRepository {
             if (added <= 0) {
                 return 0;
             }
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "UPDATE yw_cook_orders SET delivered = delivered + ? WHERE uuid = ? AND day = ? AND slot = ?")) {
+            try (PreparedStatement ps = connection.prepareStatement(sql(
+                    "UPDATE {p}orders SET delivered = delivered + ? WHERE uuid = ? AND day = ? AND slot = ?"))) {
                 bind(ps, added, uuid, day, slot);
                 ps.executeUpdate();
             }
@@ -217,20 +241,20 @@ public final class CookingOrderRepository {
     }
 
     public void undoDelivered(UUID uuid, String day, int slot, int amount) throws SQLException {
-        update("UPDATE yw_cook_orders SET delivered = delivered - ? WHERE uuid = ? AND day = ? AND slot = ? AND delivered >= ?",
+        update("UPDATE {p}orders SET delivered = delivered - ? WHERE uuid = ? AND day = ? AND slot = ? AND delivered >= ?",
                 amount, uuid, day, slot, amount);
     }
 
     /** True only for the one caller that marks this full order completed. */
     public boolean completeOrder(UUID uuid, String day, int slot) throws SQLException {
-        return update("UPDATE yw_cook_orders SET completed = 1 WHERE uuid = ? AND day = ? AND slot = ? "
+        return update("UPDATE {p}orders SET completed = 1 WHERE uuid = ? AND day = ? AND slot = ? "
                 + "AND completed = 0 AND delivered >= required", uuid, day, slot) == 1;
     }
 
     public boolean allCompleted(UUID uuid, String day) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(
-                     "SELECT COUNT(*), COALESCE(SUM(completed), 0) FROM yw_cook_orders WHERE uuid = ? AND day = ?")) {
+             PreparedStatement ps = connection.prepareStatement(sql(
+                     "SELECT COUNT(*), COALESCE(SUM(completed), 0) FROM {p}orders WHERE uuid = ? AND day = ?"))) {
             ps.setString(1, uuid.toString());
             ps.setString(2, day);
             try (ResultSet rs = ps.executeQuery()) {
@@ -241,34 +265,40 @@ public final class CookingOrderRepository {
     }
 
     public boolean claimBonus(UUID uuid, String day) throws SQLException {
-        return update("UPDATE yw_cook_daily SET bonus_paid = 1 WHERE uuid = ? AND day = ? AND bonus_paid = 0", uuid, day) == 1;
+        return update("UPDATE {p}daily SET bonus_paid = 1 WHERE uuid = ? AND day = ? AND bonus_paid = 0", uuid, day) == 1;
     }
 
     public boolean claimReroll(UUID uuid, String day) throws SQLException {
-        return update("UPDATE yw_cook_daily SET rerolled = 1 WHERE uuid = ? AND day = ? AND rerolled = 0", uuid, day) == 1;
+        return update("UPDATE {p}daily SET rerolled = 1 WHERE uuid = ? AND day = ? AND rerolled = 0", uuid, day) == 1;
     }
 
     public void releaseReroll(UUID uuid, String day) throws SQLException {
-        update("UPDATE yw_cook_daily SET rerolled = 0 WHERE uuid = ? AND day = ?", uuid, day);
+        update("UPDATE {p}daily SET rerolled = 0 WHERE uuid = ? AND day = ?", uuid, day);
     }
 
     /**
      * Swaps an open order for {@code draw}. A paid 교체 also needs it untouched and non-VIP; a free one
-     * (the recipe no longer exists) only needs it open.
+     * (the item no longer exists) only needs it open.
      */
-    public boolean replaceOrder(UUID uuid, String day, int slot, String oldRecipeId, CookingOrderRules.Draw draw, boolean free)
+    public boolean replaceOrder(UUID uuid, String day, int slot, String oldItemId, OrderRules.Draw draw, boolean free)
             throws SQLException {
-        return update("UPDATE yw_cook_orders SET recipe_id = ?, difficulty = ?, vip = ?, required = ?, delivered = 0, completed = 0 "
-                        + "WHERE uuid = ? AND day = ? AND slot = ? AND recipe_id = ? AND completed = 0"
-                        + (free ? "" : " AND delivered = 0 AND vip = 0"),
-                draw.recipeId(), draw.difficulty().key(), draw.vip(), draw.required(), uuid, day, slot, oldRecipeId) == 1;
+        String where = " WHERE uuid = ? AND day = ? AND slot = ? AND {item} = ? AND completed = 0"
+                + (free ? "" : " AND delivered = 0 AND vip = 0");
+        if (conditions) {
+            return update("UPDATE {p}orders SET {item} = ?, difficulty = ?, vip = ?, required = ?, delivered = 0, completed = 0, "
+                            + "vip_kind = ?, min_size_mm = ?" + where,
+                    draw.itemId(), draw.difficulty().key(), draw.vip(), draw.required(), draw.vipKind(), draw.minSizeMm(),
+                    uuid, day, slot, oldItemId) == 1;
+        }
+        return update("UPDATE {p}orders SET {item} = ?, difficulty = ?, vip = ?, required = ?, delivered = 0, completed = 0" + where,
+                draw.itemId(), draw.difficulty().key(), draw.vip(), draw.required(), uuid, day, slot, oldItemId) == 1;
     }
 
     /** Admin 초기화: the next open draws the day's orders again (also resets 교체 and the all-done bonus). */
     public void resetDay(UUID uuid, String day) throws SQLException {
         inTransaction(connection -> {
-            for (String sql : List.of("DELETE FROM yw_cook_orders WHERE uuid = ? AND day = ?", "DELETE FROM yw_cook_daily WHERE uuid = ? AND day = ?")) {
-                try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            for (String template : List.of("DELETE FROM {p}orders WHERE uuid = ? AND day = ?", "DELETE FROM {p}daily WHERE uuid = ? AND day = ?")) {
+                try (PreparedStatement ps = connection.prepareStatement(sql(template))) {
                     ps.setString(1, uuid.toString());
                     ps.setString(2, day);
                     ps.executeUpdate();
@@ -289,8 +319,8 @@ public final class CookingOrderRepository {
     /** Returns the new fame. */
     public int addFame(UUID uuid, int delta) throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO yw_cook_fame (uuid, fame) VALUES (?, ?) ON DUPLICATE KEY UPDATE fame = fame + VALUES(fame)")) {
+            try (PreparedStatement ps = connection.prepareStatement(sql(
+                    "INSERT INTO {p}fame (uuid, fame) VALUES (?, ?) ON DUPLICATE KEY UPDATE fame = fame + VALUES(fame)"))) {
                 ps.setString(1, uuid.toString());
                 ps.setInt(2, delta);
                 ps.executeUpdate();
@@ -300,11 +330,11 @@ public final class CookingOrderRepository {
     }
 
     public void setFame(UUID uuid, int fame) throws SQLException {
-        update("INSERT INTO yw_cook_fame (uuid, fame) VALUES (?, ?) ON DUPLICATE KEY UPDATE fame = VALUES(fame)", uuid, fame);
+        update("INSERT INTO {p}fame (uuid, fame) VALUES (?, ?) ON DUPLICATE KEY UPDATE fame = VALUES(fame)", uuid, fame);
     }
 
-    private static int fame(Connection connection, UUID uuid) throws SQLException {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT fame FROM yw_cook_fame WHERE uuid = ?")) {
+    private int fame(Connection connection, UUID uuid) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(sql("SELECT fame FROM {p}fame WHERE uuid = ?"))) {
             ps.setString(1, uuid.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
@@ -334,8 +364,8 @@ public final class CookingOrderRepository {
     /** Whether a scheduled start at {@code startsAt} must be skipped: already started once, or another group is running. */
     public boolean groupBlocked(long startsAt) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(
-                     "SELECT COUNT(*) FROM yw_cook_group WHERE status = 'ACTIVE' OR starts_at = ?")) {
+             PreparedStatement ps = connection.prepareStatement(sql(
+                     "SELECT COUNT(*) FROM {p}group WHERE status = 'ACTIVE' OR starts_at = ?"))) {
             ps.setLong(1, startsAt);
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
@@ -345,12 +375,12 @@ public final class CookingOrderRepository {
     }
 
     /** The new group's id, or empty if one is already running or this start already happened. */
-    public OptionalInt startGroup(String recipeId, int target, long startsAt, long endsAt) throws SQLException {
+    public OptionalInt startGroup(String itemId, int target, long startsAt, long endsAt) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(
-                     "INSERT IGNORE INTO yw_cook_group (recipe_id, target, starts_at, ends_at, status, active_lock) "
-                             + "VALUES (?, ?, ?, ?, 'ACTIVE', 1)", Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, recipeId);
+             PreparedStatement ps = connection.prepareStatement(sql(
+                     "INSERT IGNORE INTO {p}group ({item}, target, starts_at, ends_at, status, active_lock) "
+                             + "VALUES (?, ?, ?, ?, 'ACTIVE', 1)"), Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, itemId);
             ps.setInt(2, target);
             ps.setLong(3, startsAt);
             ps.setLong(4, endsAt);
@@ -363,7 +393,7 @@ public final class CookingOrderRepository {
         }
     }
 
-    /** How many dishes a group delivery added, and the group's progress afterwards. */
+    /** How many items a group delivery added, and the group's progress afterwards. */
     public record GroupAdd(int added, int progress) {
     }
 
@@ -376,8 +406,8 @@ public final class CookingOrderRepository {
         return inTransaction(connection -> {
             int progress;
             int remaining;
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "SELECT progress, target FROM yw_cook_group WHERE id = ? AND status = 'ACTIVE' AND ends_at > ? FOR UPDATE")) {
+            try (PreparedStatement ps = connection.prepareStatement(sql(
+                    "SELECT progress, target FROM {p}group WHERE id = ? AND status = 'ACTIVE' AND ends_at > ? FOR UPDATE"))) {
                 bind(ps, groupId, now);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (!rs.next()) {
@@ -391,13 +421,13 @@ public final class CookingOrderRepository {
             if (added <= 0) {
                 return Optional.of(new GroupAdd(0, progress));
             }
-            try (PreparedStatement ps = connection.prepareStatement("UPDATE yw_cook_group SET progress = progress + ? WHERE id = ?")) {
+            try (PreparedStatement ps = connection.prepareStatement(sql("UPDATE {p}group SET progress = progress + ? WHERE id = ?"))) {
                 bind(ps, added, groupId);
                 ps.executeUpdate();
             }
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO yw_cook_group_contrib (group_id, uuid, name, amount) VALUES (?, ?, ?, ?) "
-                            + "ON DUPLICATE KEY UPDATE amount = amount + VALUES(amount), name = VALUES(name)")) {
+            try (PreparedStatement ps = connection.prepareStatement(sql(
+                    "INSERT INTO {p}group_contrib (group_id, uuid, name, amount) VALUES (?, ?, ?, ?) "
+                            + "ON DUPLICATE KEY UPDATE amount = amount + VALUES(amount), name = VALUES(name)"))) {
                 ps.setInt(1, groupId);
                 ps.setString(2, uuid.toString());
                 ps.setString(3, name);
@@ -410,13 +440,13 @@ public final class CookingOrderRepository {
 
     public void undoGroupProgress(int groupId, UUID uuid, int amount) throws SQLException {
         inTransaction(connection -> {
-            try (PreparedStatement ps = connection.prepareStatement("UPDATE yw_cook_group SET progress = progress - ? WHERE id = ?")) {
+            try (PreparedStatement ps = connection.prepareStatement(sql("UPDATE {p}group SET progress = progress - ? WHERE id = ?"))) {
                 ps.setInt(1, amount);
                 ps.setInt(2, groupId);
                 ps.executeUpdate();
             }
-            try (PreparedStatement ps = connection.prepareStatement(
-                    "UPDATE yw_cook_group_contrib SET amount = amount - ? WHERE group_id = ? AND uuid = ?")) {
+            try (PreparedStatement ps = connection.prepareStatement(sql(
+                    "UPDATE {p}group_contrib SET amount = amount - ? WHERE group_id = ? AND uuid = ?"))) {
                 ps.setInt(1, amount);
                 ps.setInt(2, groupId);
                 ps.setString(3, uuid.toString());
@@ -428,7 +458,7 @@ public final class CookingOrderRepository {
 
     /** True only for the one caller that flips this full, running group order to DONE. */
     public boolean markGroupDone(int groupId) throws SQLException {
-        return update("UPDATE yw_cook_group SET status = 'DONE', active_lock = NULL "
+        return update("UPDATE {p}group SET status = 'DONE', active_lock = NULL "
                 + "WHERE id = ? AND status = 'ACTIVE' AND progress >= target", groupId) == 1;
     }
 
@@ -437,19 +467,19 @@ public final class CookingOrderRepository {
      * (admin 단체종료), a full order is left for {@link #markGroupDone}.
      */
     public boolean markGroupFailed(int groupId, boolean evenIfFull) throws SQLException {
-        return update("UPDATE yw_cook_group SET status = 'FAILED', active_lock = NULL WHERE id = ? AND status = 'ACTIVE'"
+        return update("UPDATE {p}group SET status = 'FAILED', active_lock = NULL WHERE id = ? AND status = 'ACTIVE'"
                 + (evenIfFull ? "" : " AND progress < target"), groupId) == 1;
     }
 
     /** True only for the one caller that gets to pay this DONE group's rewards. */
     public boolean claimSettle(int groupId) throws SQLException {
-        return update("UPDATE yw_cook_group SET settled = 1 WHERE id = ? AND status = 'DONE' AND settled = 0", groupId) == 1;
+        return update("UPDATE {p}group SET settled = 1 WHERE id = ? AND status = 'DONE' AND settled = 0", groupId) == 1;
     }
 
     public int contribution(int groupId, UUID uuid) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(
-                     "SELECT amount FROM yw_cook_group_contrib WHERE group_id = ? AND uuid = ?")) {
+             PreparedStatement ps = connection.prepareStatement(sql(
+                     "SELECT amount FROM {p}group_contrib WHERE group_id = ? AND uuid = ?"))) {
             ps.setInt(1, groupId);
             ps.setString(2, uuid.toString());
             try (ResultSet rs = ps.executeQuery()) {
@@ -461,8 +491,8 @@ public final class CookingOrderRepository {
     /** Largest contribution first. */
     public List<Contribution> contributions(int groupId) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(
-                     "SELECT uuid, name, amount FROM yw_cook_group_contrib WHERE group_id = ? AND amount > 0 ORDER BY amount DESC, uuid")) {
+             PreparedStatement ps = connection.prepareStatement(sql(
+                     "SELECT uuid, name, amount FROM {p}group_contrib WHERE group_id = ? AND amount > 0 ORDER BY amount DESC, uuid"))) {
             ps.setInt(1, groupId);
             List<Contribution> contributions = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
@@ -476,7 +506,8 @@ public final class CookingOrderRepository {
 
     private List<GroupOrder> groups(String where, Object... params) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement("SELECT " + GROUP_COLUMNS + " FROM yw_cook_group " + where)) {
+             PreparedStatement ps = connection.prepareStatement(sql(
+                     "SELECT id, {item}, target, progress, starts_at, ends_at, status FROM {p}group " + where))) {
             bind(ps, params);
             List<GroupOrder> groups = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
@@ -493,7 +524,7 @@ public final class CookingOrderRepository {
 
     public long maxAnnouncementId() throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement("SELECT COALESCE(MAX(id), 0) FROM yw_cook_announcements");
+             PreparedStatement ps = connection.prepareStatement(sql("SELECT COALESCE(MAX(id), 0) FROM {p}announcements"));
              ResultSet rs = ps.executeQuery()) {
             rs.next();
             return rs.getLong(1);
@@ -504,14 +535,14 @@ public final class CookingOrderRepository {
     public void announce(String key, Map<String, String> args) throws SQLException {
         StringBuilder encoded = new StringBuilder();
         args.forEach((name, value) -> encoded.append(name).append('=').append(value.replace('\n', ' ')).append('\n'));
-        update("INSERT INTO yw_cook_announcements (msg_key, args, created_at) VALUES (?, ?, ?)", key, encoded.toString(), System.currentTimeMillis());
+        update("INSERT INTO {p}announcements (msg_key, args, created_at) VALUES (?, ?, ?)", key, encoded.toString(), System.currentTimeMillis());
     }
 
     // ponytail: announcement rows are never pruned — a handful per week; add a cleanup if the table ever matters.
     public List<Announcement> announcementsAfter(long id) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(
-                     "SELECT id, msg_key, args FROM yw_cook_announcements WHERE id > ? ORDER BY id")) {
+             PreparedStatement ps = connection.prepareStatement(sql(
+                     "SELECT id, msg_key, args FROM {p}announcements WHERE id > ? ORDER BY id"))) {
             ps.setLong(1, id);
             List<Announcement> announcements = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
@@ -532,8 +563,8 @@ public final class CookingOrderRepository {
 
     // ---- helpers ----
 
-    private int update(String sql, Object... params) throws SQLException {
-        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+    private int update(String template, Object... params) throws SQLException {
+        try (Connection connection = dataSource.getConnection(); PreparedStatement ps = connection.prepareStatement(sql(template))) {
             bind(ps, params);
             return ps.executeUpdate();
         }

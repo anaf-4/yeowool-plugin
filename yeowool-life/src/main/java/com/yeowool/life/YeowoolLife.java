@@ -33,11 +33,13 @@ import com.yeowool.life.farming.customcrops.CustomCropsSeasonSyncTask;
 import com.yeowool.life.cooking.addcook.CookXpListener;
 import com.yeowool.life.cooking.addcook.MyRecipesCommand;
 import com.yeowool.life.cooking.addcook.AddCookRecipeIndex;
-import com.yeowool.life.cooking.orders.CookingNpcListener;
-import com.yeowool.life.cooking.orders.CookingOrderCommand;
-import com.yeowool.life.cooking.orders.CookingOrderRepository;
-import com.yeowool.life.cooking.orders.CookingOrderRules;
-import com.yeowool.life.cooking.orders.CookingOrderService;
+import com.yeowool.life.cooking.orders.CookingOrderCatalog;
+import com.yeowool.life.orders.OrderCatalog;
+import com.yeowool.life.orders.OrderCommand;
+import com.yeowool.life.orders.OrderNpcListener;
+import com.yeowool.life.orders.OrderRepository;
+import com.yeowool.life.orders.OrderRules;
+import com.yeowool.life.orders.OrderService;
 import com.yeowool.life.pets.MCPetsXpListener;
 import com.yeowool.life.farming.database.FarmingSchemaInitializer;
 import com.yeowool.life.farming.repository.CropRepository;
@@ -708,33 +710,47 @@ public final class YeowoolLife extends JavaPlugin {
             getLogger().warning("AddCook 레시피를 하나도 읽지 못해 요리 주문을 끕니다.");
             return;
         }
-        CookingOrderRepository repository = new CookingOrderRepository(core.dataSource());
+        OrderRepository repository = new OrderRepository(core.dataSource(), "yw_cook_", "recipe_id", false);
+        OrderRules rules = new OrderRules(OrderService.settings(configSection("cooking-orders"), getLogger(),
+                "dish", "quality-multiplier", CookingOrderCatalog.DEFAULTS));
+        if (!startOrders(core, messages, new CookingOrderCatalog(rules, recipes), repository, rules, "요리주문관리",
+                "yeowool.life.cooking.manage", "식당")) {
+            return;
+        }
+        getLogger().info("요리 주문이 활성화되었습니다 (레시피 " + recipes.size() + "종).");
+    }
+
+    private ConfigurationSection configSection(String path) {
+        ConfigurationSection section = getConfig().getConfigurationSection(path);
+        return section != null ? section : getConfig().createSection(path);
+    }
+
+    /** Shared wiring of an order system: tables, command, NPC listener and the group/announcement timers. False if the DB failed. */
+    private boolean startOrders(YeowoolCoreAPI core, MessageManager messages, OrderCatalog catalog, OrderRepository repository,
+                                OrderRules rules, String commandName, String permission, String npcLabel) {
         long announcedUntil;
         try {
             repository.createTables();
             announcedUntil = repository.maxAnnouncementId();
         } catch (Exception e) {
-            getLogger().severe("요리 주문 데이터베이스 초기화 실패 — 요리 주문을 끕니다: " + e.getMessage());
-            return;
+            getLogger().severe(catalog.label() + " 데이터베이스 초기화 실패 — " + catalog.label() + "을 끕니다: " + e.getMessage());
+            return false;
         }
-        ConfigurationSection section = config.getConfigurationSection("cooking-orders");
-        CookingOrderRules rules = new CookingOrderRules(CookingOrderService.settings(
-                section != null ? section : config.createSection("cooking-orders"), getLogger()));
-        CookingOrderService service = new CookingOrderService(this, core, messages, repository, rules, executor, recipes, announcedUntil);
-        var command = getCommand("요리주문관리");
+        OrderService service = new OrderService(this, core, messages, catalog, repository, rules, executor, announcedUntil);
+        var command = getCommand(commandName);
         if (command != null) {
-            var executorCmd = new CookingOrderCommand(this, messages, service, executor);
+            var executorCmd = new OrderCommand(this, messages, service, executor, permission);
             command.setExecutor(executorCmd);
             command.setTabCompleter(executorCmd);
         }
         if (getServer().getPluginManager().isPluginEnabled("Citizens")) {
-            getServer().getPluginManager().registerEvents(new CookingNpcListener(service), this);
+            getServer().getPluginManager().registerEvents(new OrderNpcListener(service), this);
         } else {
-            getLogger().warning("Citizens가 없어 이 서버에서는 식당 NPC를 쓸 수 없습니다 (단체 주문 일정은 계속 처리).");
+            getLogger().warning("Citizens가 없어 이 서버에서는 " + npcLabel + " NPC를 쓸 수 없습니다 (단체 주문 일정은 계속 처리).");
         }
         getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::tickGroups), 20L * 30, 20L * 60);
         getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::pollAnnouncements), 20L * 20, 20L * 20);
-        getLogger().info("요리 주문이 활성화되었습니다 (레시피 " + recipes.size() + "종).");
+        return true;
     }
 
     private void enableCustomFarming(YeowoolCoreAPI core) {
