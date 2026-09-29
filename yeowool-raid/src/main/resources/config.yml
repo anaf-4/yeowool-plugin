@@ -17,7 +17,7 @@ world-boss:
   fight-minutes: 30
   rank-rewards: [100000, 50000, 30000]
   participation-reward: 5000
-  # 별조각(교환소 포인트): 1·2·3위, 그 외 참여자
+  # 별조각(교환소 포인트): 1·2·3위, 그 외 참여자 — rank-stardust는 rank-rewards와 같은 개수로 맞추세요(순위는 rank-rewards 개수까지만 매겨짐)
   rank-stardust: [30, 20, 15]
   participation-stardust: 5
   min-damage-percent: 1

@@ -300,7 +300,7 @@ public final class QuestBoardService {
         }
         giveStacks(request.requester(), request.sample(), amount, "의뢰 #" + request.id() + " 납품품");
         if (settings.stardustPerReward() > 0) {
-            // Paid from the requester's real money and capped per day, so alt accounts can't mint stardust cheaply.
+            // Capped per day: an alt posting requests only pays the fee, so this can't be the main 별조각 source.
             core.stardust().grantCapped(deliverer, reward / settings.stardustPerReward(), SOURCE, "의뢰 납품",
                     "quest-delivery", settings.stardustDailyCap());
         }

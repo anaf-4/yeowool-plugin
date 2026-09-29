@@ -64,7 +64,8 @@ public final class StardustManager implements StardustService {
             connection.setAutoCommit(false);
             try {
                 try (PreparedStatement ps = connection.prepareStatement(
-                        "INSERT IGNORE INTO yw_stardust_daily (uuid, cap_key, day, amount) VALUES (?, ?, ?, 0)")) {
+                        // exclusive row lock up front (INSERT IGNORE would take a shared one and let two grants deadlock)
+                        "INSERT INTO yw_stardust_daily (uuid, cap_key, day, amount) VALUES (?, ?, ?, 0) ON DUPLICATE KEY UPDATE amount = amount")) {
                     ps.setString(1, player.toString());
                     ps.setString(2, capKey);
                     ps.setString(3, day);
@@ -123,7 +124,7 @@ public final class StardustManager implements StardustService {
             }
         }).thenApply(taken -> {
             if (taken) {
-                logs.log(sourcePlugin, "stardust", player, reason, Map.of("amount", String.valueOf(-amount)));
+                log(sourcePlugin, player, reason, -amount);
             }
             return taken;
         });
@@ -154,7 +155,7 @@ public final class StardustManager implements StardustService {
         if (granted <= 0) {
             return granted;
         }
-        logs.log(sourcePlugin, "stardust", player, reason, Map.of("amount", String.valueOf(granted)));
+        log(sourcePlugin, player, reason, granted);
         if (plugin.isEnabled()) {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 Player online = Bukkit.getPlayer(player);
@@ -166,6 +167,15 @@ public final class StardustManager implements StardustService {
             });
         }
         return granted;
+    }
+
+    /** The balance change already committed — a logging failure must not fail the future. */
+    private void log(String sourcePlugin, UUID player, String reason, long amount) {
+        try {
+            logs.log(sourcePlugin, "stardust", player, reason, Map.of("amount", String.valueOf(amount)));
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(Level.WARNING, "별조각 로그 기록 실패: " + player + " " + amount + " (" + reason + ")", e);
+        }
     }
 
     private <T> CompletableFuture<T> run(String what, SqlCall<T> call) {

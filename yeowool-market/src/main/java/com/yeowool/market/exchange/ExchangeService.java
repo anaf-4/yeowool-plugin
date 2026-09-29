@@ -138,6 +138,7 @@ public final class ExchangeService {
                 });
                 return;
             }
+            // ponytail: a server stop between here and complete() loses the spent 별조각/use (no reward either); refund by hand from the log.
             runMain(() -> complete(uuid, entry, period, page, reason));
         });
     }
