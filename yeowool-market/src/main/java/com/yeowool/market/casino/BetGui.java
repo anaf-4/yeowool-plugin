@@ -36,6 +36,9 @@ abstract class BetGui extends YeowoolGui {
     /** Bet row + balance. {@code betsEnabled} false greys the row out (e.g. during a blackjack hand). */
     protected void renderBetRow(boolean betsEnabled) {
         long max = service.settings().maxBet();
+        if (betsEnabled) {
+            bet = Math.min(bet, max); // max-bet may have shrunk on /카지노관리 리로드
+        }
         boolean maxListed = false;
         for (int i = 0; i < BETS.length; i++) {
             long amount = BETS[i];
@@ -51,9 +54,10 @@ abstract class BetGui extends YeowoolGui {
         } else {
             setBetButton(MAX_BET_SLOT, max, betsEnabled);
         }
-        boolean exchange = service.settings().exchangeAnywhere();
+        boolean exchange = betsEnabled && service.settings().exchangeAnywhere(); // no leaving mid-hand by accident
         ItemStack chips = item(Material.SUNFLOWER, "보유 칩: " + CasinoService.fmt(balance) + "개", NamedTextColor.GOLD,
-                exchange ? List.of("클릭: 칩 환전 (/카지노)") : List.of("환전은 카지노 환전 NPC에서"));
+                exchange ? List.of("클릭: 칩 환전 (/카지노)")
+                        : List.of(betsEnabled ? "환전은 카지노 환전 NPC에서" : "게임 중에는 환전할 수 없습니다"));
         setButton(BALANCE_SLOT, GuiButton.of(chips, event -> {
             if (exchange) {
                 service.openExchange((Player) event.getWhoClicked());
@@ -83,8 +87,13 @@ abstract class BetGui extends YeowoolGui {
             @Override
             public void run() {
                 if (tick < frames) {
-                    frame.accept(tick++);
-                    return;
+                    try {
+                        frame.accept(tick++);
+                        return;
+                    } catch (RuntimeException e) {
+                        tick = frames; // a broken frame must not leave the player locked — skip to the result
+                        service.plugin().getLogger().warning("카지노 연출 오류: " + e);
+                    }
                 }
                 cancel();
                 done.run();

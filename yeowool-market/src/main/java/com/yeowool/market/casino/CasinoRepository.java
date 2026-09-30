@@ -20,6 +20,10 @@ public final class CasinoRepository {
     public record Announcement(long id, String player, String game, long bet, long payout) {
     }
 
+    /** A blackjack payout written before its credit; the credit transaction deletes it (see {@link #settle}). */
+    public record Pending(long id, UUID uuid, long chips, long stake, String detail) {
+    }
+
     @FunctionalInterface
     private interface SqlWork<T> {
         T run(Connection connection) throws SQLException;
@@ -55,6 +59,15 @@ public final class CasinoRepository {
                 game VARCHAR(16) NOT NULL,
                 bet BIGINT NOT NULL,
                 payout BIGINT NOT NULL,
+                created_at BIGINT NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """, """
+            CREATE TABLE IF NOT EXISTS yw_casino_pending (
+                id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                uuid CHAR(36) NOT NULL,
+                chips BIGINT NOT NULL,
+                stake BIGINT NOT NULL,
+                detail VARCHAR(255) NOT NULL,
                 created_at BIGINT NOT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """);
@@ -112,10 +125,20 @@ public final class CasinoRepository {
     /**
      * One atomic step: takes {@code take} chips (only if the player has them) and gives {@code give} in the same
      * UPDATE, and — when {@code game} is set — logs the finished round in the same transaction.
-     * Returns the new balance, or empty (nothing changed) if the player lacked {@code take} chips.
+     * With {@code pendingId > 0} it also deletes that {@code yw_casino_pending} row, so the credit happens exactly once.
+     * Returns the new balance, or empty (nothing changed) if the player lacked {@code take} chips or the pending row
+     * was already paid.
      */
-    public OptionalLong settle(UUID player, long take, long give, String game, long bet, String detail) throws SQLException {
+    public OptionalLong settle(UUID player, long take, long give, String game, long bet, String detail, long pendingId) throws SQLException {
         return transaction(connection -> {
+            if (pendingId > 0) {
+                try (PreparedStatement ps = connection.prepareStatement("DELETE FROM yw_casino_pending WHERE id = ?")) {
+                    ps.setLong(1, pendingId);
+                    if (ps.executeUpdate() != 1) {
+                        return OptionalLong.empty();
+                    }
+                }
+            }
             long balance = change(connection, player, take, give);
             if (balance < 0) {
                 return OptionalLong.empty();
@@ -137,11 +160,46 @@ public final class CasinoRepository {
     }
 
     public OptionalLong take(UUID player, long chips) throws SQLException {
-        return settle(player, chips, 0, null, 0, "");
+        return settle(player, chips, 0, null, 0, "", 0);
     }
 
     public long give(UUID player, long chips) throws SQLException {
-        return settle(player, 0, chips, null, 0, "").orElseThrow();
+        return settle(player, 0, chips, null, 0, "", 0).orElseThrow();
+    }
+
+    /** Records a payout still to be credited; returns its id for {@link #settle}. */
+    public long addPending(UUID player, long chips, long stake, String detail) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "INSERT INTO yw_casino_pending (uuid, chips, stake, detail, created_at) VALUES (?, ?, ?, ?, ?)",
+                     Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, player.toString());
+            ps.setLong(2, chips);
+            ps.setLong(3, stake);
+            ps.setString(4, detail.length() > 255 ? detail.substring(0, 255) : detail);
+            ps.setLong(5, System.currentTimeMillis());
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                keys.next();
+                return keys.getLong(1);
+            }
+        }
+    }
+
+    /** Pending payouts older than a minute (younger ones are normally still being credited by their own server). */
+    public List<Pending> pending() throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "SELECT id, uuid, chips, stake, detail FROM yw_casino_pending WHERE created_at < ? ORDER BY id")) {
+            ps.setLong(1, System.currentTimeMillis() - 60_000);
+            List<Pending> rows = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    rows.add(new Pending(rs.getLong(1), UUID.fromString(rs.getString(2)), rs.getLong(3), rs.getLong(4), rs.getString(5)));
+                }
+            }
+            return rows;
+        }
     }
 
     /** Inside a transaction: the new balance, or -1 (and the caller must roll back) if {@code take} wasn't covered. */

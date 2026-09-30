@@ -300,6 +300,8 @@ public final class YeowoolMarket extends JavaPlugin {
             }
             CasinoService casinoService = casino;
             getServer().getScheduler().runTaskTimer(this, () -> executor.execute(casinoService::pollAnnouncements), 20L * 20, 20L * 20);
+            // blackjack payouts whose credit failed: once at startup, then every minute
+            getServer().getScheduler().runTaskTimer(this, () -> executor.execute(casinoService::replayPending), 20L * 5, 20L * 60);
         } catch (Exception e) {
             casino = null;
             getLogger().severe("카지노 초기화 실패 — 카지노를 끕니다: " + e.getMessage());

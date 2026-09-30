@@ -10,6 +10,7 @@ import org.bukkit.inventory.ItemStack;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -41,6 +42,8 @@ final class BlackjackGui extends BetGui {
     private final List<Integer> dealer = new ArrayList<>();
     private Phase phase = Phase.IDLE;
     private boolean left;
+    private boolean doubling;
+    private CasinoService.TakeTicket ticket;
     private long baseBet;
     private long stake;
 
@@ -99,13 +102,29 @@ final class BlackjackGui extends BetGui {
         if (phase != Phase.IDLE) {
             return;
         }
+        if (!service.checkBet(player, bet)) {
+            render(); // clamps the bet to the new max-bet
+            return;
+        }
         phase = Phase.WAITING;
+        doubling = false;
         left = false;
+        stake = 0;
+        mine.clear();
+        dealer.clear();
         baseBet = bet;
+        service.blackjackOpened(uuid, this);
         render();
-        service.blackjackTake(player, baseBet, this::start, () -> {
-            phase = Phase.IDLE;
-            render();
+        ticket = service.blackjackTake(player, baseBet, newBalance -> {
+            if (phase == Phase.WAITING) {
+                start(newBalance);
+            }
+        }, () -> {
+            if (phase == Phase.WAITING) {
+                phase = Phase.IDLE;
+                service.blackjackClosed(uuid, this);
+                render();
+            }
         });
     }
 
@@ -164,18 +183,16 @@ final class BlackjackGui extends BetGui {
             return;
         }
         phase = Phase.WAITING;
+        doubling = true;
         render();
-        service.blackjackTake(player, baseBet, newBalance -> {
-            balance = newBalance;
-            stake += baseBet;
-            phase = Phase.PLAYING;
-            mine.add(draw());
-            if (handValue(mine) > 21) {
-                finish();
-            } else {
-                stand();
+        ticket = service.blackjackTake(player, baseBet, newBalance -> {
+            if (phase == Phase.WAITING) {
+                applyDouble(newBalance);
             }
         }, () -> {
+            if (phase != Phase.WAITING) {
+                return;
+            }
             phase = Phase.PLAYING;
             if (left) {
                 stand();
@@ -183,6 +200,18 @@ final class BlackjackGui extends BetGui {
                 render();
             }
         });
+    }
+
+    private void applyDouble(long newBalance) {
+        balance = newBalance;
+        stake += baseBet;
+        phase = Phase.PLAYING;
+        mine.add(draw());
+        if (handValue(mine) > 21) {
+            finish();
+        } else {
+            stand();
+        }
     }
 
     private void finish() {
@@ -208,6 +237,36 @@ final class BlackjackGui extends BetGui {
             stand();
         } else if (phase == Phase.WAITING) {
             left = true;
+        }
+    }
+
+    /**
+     * Server stop (main thread, before the worker pool stops): settles the hand now. A pending deal/double-down is
+     * resolved through its {@link CasinoService.TakeTicket} so its chips count exactly once.
+     */
+    void shutdownSettle() {
+        if (phase == Phase.PLAYING) {
+            stand();
+            return;
+        }
+        if (phase != Phase.WAITING || ticket == null) {
+            return;
+        }
+        OptionalLong taken = ticket.cancel(); // null: the worker hadn't taken yet and hands any chips back itself
+        boolean took = taken != null && taken.isPresent();
+        if (doubling) {
+            if (took) {
+                applyDouble(taken.getAsLong());
+            } else {
+                phase = Phase.PLAYING;
+                stand();
+            }
+        } else if (took) {
+            left = true;
+            start(taken.getAsLong()); // deals and stands right away
+        } else {
+            phase = Phase.IDLE;
+            service.blackjackClosed(uuid, this);
         }
     }
 

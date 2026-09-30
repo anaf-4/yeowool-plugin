@@ -23,7 +23,6 @@ import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -122,8 +121,9 @@ public final class CasinoService implements Listener {
     private volatile Settings settings;
     private final File npcFile;
     private final Set<Integer> npcIds = new LinkedHashSet<>();
+    // one money/chip operation per player at a time; released from whichever thread finishes it
+    private final Set<UUID> busy = ConcurrentHashMap.newKeySet();
     // main thread only
-    private final Set<UUID> busy = new HashSet<>();
     private final Map<UUID, BlackjackGui> blackjackHands = new HashMap<>();
     private record Prompt(boolean buying, long createdAt) {
     }
@@ -194,7 +194,7 @@ public final class CasinoService implements Listener {
     public void openExchange(Player player) {
         UUID uuid = player.getUniqueId();
         String day = LocalDate.now().toString();
-        async(uuid, () -> {
+        worker(uuid, false, () -> {
             long chips = repository.balance(uuid);
             long bought = repository.boughtToday(uuid, day);
             runMain(() -> {
@@ -212,7 +212,7 @@ public final class CasinoService implements Listener {
         UUID uuid = player.getUniqueId();
         Settings s = settings;
         if (amount <= 0 || amount > s.dailyBuyLimit()) {
-            messages.send(player, "casino.over-limit", Placeholder.unparsed("limit", fmt(s.dailyBuyLimit())));
+            messages.send(player, "casino.over-limit-request", Placeholder.unparsed("limit", fmt(s.dailyBuyLimit())));
             return;
         }
         if (!busy.add(uuid)) {
@@ -220,37 +220,47 @@ public final class CasinoService implements Listener {
         }
         long cost = amount * s.chipPrice();
         String reason = "카지노 칩 " + fmt(amount) + "개 구매";
-        if (!core.economyData().modifyBalance(uuid, -cost, SOURCE, reason)) {
-            busy.remove(uuid);
+        boolean paid = false;
+        try {
+            paid = core.economyData().modifyBalance(uuid, -cost, SOURCE, reason);
+        } finally {
+            if (!paid) {
+                busy.remove(uuid);
+            }
+        }
+        if (!paid) {
             messages.send(player, "casino.no-money", Placeholder.unparsed("cost", fmt(cost)));
             return;
         }
         String day = LocalDate.now().toString();
         try {
             executor.execute(() -> {
-                String key;
                 try {
-                    key = repository.buy(uuid, amount, s.dailyBuyLimit(), day) ? "casino.bought" : "casino.over-limit";
-                } catch (Exception e) {
-                    plugin.getLogger().log(Level.WARNING, "카지노 칩 구매 실패: " + uuid + " " + amount, e);
-                    key = "casino.error";
-                }
-                if (key.equals("casino.bought")) {
-                    core.logs().log(SOURCE, "casino", uuid, reason, Map.of("chips", String.valueOf(amount), "on", String.valueOf(cost)));
-                } else {
-                    refund(uuid, cost, reason + " 취소 환불");
-                }
-                String done = key;
-                runMain(() -> {
+                    String key;
+                    try {
+                        key = repository.buy(uuid, amount, s.dailyBuyLimit(), day) ? "casino.bought" : "casino.over-limit";
+                    } catch (Exception e) {
+                        plugin.getLogger().log(Level.WARNING, "카지노 칩 구매 실패: " + uuid + " " + amount, e);
+                        key = "casino.error";
+                    }
+                    if (key.equals("casino.bought")) {
+                        logSafely(uuid, reason, amount, cost);
+                    } else {
+                        refund(uuid, cost, reason + " 취소 환불");
+                    }
+                    String done = key;
+                    runMain(() -> {
+                        core.payouts().claimNow(uuid);
+                        reopenExchange(uuid, done, Placeholder.unparsed("amount", fmt(amount)), Placeholder.unparsed("cost", fmt(cost)),
+                                Placeholder.unparsed("limit", fmt(s.dailyBuyLimit())));
+                    });
+                } finally {
                     busy.remove(uuid);
-                    core.payouts().claimNow(uuid);
-                    reopenExchange(uuid, done, Placeholder.unparsed("amount", fmt(amount)), Placeholder.unparsed("cost", fmt(cost)),
-                            Placeholder.unparsed("limit", fmt(s.dailyBuyLimit())));
-                });
+                }
             });
         } catch (RejectedExecutionException e) {
-            core.economyData().modifyBalance(uuid, cost, SOURCE, reason + " 취소 환불");
             busy.remove(uuid);
+            core.economyData().modifyBalance(uuid, cost, SOURCE, reason + " 취소 환불");
         }
     }
 
@@ -262,25 +272,32 @@ public final class CasinoService implements Listener {
         }
         long value = amount * settings.chipPrice();
         String reason = "카지노 칩 " + fmt(amount) + "개 판매";
-        async(uuid, () -> {
+        worker(uuid, true, () -> {
             String key = "casino.no-chips";
             if (repository.take(uuid, amount).isPresent()) {
                 try {
                     core.payouts().enqueue(uuid, value, SOURCE, reason);
-                    key = "casino.sold";
-                    core.logs().log(SOURCE, "casino", uuid, reason, Map.of("chips", String.valueOf(-amount), "on", String.valueOf(value)));
                 } catch (Exception e) {
                     repository.give(uuid, amount); // nothing was paid — put the chips back
                     throw e;
                 }
+                key = "casino.sold";
+                logSafely(uuid, reason, -amount, value); // after the payout, and can't throw into the refund above
             }
             String done = key;
             runMain(() -> {
-                busy.remove(uuid);
                 core.payouts().claimNow(uuid);
                 reopenExchange(uuid, done, Placeholder.unparsed("amount", fmt(amount)), Placeholder.unparsed("cost", fmt(value)));
             });
         });
+    }
+
+    private void logSafely(UUID uuid, String reason, long chips, long on) {
+        try {
+            core.logs().log(SOURCE, "casino", uuid, reason, Map.of("chips", String.valueOf(chips), "on", String.valueOf(on)));
+        } catch (RuntimeException e) {
+            plugin.getLogger().log(Level.WARNING, "카지노 로그 기록 실패: " + uuid + " " + reason, e);
+        }
     }
 
     /** Main thread: closes the GUI and waits for a chat amount (직접입력). */
@@ -348,7 +365,7 @@ public final class CasinoService implements Listener {
             hand.open(player);
             return;
         }
-        async(uuid, () -> {
+        worker(uuid, false, () -> {
             long chips = repository.balance(uuid);
             runMain(() -> {
                 Player online = Bukkit.getPlayer(uuid);
@@ -365,6 +382,16 @@ public final class CasinoService implements Listener {
         });
     }
 
+    /** Main thread: true if {@code bet} is allowed under the current max-bet; tells the player otherwise. */
+    boolean checkBet(Player player, long bet) {
+        long max = settings.maxBet();
+        if (bet > 0 && bet <= max) {
+            return true;
+        }
+        messages.send(player, "casino.over-max-bet", Placeholder.unparsed("max", fmt(max)));
+        return false;
+    }
+
     /**
      * Main thread: one slot/roulette/dice round. The worker draws the result ({@link SecureRandom}), takes the bet and
      * credits the payout in one transaction; {@code show} gets the settled round on the main thread and must end with
@@ -374,24 +401,44 @@ public final class CasinoService implements Listener {
               Function<int[], String> detail, Consumer<Round> show) {
         UUID uuid = player.getUniqueId();
         String name = player.getName();
-        if (bet <= 0 || bet > settings.maxBet() || !busy.add(uuid)) {
+        if (!checkBet(player, bet) || !busy.add(uuid)) {
             return;
         }
-        async(uuid, () -> {
-            int[] result = draw.apply(random);
-            long payout = CasinoRules.payout(bet, multiplier.applyAsDouble(result));
-            OptionalLong balance = repository.settle(uuid, bet, payout, game.key(), bet, detail.apply(result));
-            if (balance.isEmpty()) {
-                runMain(() -> {
-                    busy.remove(uuid);
-                    sendIfOnline(uuid, "casino.no-chips-bet");
-                });
-                return;
-            }
-            announceIfBig(name, game, bet, payout);
-            Round round = new Round(game, bet, payout, balance.getAsLong(), result);
-            runMain(() -> show.accept(round));
-        });
+        try {
+            executor.execute(() -> {
+                boolean handedOff = false;
+                try {
+                    int[] result = draw.apply(random);
+                    long payout = CasinoRules.payout(bet, multiplier.applyAsDouble(result));
+                    OptionalLong balance = repository.settle(uuid, bet, payout, game.key(), bet, detail.apply(result), 0);
+                    if (balance.isEmpty()) {
+                        runMain(() -> sendIfOnline(uuid, "casino.no-chips-bet"));
+                        return;
+                    }
+                    announceIfBig(name, game, bet, payout);
+                    Round round = new Round(game, bet, payout, balance.getAsLong(), result);
+                    // the lock stays through the animation; finishRound releases it
+                    runMain(() -> {
+                        try {
+                            show.accept(round);
+                        } catch (RuntimeException e) {
+                            busy.remove(uuid);
+                            throw e;
+                        }
+                    });
+                    handedOff = plugin.isEnabled();
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "카지노 게임 처리 실패: " + uuid, e);
+                    runMain(() -> sendIfOnline(uuid, "casino.error"));
+                } finally {
+                    if (!handedOff) {
+                        busy.remove(uuid);
+                    }
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            busy.remove(uuid);
+        }
     }
 
     /** Main thread, after the animation: unlocks the player and tells them the outcome. */
@@ -416,61 +463,99 @@ public final class CasinoService implements Listener {
 
     // ---- blackjack (the stake stays taken while the hand is open) ----
 
-    /** Main thread: takes {@code chips} for a deal or a double-down; exactly one of the callbacks runs on the main thread. */
-    void blackjackTake(Player player, long chips, LongConsumer onTaken, Runnable onFailed) {
-        UUID uuid = player.getUniqueId();
-        if (chips <= 0 || !busy.add(uuid)) {
-            onFailed.run();
-            return;
+    /**
+     * Hand-off between an in-flight blackjack take (worker) and a server stop (main thread): whoever claims first owns
+     * the outcome. If the stop wins, the worker gives its chips straight back; if the worker won, the stop reads
+     * {@link #result} and finishes the hand itself (its main-thread callback is cancelled with the plugin).
+     */
+    static final class TakeTicket {
+        private final AtomicBoolean claimed = new AtomicBoolean();
+        private volatile OptionalLong result = OptionalLong.empty();
+
+        /** Main thread at shutdown: null if the take hadn't finished (the worker returns those chips), else its outcome. */
+        OptionalLong cancel() {
+            return claimed.compareAndSet(false, true) ? null : result;
         }
-        Runnable failed = () -> {
-            busy.remove(uuid);
+    }
+
+    /** Main thread: takes {@code chips} for a deal or a double-down; exactly one of the callbacks runs on the main thread. */
+    TakeTicket blackjackTake(Player player, long chips, LongConsumer onTaken, Runnable onFailed) {
+        UUID uuid = player.getUniqueId();
+        TakeTicket ticket = new TakeTicket();
+        if (chips <= 0 || !busy.add(uuid)) {
+            ticket.claimed.set(true);
             onFailed.run();
-        };
+            return ticket;
+        }
         try {
             executor.execute(() -> {
-                OptionalLong balance;
                 try {
-                    balance = repository.take(uuid, chips);
-                } catch (Exception e) {
-                    plugin.getLogger().log(Level.WARNING, "블랙잭 베팅 실패: " + uuid, e);
-                    runMain(() -> {
-                        failed.run();
-                        sendIfOnline(uuid, "casino.error");
-                    });
-                    return;
-                }
-                // ponytail: a server stop between this take and the main-thread task loses the stake (logged nowhere); tiny window.
-                runMain(() -> {
-                    if (balance.isEmpty()) {
-                        failed.run();
-                        sendIfOnline(uuid, "casino.no-chips-bet");
-                    } else {
-                        busy.remove(uuid);
-                        onTaken.accept(balance.getAsLong());
+                    OptionalLong balance = OptionalLong.empty();
+                    boolean error = false;
+                    try {
+                        balance = repository.take(uuid, chips);
+                    } catch (Exception e) {
+                        plugin.getLogger().log(Level.WARNING, "블랙잭 베팅 실패: " + uuid, e);
+                        error = true;
                     }
-                });
+                    ticket.result = balance;
+                    if (!ticket.claimed.compareAndSet(false, true)) {
+                        if (balance.isPresent()) { // the hand was already settled without these chips
+                            giveBackSafely(uuid, chips, "블랙잭 종료 중 베팅 반환");
+                        }
+                        return;
+                    }
+                    OptionalLong taken = balance;
+                    String failKey = error ? "casino.error" : "casino.no-chips-bet";
+                    runMain(() -> {
+                        if (taken.isPresent()) {
+                            onTaken.accept(taken.getAsLong());
+                        } else {
+                            onFailed.run();
+                            sendIfOnline(uuid, failKey);
+                        }
+                    });
+                } finally {
+                    busy.remove(uuid);
+                }
             });
         } catch (RejectedExecutionException e) {
-            failed.run();
+            busy.remove(uuid);
+            ticket.claimed.set(true);
+            onFailed.run();
         }
+        return ticket;
     }
 
     void blackjackOpened(UUID uuid, BlackjackGui hand) {
         blackjackHands.put(uuid, hand);
     }
 
-    /** Main thread: credits a finished hand and logs it in one transaction on the worker, then reports it. */
+    void blackjackClosed(UUID uuid, BlackjackGui hand) {
+        blackjackHands.remove(uuid, hand);
+    }
+
+    /**
+     * Main thread: credits a finished hand on the worker. A winning hand is first written to {@code yw_casino_pending};
+     * the credit transaction deletes that row, so a failed credit is replayed by {@link #replayPending} exactly once.
+     */
     void blackjackSettle(UUID uuid, String name, long stake, long payout, String detail, String result, LongConsumer onBalance) {
         blackjackHands.remove(uuid);
-        busy.add(uuid);
         Runnable settle = () -> {
-            long balance;
+            long pendingId;
             try {
-                balance = repository.settle(uuid, 0, payout, Game.BLACKJACK.key(), stake, detail).orElseThrow();
+                pendingId = payout > 0 ? repository.addPending(uuid, payout, stake, detail) : 0;
             } catch (Exception e) {
                 plugin.getLogger().log(Level.SEVERE, "블랙잭 정산 실패 — 수동 지급 필요: " + uuid + " " + payout + "칩 (" + detail + ")", e);
-                runMain(() -> busy.remove(uuid));
+                return;
+            }
+            long balance;
+            try {
+                OptionalLong settled = repository.settle(uuid, 0, payout, Game.BLACKJACK.key(), stake, detail, pendingId);
+                balance = settled.isPresent() ? settled.getAsLong() : repository.balance(uuid); // empty: a replay already paid it
+            } catch (Exception e) {
+                plugin.getLogger().log(Level.SEVERE, "블랙잭 정산 실패" + (pendingId > 0 ? " — 1분 안에 보류 장부에서 다시 지급합니다: " : ": ")
+                        + uuid + " " + payout + "칩 (" + detail + ")", e);
                 return;
             }
             announceIfBig(name, Game.BLACKJACK, stake, payout);
@@ -483,7 +568,24 @@ public final class CasinoService implements Listener {
             executor.execute(settle);
         } catch (RejectedExecutionException e) {
             plugin.getLogger().severe("블랙잭 정산 불가(종료 중) — 수동 지급 필요: " + uuid + " " + payout + "칩 (" + detail + ")");
-            busy.remove(uuid);
+        }
+    }
+
+    /** Worker, on startup and every minute: credits blackjack payouts whose settlement failed. Each row pays once. */
+    public void replayPending() {
+        try {
+            for (CasinoRepository.Pending row : repository.pending()) {
+                try {
+                    if (repository.settle(row.uuid(), 0, row.chips(), Game.BLACKJACK.key(), row.stake(),
+                            row.detail() + " (재정산)", row.id()).isPresent()) {
+                        plugin.getLogger().info("블랙잭 보류 정산 완료: " + row.uuid() + " " + row.chips() + "칩");
+                    }
+                } catch (Exception e) {
+                    plugin.getLogger().log(Level.WARNING, "블랙잭 보류 정산 실패 (다음에 다시): " + row.uuid(), e);
+                }
+            }
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "블랙잭 보류 장부 조회 실패", e);
         }
     }
 
@@ -495,12 +597,13 @@ public final class CasinoService implements Listener {
         if (hand != null) {
             hand.forceStand();
         }
+        busy.remove(uuid);
     }
 
-    /** Main thread, from onDisable before the worker pool shuts down: stands every open hand so its settlement is queued. */
+    /** Main thread, from onDisable before the worker pool shuts down: settles every open hand (queued on the worker). */
     public void shutdown() {
         for (BlackjackGui hand : List.copyOf(blackjackHands.values())) {
-            hand.forceStand();
+            hand.shutdownSettle();
         }
     }
 
@@ -546,22 +649,36 @@ public final class CasinoService implements Listener {
         void run() throws Exception;
     }
 
-    /** Runs {@code work} on the worker; any failure unlocks the player and shows a generic error. */
-    private void async(UUID uuid, Work work) {
+    /**
+     * Runs {@code work} on the worker; any failure shows a generic error. With {@code locked} the caller already took
+     * the busy lock and it is always released here once the work ends, fails or can't be queued.
+     */
+    private void worker(UUID uuid, boolean locked, Work work) {
         try {
             executor.execute(() -> {
                 try {
                     work.run();
                 } catch (Exception e) {
                     plugin.getLogger().log(Level.WARNING, "카지노 처리 실패: " + uuid, e);
-                    runMain(() -> {
+                    runMain(() -> sendIfOnline(uuid, "casino.error"));
+                } finally {
+                    if (locked) {
                         busy.remove(uuid);
-                        sendIfOnline(uuid, "casino.error");
-                    });
+                    }
                 }
             });
         } catch (RejectedExecutionException e) {
-            busy.remove(uuid);
+            if (locked) {
+                busy.remove(uuid);
+            }
+        }
+    }
+
+    private void giveBackSafely(UUID uuid, long chips, String reason) {
+        try {
+            repository.give(uuid, chips);
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "칩 반환 실패 — 수동 지급 필요: " + uuid + " " + chips + "칩 (" + reason + ")", e);
         }
     }
 

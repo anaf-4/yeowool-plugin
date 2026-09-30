@@ -17,7 +17,7 @@
 - 결과는 서버에서 뽑고(SecureRandom), 베팅 차감과 당첨 지급은 한 DB 트랜잭션으로 처리됩니다 → 창을 닫거나 나가도 판은 이미 정산돼 있습니다.
 - 큰 당첨(배당 ×20 이상 또는 당첨 1,000칩 이상)은 세 서버에 공지 (20초 이내).
 - `/카지노관리` (권한 `yeowool.market.casino.manage`, 기본 OP): `칩 <닉네임> 지급|회수|확인 [수량]`, `기록 <닉네임>`(최근 20판), `npc`(/npc select로 고른 NPC를 환전 NPC로 연결·해제), `리로드`.
-- 설정: `plugins/YeowoolMarket/config.yml`의 `casino:` (칩 가격, 하루 한도, 최대 베팅, 어디서나 환전 여부, 공지 기준, 게임별 사용 여부·가구 ID·배당표·슬롯 그림 가중치). DB 테이블 `yw_casino_chips`, `yw_casino_log`, `yw_casino_daily`, `yw_casino_announcements` (자동 생성). 칩 구매·판매·관리진 지급/회수는 여울 로그(`casino`)에 남습니다.
+- 설정: `plugins/YeowoolMarket/config.yml`의 `casino:` (칩 가격, 하루 한도, 최대 베팅, 어디서나 환전 여부, 공지 기준, 게임별 사용 여부·가구 ID·배당표·슬롯 그림 가중치). DB 테이블 `yw_casino_chips`, `yw_casino_log`, `yw_casino_daily`, `yw_casino_announcements`, `yw_casino_pending` (자동 생성). 블랙잭 당첨 지급이 DB 오류로 실패하면 보류 장부(`yw_casino_pending`)에 남았다가 1분마다·서버 시작 시 한 번만 다시 지급됩니다. 서버가 정상 종료될 때 진행 중인 블랙잭 판(더블다운 처리 중 포함)은 스탠드로 정산됩니다. 칩 구매·판매·관리진 지급/회수는 여울 로그(`casino`)에 남습니다.
 - **적용 방법**
   1. market·core 플러그인을 로비·타운·야생 세 서버 모두 배포 후 재시작. 서버 폴더 삭제 필요 없음 (`config.yml`에 `casino:` 블록이 자동으로 추가됨).
   2. 카지노를 둘 서버에 카지노 장식 가구(ItemsAdder 카테고리 "카지노 장식")를 설치하고 우클릭해 확인. ItemsAdder가 없는 서버에서는 게임이 꺼지고 환전만 됩니다.
