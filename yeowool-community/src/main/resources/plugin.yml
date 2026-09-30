@@ -5,7 +5,7 @@ api-version: '1.21'
 author: Yeowool
 description: 커뮤니티 (채팅, 프로필, 칭호/업적, 이벤트)
 depend: [YeowoolCore]
-softdepend: [PlaceholderAPI, ItemsAdder, Citizens]
+softdepend: [PlaceholderAPI, ItemsAdder, Citizens, Votifier]
 
 commands:
   프로필:
@@ -51,6 +51,12 @@ commands:
   출석보상초기화:
     description: 일일/주간/월간 출석 보상을 기본값(온 + 자동줍기권/자동심기권)으로 채웁니다 (1회성)
     permission: yeowool.community.attendance.manage
+    default: op
+  추천:
+    description: 마인리스트 추천 링크와 내 추천 현황을 확인합니다 (/추천 순위 - 이번 달 추천 순위)
+  추천보상설정:
+    description: 추천 보상(매 추천/누적 보상)을 직접 수정합니다 (누적추가|누적삭제 <횟수>, 테스트 <닉네임>, 리로드)
+    permission: yeowool.community.vote.manage
     default: op
   플레이타임:
     description: 누적 플레이타임(1/6/12/24시간) 보상을 확인/수령합니다
@@ -103,6 +109,9 @@ permissions:
     default: op
   yeowool.community.attendance.manage:
     description: 출석 보상(금액/화폐/아이템)을 직접 수정할 수 있는 권한
+    default: op
+  yeowool.community.vote.manage:
+    description: 추천 보상을 직접 수정하고 테스트 추천을 보낼 수 있는 권한
     default: op
   yeowool.community.playtime.manage:
     description: 플레이타임 보상(금액/화폐/아이템)을 직접 수정할 수 있는 권한

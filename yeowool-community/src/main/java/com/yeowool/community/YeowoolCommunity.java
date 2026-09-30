@@ -92,6 +92,7 @@ import com.yeowool.community.title.TitleCommand;
 import com.yeowool.community.title.TitleCreateCommand;
 import com.yeowool.community.title.TitleDeleteCommand;
 import com.yeowool.community.title.TitleManager;
+import com.yeowool.community.vote.VoteService;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -179,6 +180,13 @@ public final class YeowoolCommunity extends JavaPlugin {
         var playtimeRewardCommand = getCommand("플레이타임보상설정");
         if (playtimeRewardCommand != null) {
             playtimeRewardCommand.setExecutor(new PlaytimeRewardCommand(playtimeRewardStore, playtimeRewardAmountListener, messages));
+        }
+
+        // 추천 보상 (마인리스트 NuVotifier - 추천 수신은 Votifier가 있는 로비만, 보상 지급/공지/대기 보상은 전 서버)
+        try {
+            VoteService.enable(this, core, messages, executor);
+        } catch (Exception e) {
+            getLogger().severe("추천 보상 데이터베이스 초기화 실패 (추천 보상 비활성화): " + e.getMessage());
         }
 
         // 파티 (분할서버 공유 - 소속은 항상 공유 DB에서 즉시 조회, HUD용 체력만 1초 주기 캐시)
