@@ -67,8 +67,16 @@ commands:
   교환소관리:
     description: 교환소 항목 추가/수정/목록/삭제, 교환소 NPC 연결 (관리진)
     permission: yeowool.market.shop.manage
+  카지노:
+    description: 카지노 칩 환전 (온 ↔ 칩)
+  카지노관리:
+    description: 카지노 칩 지급/회수/확인, 게임 기록, 환전 NPC 연결, 설정 리로드 (관리진)
+    permission: yeowool.market.casino.manage
 
 permissions:
   yeowool.market.shop.manage:
     description: 인게임에서 NPC 상점을 생성/수정/삭제할 수 있는 권한
+    default: op
+  yeowool.market.casino.manage:
+    description: 카지노 칩·기록·NPC·설정 관리 권한
     default: op

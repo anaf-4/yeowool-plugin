@@ -24,7 +24,7 @@ public final class ExchangeNpcListener implements Listener {
     }
 
     /** The NPC {@code sender} selected with {@code /npc select}, or null. */
-    static Integer selectedNpcId(CommandSender sender) {
+    public static Integer selectedNpcId(CommandSender sender) {
         NPC npc = CitizensAPI.getDefaultNPCSelector().getSelected(sender);
         return npc == null ? null : npc.getId();
     }
