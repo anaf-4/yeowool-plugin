@@ -115,9 +115,10 @@ public final class VoteAdminCommand implements TabExecutor {
 
     void saveItems(Player admin, int threshold, List<ItemStack> items) {
         async(admin, () -> {
-            repository.saveItems(threshold, items);
-            main(() -> admin.sendMessage(Component.text(VoteRewardEditorGui.label(threshold)
-                    + " 아이템을 저장했습니다. (" + items.size() + "개)", NamedTextColor.GREEN)));
+            boolean saved = repository.saveItems(threshold, items);
+            main(() -> admin.sendMessage(saved
+                    ? Component.text(VoteRewardEditorGui.label(threshold) + " 아이템을 저장했습니다. (" + items.size() + "개)", NamedTextColor.GREEN)
+                    : Component.text(VoteRewardEditorGui.label(threshold) + "이(가) 그 사이 삭제되어 아이템을 저장하지 못했습니다.", NamedTextColor.RED)));
         });
     }
 

@@ -120,8 +120,10 @@ public final class VoteRewardAmountListener implements Listener {
                             + String.format("%,d", amount) + "(으)로 설정했습니다.", NamedTextColor.GREEN));
                     edit.onSaved().run();
                 });
-            } catch (SQLException e) {
+            } catch (SQLException | RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, "추천 보상 금액 저장 실패 (" + edit.threshold() + ")", e);
+                Bukkit.getScheduler().runTask(plugin, () -> admin.sendMessage(
+                        Component.text("보상 값을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.", NamedTextColor.RED)));
             }
         });
     }

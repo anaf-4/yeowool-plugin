@@ -1,5 +1,6 @@
 package com.yeowool.community.vote;
 
+import com.yeowool.community.nickname.KoreanNicknameManager;
 import com.yeowool.core.api.YeowoolCoreAPI;
 import com.yeowool.core.api.service.MessageService;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -14,6 +15,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -35,6 +37,7 @@ public final class VoteService implements Listener {
     private final MessageService messages;
     private final VoteRepository repository;
     private final Executor executor;
+    private final KoreanNicknameManager koreanNicknames;
     private volatile long announcedUntilId;
 
     VoteService(JavaPlugin plugin, YeowoolCoreAPI core, MessageService messages, VoteRepository repository,
@@ -44,6 +47,7 @@ public final class VoteService implements Listener {
         this.messages = messages;
         this.repository = repository;
         this.executor = executor;
+        this.koreanNicknames = new KoreanNicknameManager(core);
         this.announcedUntilId = announcedUntilId;
     }
 
@@ -100,15 +104,22 @@ public final class VoteService implements Listener {
         String day = today();
         executor.execute(() -> {
             try {
-                UUID uuid = repository.findUuidByName(name).orElse(cachedUuid);
+                boolean korean = koreanNicknames.isValidFormat(name);
+                UUID uuid = korean
+                        ? repository.findUuidByKoreanNickname(name).orElse(null)
+                        : repository.findUuidByName(name).orElse(cachedUuid);
                 if (!repository.insertVote(uuid, name, nameKey, day, service)) {
                     plugin.getLogger().info("추천 중복 무시 — " + name + "님은 오늘(" + day + ") 이미 추천했습니다. (" + service + ")");
+                    return;
+                }
+                if (uuid == null && korean) {
+                    plugin.getLogger().warning("추천 수신: " + name + " (" + service + ") — 이 한글 닉네임을 쓰는 플레이어가 없어 보상 미지급, 수동 확인 필요");
                     return;
                 }
                 plugin.getLogger().info("추천 수신: " + name + " (" + service + ")"
                         + (uuid == null ? " — 접속 기록 없는 닉네임, 첫 접속 때 지급" : ""));
                 if (uuid != null) {
-                    reward(uuid, name);
+                    reward(uuid, name); // the voter is thanked by the announcement poll on whichever server they're on
                 }
             } catch (SQLException | RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, "추천 처리 실패 — 수동 확인 필요: " + name + " " + day, e);
@@ -129,7 +140,8 @@ public final class VoteService implements Listener {
             try {
                 for (long id : repository.pendingIds(nameKey)) {
                     if (repository.claimPending(id, uuid)) {
-                        reward(uuid, name);
+                        Payout paid = reward(uuid, name);
+                        Bukkit.getScheduler().runTask(plugin, () -> thank(uuid, paid.total(), paid.every(), paid.milestones()));
                     }
                 }
             } catch (SQLException | RuntimeException e) {
@@ -138,33 +150,52 @@ public final class VoteService implements Listener {
         });
     }
 
-    /** Worker: pays the every-vote reward, then any milestone the new total reaches (each once, via the DB). */
-    private void reward(UUID uuid, String name) throws SQLException {
+    private record Payout(int total, VoteRepository.Reward every, List<VoteRepository.Reward> milestones) {
+    }
+
+    /**
+     * Worker: pays the every-vote reward, then every milestone up to the new total not yet paid
+     * (once each via yw_vote_milestones_paid — so a missed one is caught up, and a newly added lower
+     * milestone is paid on the next vote). One failing reward doesn't stop the others.
+     */
+    private Payout reward(UUID uuid, String name) throws SQLException {
         TreeMap<Integer, VoteRepository.Reward> rewards = repository.loadRewards();
         int total = repository.totalVotes(uuid);
         VoteRepository.Reward every = rewards.get(VoteRules.EVERY_VOTE);
         if (every != null) {
-            deliver(uuid, every, "추천 보상");
-        }
-        List<Integer> reached = VoteRules.crossed(rewards.keySet(), total - 1, total);
-        for (int threshold : reached) {
-            if (repository.markMilestonePaid(uuid, threshold)) {
-                deliver(uuid, rewards.get(threshold), "누적 추천 " + threshold + "회 보상");
-                plugin.getLogger().info("누적 추천 보상 지급: " + name + " " + threshold + "회");
+            try {
+                deliver(uuid, every, "추천 보상");
+            } catch (SQLException | RuntimeException e) {
+                plugin.getLogger().log(Level.SEVERE, "추천 보상 지급 실패 — 수동 지급 필요: " + name + " " + summary(every), e);
             }
         }
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player == null) {
-                return;
+        List<VoteRepository.Reward> paid = new ArrayList<>();
+        for (int threshold : VoteRules.crossed(rewards.keySet(), 0, total)) {
+            try {
+                if (repository.markMilestonePaid(uuid, threshold)) {
+                    deliver(uuid, rewards.get(threshold), "누적 추천 " + threshold + "회 보상");
+                    paid.add(rewards.get(threshold));
+                    plugin.getLogger().info("누적 추천 보상 지급: " + name + " " + threshold + "회");
+                }
+            } catch (SQLException | RuntimeException e) {
+                plugin.getLogger().log(Level.SEVERE, "누적 추천 " + threshold + "회 보상 지급 실패 — 수동 확인 필요: " + name, e);
             }
-            messages.send(player, "vote.thanks", Placeholder.unparsed("reward", summary(every)),
-                    Placeholder.unparsed("total", String.valueOf(total)));
-            for (int threshold : reached) {
-                messages.send(player, "vote.milestone-reached", Placeholder.unparsed("count", String.valueOf(threshold)),
-                        Placeholder.unparsed("reward", summary(rewards.get(threshold))));
-            }
-        });
+        }
+        return new Payout(total, every, paid);
+    }
+
+    /** Main thread: personal thank-you (+ milestones reached) if the voter is online on this server. */
+    private void thank(UUID uuid, int total, VoteRepository.Reward every, List<VoteRepository.Reward> milestones) {
+        Player player = Bukkit.getPlayer(uuid);
+        if (player == null) {
+            return;
+        }
+        messages.send(player, "vote.thanks", Placeholder.unparsed("reward", summary(every)),
+                Placeholder.unparsed("total", String.valueOf(total)));
+        for (VoteRepository.Reward milestone : milestones) {
+            messages.send(player, "vote.milestone-reached", Placeholder.unparsed("count", String.valueOf(milestone.threshold())),
+                    Placeholder.unparsed("reward", summary(milestone)));
+        }
     }
 
     /** Worker: 온 via the payout ledger (any server), 별조각 in the DB, items to inventory or mailbox (main thread). */
@@ -186,7 +217,10 @@ public final class VoteService implements Listener {
         return reward == null ? "없음" : VoteRules.summary(reward.on(), reward.stardust(), reward.items().size());
     }
 
-    /** Worker, every ~20 s on every server: broadcasts votes counted since the last poll. */
+    /**
+     * Worker, every ~20 s on every server: broadcasts votes counted since the last poll and thanks
+     * each voter online here (milestone = one reached exactly at that vote's running total).
+     */
     void pollAnnouncements() {
         try {
             List<VoteRepository.Vote> votes = repository.votesAfter(announcedUntilId);
@@ -194,11 +228,17 @@ public final class VoteService implements Listener {
                 return;
             }
             announcedUntilId = votes.getLast().id();
-            if (!plugin.getConfig().getBoolean("vote.announce", true)) {
-                return;
-            }
-            Bukkit.getScheduler().runTask(plugin, () -> votes.forEach(vote ->
-                    messages.broadcast("vote.broadcast", Placeholder.unparsed("player", vote.name()))));
+            TreeMap<Integer, VoteRepository.Reward> rewards = repository.loadRewards();
+            boolean announce = plugin.getConfig().getBoolean("vote.announce", true);
+            Bukkit.getScheduler().runTask(plugin, () -> votes.forEach(vote -> {
+                if (announce) {
+                    messages.broadcast("vote.broadcast", Placeholder.unparsed("player", vote.name()));
+                }
+                if (vote.uuid() != null) {
+                    thank(vote.uuid(), vote.total(), rewards.get(VoteRules.EVERY_VOTE),
+                            VoteRules.crossed(rewards.keySet(), vote.total() - 1, vote.total()).stream().map(rewards::get).toList());
+                }
+            }));
         } catch (SQLException | RuntimeException e) {
             plugin.getLogger().log(Level.WARNING, "추천 공지 조회 실패", e);
         }

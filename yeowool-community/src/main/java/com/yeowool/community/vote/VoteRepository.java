@@ -28,7 +28,8 @@ final class VoteRepository {
     record Reward(int threshold, long on, long stardust, List<ItemStack> items) {
     }
 
-    record Vote(long id, String name) {
+    /** {@code uuid} null while pending; {@code total} = the voter's counted votes up to and including this one. */
+    record Vote(long id, String name, UUID uuid, int total) {
     }
 
     record Ranked(String name, int votes) {
@@ -127,6 +128,19 @@ final class VoteRepository {
     }
 
     /** False if this player (or name) already has a counted vote that day. */
+    // ponytail: setting_value isn't indexed — a scan of yw_player_settings per Korean-name vote; index it if that table gets huge.
+    /** Owner of a 한글 닉네임 ({@code nickname.korean} player setting, see KoreanNicknameManager). */
+    Optional<UUID> findUuidByKoreanNickname(String nickname) throws SQLException {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "SELECT uuid FROM yw_player_settings WHERE setting_key = 'nickname.korean' AND setting_value = ? LIMIT 1")) {
+            ps.setString(1, nickname);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(UUID.fromString(rs.getString(1))) : Optional.empty();
+            }
+        }
+    }
+
     boolean insertVote(UUID uuid, String name, String nameKey, String day, String service) throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(
@@ -230,12 +244,15 @@ final class VoteRepository {
 
     List<Vote> votesAfter(long id) throws SQLException {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement("SELECT id, name FROM yw_votes WHERE id > ? ORDER BY id")) {
+             PreparedStatement ps = connection.prepareStatement(
+                     "SELECT v.id, v.name, v.uuid, (SELECT COUNT(*) FROM yw_votes w WHERE w.uuid = v.uuid AND w.id <= v.id) "
+                             + "FROM yw_votes v WHERE v.id > ? ORDER BY v.id")) {
             ps.setLong(1, id);
             List<Vote> votes = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    votes.add(new Vote(rs.getLong(1), rs.getString(2)));
+                    String uuid = rs.getString(3);
+                    votes.add(new Vote(rs.getLong(1), rs.getString(2), uuid == null ? null : UUID.fromString(uuid), rs.getInt(4)));
                 }
             }
             return votes;
@@ -303,16 +320,31 @@ final class VoteRepository {
         }
     }
 
-    /** False if there was no such milestone. Already-paid records stay, so re-adding it never pays twice. */
+    /**
+     * False if there was no such milestone. One transaction, reward row first — it's the row
+     * {@link #saveItems} locks, so a concurrent item save either finishes before or sees it gone.
+     * Already-paid records stay, so re-adding it never pays twice.
+     */
     boolean deleteMilestone(int threshold) throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
-            try (PreparedStatement items = connection.prepareStatement("DELETE FROM yw_vote_reward_items WHERE threshold = ?")) {
-                items.setInt(1, threshold);
-                items.executeUpdate();
-            }
-            try (PreparedStatement reward = connection.prepareStatement("DELETE FROM yw_vote_rewards WHERE threshold = ?")) {
-                reward.setInt(1, threshold);
-                return reward.executeUpdate() == 1;
+            connection.setAutoCommit(false);
+            try {
+                boolean deleted;
+                try (PreparedStatement reward = connection.prepareStatement("DELETE FROM yw_vote_rewards WHERE threshold = ?")) {
+                    reward.setInt(1, threshold);
+                    deleted = reward.executeUpdate() == 1;
+                }
+                try (PreparedStatement items = connection.prepareStatement("DELETE FROM yw_vote_reward_items WHERE threshold = ?")) {
+                    items.setInt(1, threshold);
+                    items.executeUpdate();
+                }
+                connection.commit();
+                return deleted;
+            } catch (SQLException e) {
+                connection.rollback();
+                throw e;
+            } finally {
+                connection.setAutoCommit(true);
             }
         }
     }
@@ -329,8 +361,8 @@ final class VoteRepository {
         }
     }
 
-    /** Wipes and re-inserts one reward's items (skipped if the reward was deleted meanwhile). */
-    void saveItems(int threshold, List<ItemStack> items) throws SQLException {
+    /** Wipes and re-inserts one reward's items; false (nothing saved) if the reward was deleted meanwhile. */
+    boolean saveItems(int threshold, List<ItemStack> items) throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -340,7 +372,7 @@ final class VoteRepository {
                     try (ResultSet rs = exists.executeQuery()) {
                         if (!rs.next()) {
                             connection.rollback();
-                            return;
+                            return false;
                         }
                     }
                 }
@@ -359,6 +391,7 @@ final class VoteRepository {
                     insert.executeBatch();
                 }
                 connection.commit();
+                return true;
             } catch (SQLException e) {
                 connection.rollback();
                 throw e;
