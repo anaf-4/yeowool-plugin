@@ -99,12 +99,12 @@ final class SmithyCommand implements CommandExecutor, TabCompleter {
             return;
         }
         boolean raw = formIndex == 0;
-        ItemStack stack = MetalItems.create(metal.id(), raw ? MetalConfig.RAW : MetalConfig.INGOT, amount);
+        ItemStack stack = MetalItems.create(metal.id(), raw ? MetalConfig.RAW : MetalConfig.INGOT);
         if (stack == null) {
             messages.send(sender, "metals.pack-missing");
             return;
         }
-        MetalItems.give(target, stack);
+        MetalItems.give(target, stack, amount);
         messages.send(sender, "metals.admin.given", Placeholder.unparsed("player", target.getName()),
                 Placeholder.component("item", service.name(metal, raw ? "metals.form.raw" : "metals.form.ingot")),
                 Placeholder.unparsed("amount", String.valueOf(amount)));

@@ -29,10 +29,10 @@ final class MetalItems {
     private MetalItems() {
     }
 
-    /** A fresh pack item, or null when ItemsAdder doesn't know it (pack missing / not loaded yet). */
-    static ItemStack create(String metalId, int suffix, int amount) {
+    /** One fresh pack item, or null when ItemsAdder doesn't know it (pack missing / not loaded yet). */
+    static ItemStack create(String metalId, int suffix) {
         CustomStack custom = CustomStack.getInstance(NAMESPACE + ":" + metalId + suffix);
-        return custom == null ? null : custom.getItemStack().asQuantity(amount);
+        return custom == null ? null : custom.getItemStack().asOne();
     }
 
     /** "blue6" for a {@code bundle_metals:blue6} stack, else null. */
@@ -72,15 +72,28 @@ final class MetalItems {
         inventory.setStorageContents(contents);
     }
 
-    /** Gives, dropping whatever doesn't fit at the player's feet. */
-    static void give(Player player, ItemStack stack) {
-        player.getInventory().addItem(stack).values()
-                .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+    /** Gives {@code amount} of {@code item} in stacks of at most its max size, dropping what doesn't fit at the player's feet. */
+    static void give(Player player, ItemStack item, int amount) {
+        int max = Math.max(1, item.getMaxStackSize());
+        while (amount > 0) {
+            int size = Math.min(max, amount);
+            amount -= size;
+            player.getInventory().addItem(item.asQuantity(size)).values()
+                    .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+        }
+    }
+
+    static boolean isAid(ItemStack stack) {
+        if (stack == null || !stack.hasItemMeta()) {
+            return false;
+        }
+        var pdc = stack.getItemMeta().getPersistentDataContainer();
+        return pdc.has(BOOSTER_KEY) || pdc.has(CHARM_KEY);
     }
 
     /** 강화 촉진제 (amethyst shard) or 파괴 방지 부적 (paper drawn as a totem — never a working totem). */
-    static ItemStack aid(Recipe recipe, MessageService messages, int amount) {
-        ItemStack stack = new ItemStack(recipe.charm() ? Material.PAPER : Material.AMETHYST_SHARD, amount);
+    static ItemStack aid(Recipe recipe, MessageService messages) {
+        ItemStack stack = new ItemStack(recipe.charm() ? Material.PAPER : Material.AMETHYST_SHARD);
         ItemMeta meta = stack.getItemMeta();
         meta.displayName(messages.resolveRaw(recipe.charm() ? "metals.item.charm-name" : "metals.item.booster-name",
                 Placeholder.unparsed("name", recipe.name()), Placeholder.unparsed("bonus", String.valueOf(recipe.boosterPercent())))

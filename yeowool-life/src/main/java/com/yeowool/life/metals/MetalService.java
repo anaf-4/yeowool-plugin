@@ -96,6 +96,18 @@ public final class MetalService {
             command.setExecutor(executorCmd);
             command.setTabCompleter(executorCmd);
         }
+        Bukkit.getPluginManager().registerEvents(new org.bukkit.event.Listener() {
+            /** 촉진제·부적 are plain vanilla items underneath — never let them be eaten by a crafting recipe. */
+            @org.bukkit.event.EventHandler
+            public void onPrepareCraft(org.bukkit.event.inventory.PrepareItemCraftEvent event) {
+                for (ItemStack stack : event.getInventory().getMatrix()) {
+                    if (MetalItems.isAid(stack)) {
+                        event.getInventory().setResult(null);
+                        return;
+                    }
+                }
+            }
+        }, plugin);
         if (Bukkit.getPluginManager().isPluginEnabled("Citizens")) {
             Bukkit.getPluginManager().registerEvents(new com.yeowool.life.orders.OrderNpcListener(service::isNpc, service::open), plugin);
         } else {
@@ -127,8 +139,13 @@ public final class MetalService {
 
     /** Blocks MiningListener must remember when a player places them, beyond ores: the stone-type hosts in metal worlds. */
     public boolean tracksPlaced(Block block) {
+        return tracksType(block.getWorld(), block.getType());
+    }
+
+    /** Same check by type — for blocks that are about to form (generators) and aren't in the world yet. */
+    public boolean tracksType(World world, Material type) {
         MetalConfig current = config;
-        return current.enabled() && current.stoneBlocks().contains(block.getType()) && current.worlds().contains(block.getWorld().getName());
+        return current.enabled() && current.stoneBlocks().contains(type) && current.worlds().contains(world.getName());
     }
 
     /** A naturally generated block was broken (not player-placed). */
@@ -141,9 +158,9 @@ public final class MetalService {
         Material type = block.getType();
         double chance = MiningListener.isOre(type) ? current.oreChance() : current.stoneBlocks().contains(type) ? current.stoneChance() : 0;
         Player player = event.getPlayer();
-        if (chance <= 0 || player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR
-                || block.getDrops(player.getInventory().getItemInMainHand(), player).isEmpty() // wrong tool — vanilla drops nothing either
-                || !MetalConfig.rollDrop(random, chance)) {
+        if (chance <= 0 || !event.isDropItems() || player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR
+                || !MetalConfig.rollDrop(random, chance) // cheap roll first — getDrops only for the rare hit
+                || block.getDrops(player.getInventory().getItemInMainHand(), player).isEmpty()) { // wrong tool — vanilla drops nothing either
             return;
         }
         String dimension = block.getWorld().getEnvironment() == World.Environment.NETHER ? MetalConfig.NETHER : MetalConfig.OVERWORLD;
@@ -151,7 +168,7 @@ public final class MetalService {
         if (metal == null) {
             return;
         }
-        ItemStack raw = MetalItems.create(metal.id(), MetalConfig.RAW, 1);
+        ItemStack raw = MetalItems.create(metal.id(), MetalConfig.RAW);
         if (raw == null) {
             if (!warnedMissingPack) {
                 warnedMissingPack = true;
@@ -280,8 +297,8 @@ public final class MetalService {
                     Placeholder.unparsed("cost", money(current.smeltCost(metal.tier(), 1))));
             return;
         }
-        ItemStack ingots = MetalItems.create(metal.id(), MetalConfig.INGOT, times);
-        if (ingots == null) {
+        ItemStack ingot = MetalItems.create(metal.id(), MetalConfig.INGOT);
+        if (ingot == null) {
             messages.send(player, "metals.pack-missing");
             return;
         }
@@ -291,7 +308,7 @@ public final class MetalService {
             return;
         }
         MetalItems.take(player, item(metal, MetalConfig.RAW), times * current.rawPerIngot());
-        MetalItems.give(player, ingots);
+        MetalItems.give(player, ingot, times);
         player.playSound(player.getLocation(), Sound.BLOCK_BLASTFURNACE_FIRE_CRACKLE, 1f, 1f);
         messages.send(player, "metals.smelted", Placeholder.component("item", name(metal, "metals.form.ingot")),
                 Placeholder.unparsed("amount", String.valueOf(times)), Placeholder.unparsed("cost", money(cost)));
@@ -308,13 +325,13 @@ public final class MetalService {
         }
         int outSuffix = toIngots ? MetalConfig.INGOT : conversion.suffix();
         int outAmount = toIngots ? possible * conversion.ingots() : possible;
-        ItemStack out = MetalItems.create(metal.id(), outSuffix, outAmount);
+        ItemStack out = MetalItems.create(metal.id(), outSuffix);
         if (out == null) {
             messages.send(player, "metals.pack-missing");
             return;
         }
         MetalItems.take(player, from, possible * per);
-        MetalItems.give(player, out);
+        MetalItems.give(player, out, outAmount);
         player.playSound(player.getLocation(), Sound.BLOCK_SMITHING_TABLE_USE, 1f, 1f);
         messages.send(player, "metals.converted", Placeholder.unparsed("amount", String.valueOf(outAmount)));
     }
@@ -334,7 +351,7 @@ public final class MetalService {
             return;
         }
         recipe.ingots().forEach((tier, amount) -> MetalItems.take(player, ingotsOf(tier), amount));
-        MetalItems.give(player, MetalItems.aid(recipe, messages, 1));
+        MetalItems.give(player, MetalItems.aid(recipe, messages), 1);
         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 0.8f, 1.2f);
         messages.send(player, "metals.crafted", Placeholder.unparsed("name", recipe.name()));
     }

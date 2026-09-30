@@ -156,7 +156,7 @@ final class SmithyGui extends YeowoolGui {
         int start = 4 - (shown - 1);
         for (int i = 0; i < shown; i++) {
             Recipe recipe = recipes.get(i);
-            ItemStack stack = MetalItems.aid(recipe, messages, 1);
+            ItemStack stack = MetalItems.aid(recipe, messages);
             ItemMeta meta = stack.getItemMeta();
             List<Component> lore = new ArrayList<>(meta.lore() == null ? List.of() : meta.lore());
             lore.add(Component.empty());
@@ -194,7 +194,7 @@ final class SmithyGui extends YeowoolGui {
 
     /** The pack item as the icon (barrier if ItemsAdder doesn't know it), renamed with our own name/lore. */
     private static ItemStack packIcon(Metal metal, int suffix, Component name, List<Component> lore) {
-        ItemStack stack = MetalItems.create(metal.id(), suffix, 1);
+        ItemStack stack = MetalItems.create(metal.id(), suffix);
         return icon(stack == null ? new ItemStack(Material.BARRIER) : stack,
                 name.decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE), lore);
     }

@@ -329,7 +329,7 @@ metals:
     booster-lore-2: "<gray>강화 1회 시도의 성공 확률 <aqua>+<bonus>%</aqua> (1개 소모)</gray>"
     charm-name: "<gold><name></gold>"
     charm-lore-1: "<gray>/강화 창의 보조 재료 칸에 넣으면</gray>"
-    charm-lore-2: "<gray>그 시도에서 <green>하락·파괴 없음</green> (위험 구간 시도마다 1개 소모)</gray>"
+    charm-lore-2: "<gray>그 시도에서 <green>하락·파괴 없음</green> (실제로 막았을 때만 1개 소모)</gray>"
   gui:
     title: "대장간"
     tab-smelt: "<gold>제련</gold> <gray>— 원석을 주괴로</gray>"

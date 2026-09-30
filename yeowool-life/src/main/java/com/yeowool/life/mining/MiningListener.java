@@ -7,13 +7,19 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockFormEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,10 +35,13 @@ public final class MiningListener implements Listener {
     private final long xpPerOre;
     /**
      * Ores a player placed (e.g. mined with Silk Touch and put back) — breaking them again earns nothing — plus, in metal
-     * worlds, the stone-type blocks that can drop 원석 ({@link MetalService#tracksPlaced}).
+     * worlds, the stone-type blocks that can drop 원석 ({@link MetalService#tracksPlaced}) — placed, or formed by a
+     * lava/water generator (cobblestone/stone/basalt farms). Follows blocks that pistons move.
      */
     private final Set<Location> playerPlacedOres = ConcurrentHashMap.newKeySet();
     private MetalService metals;
+    /** Above this many entries, pruning also forgets entries in unloaded chunks. */
+    private static final int PRUNE_UNLOADED_ABOVE = 100_000;
 
     public MiningListener(YeowoolCoreAPI core, long xpPerOre) {
         this.core = core;
@@ -59,15 +68,50 @@ public final class MiningListener implements Listener {
         }
     }
 
+    /** Generator-formed blocks (lava + water → stone/basalt/...) count as placed — the block isn't there yet, so check the new type. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onForm(BlockFormEvent event) {
+        Block block = event.getBlock();
+        if (metals != null && metals.tracksType(block.getWorld(), event.getNewState().getType())) {
+            playerPlacedOres.add(block.getLocation());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonExtend(BlockPistonExtendEvent event) {
+        moveTracked(event.getBlocks(), event.getDirection());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonRetract(BlockPistonRetractEvent event) {
+        moveTracked(event.getBlocks(), event.getDirection()); // direction = where the pulled blocks move
+    }
+
+    /** Remove every moving tracked location first, then re-add at the destination, so chained blocks don't clobber each other. */
+    private void moveTracked(List<Block> blocks, BlockFace direction) {
+        List<Location> destinations = new ArrayList<>();
+        for (Block block : blocks) {
+            if (playerPlacedOres.remove(block.getLocation())) {
+                destinations.add(block.getRelative(direction).getLocation());
+            }
+        }
+        playerPlacedOres.addAll(destinations);
+    }
+
     /**
-     * Drops tracked locations whose block is no longer an ore (exploded, pushed, replaced...), only in
-     * loaded chunks so pruning never force-loads the world. Called periodically from {@code YeowoolLife}.
+     * Drops tracked locations whose block is no longer tracked-type (exploded, replaced...), only in loaded chunks so
+     * pruning never force-loads the world; past {@link #PRUNE_UNLOADED_ABOVE} entries it also forgets unloaded chunks'.
+     * Called periodically from {@code YeowoolLife}.
      */
     public void pruneStaleEntries() {
+        boolean forgetUnloaded = playerPlacedOres.size() > PRUNE_UNLOADED_ABOVE;
         playerPlacedOres.removeIf(location -> {
+            if (!location.isWorldLoaded()) {
+                return true;
+            }
             var world = location.getWorld();
-            if (world == null || !world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
-                return false;
+            if (!world.isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+                return forgetUnloaded; // ponytail: size cap forgets far-away placements; persist per-chunk PDC if that's ever farmed
             }
             return !tracked(location.getBlock());
         });

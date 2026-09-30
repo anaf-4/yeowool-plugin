@@ -59,14 +59,21 @@ public final class EnhanceGui extends YeowoolGui {
         super.open(player);
     }
 
+    /** Only 강화 촉진제 / 파괴 방지 부적 may stay in the 보조 재료 칸 — anything else (click, shift-click, drag) is bounced back. */
     @Override
     public void onEditableSlotChanged() {
-        if (viewer != null && viewer.isOnline()) {
-            refresh(viewer);
+        if (viewer == null || !viewer.isOnline()) {
+            return;
         }
+        ItemStack stack = getInventory().getItem(SLOT_AID);
+        if (stack != null && !stack.getType().isAir() && EnhanceAid.of(stack) == EnhanceAid.NONE) {
+            getInventory().setItem(SLOT_AID, null);
+            returnItem(viewer, stack);
+        }
+        refresh(viewer);
     }
 
-    /** Hands the 보조 재료 칸 item back (dropping what doesn't fit) — also runs on quit and on plugin disable. */
+    /** Hands the 보조 재료 칸 item back — also runs on quit and on plugin disable. */
     @Override
     public void onClose(Player player) {
         ItemStack aid = getInventory().getItem(SLOT_AID);
@@ -74,7 +81,16 @@ public final class EnhanceGui extends YeowoolGui {
             return;
         }
         getInventory().setItem(SLOT_AID, null);
-        player.getInventory().addItem(aid).values()
+        returnItem(player, aid);
+    }
+
+    /** Into the inventory (overflow dropped) — or dropped where the player is if they're dead (their inventory is gone). */
+    private static void returnItem(Player player, ItemStack stack) {
+        if (player.isDead()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), stack);
+            return;
+        }
+        player.getInventory().addItem(stack).values()
                 .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
     }
 
@@ -166,11 +182,8 @@ public final class EnhanceGui extends YeowoolGui {
             consumeAid();
             messages.send(player, "enhance.booster-used", Placeholder.unparsed("bonus", String.valueOf(aid.boosterPercent())),
                     Placeholder.unparsed("rate", rate(EnhanceAid.boostedRate(service.config().successRate(level), aid.boosterPercent()))));
-        } else if (result.attempted() && aid.charm() && service.config().isFailRisky(level)) {
-            consumeAid();
-            if (result != EnhanceService.Result.FAIL_CHARMED) {
-                messages.send(player, "enhance.charm-used");
-            }
+        } else if (result == EnhanceService.Result.FAIL_CHARMED) {
+            consumeAid(); // the charm is only used up when it actually prevented a downgrade/destroy
         }
 
         switch (result) {
@@ -289,7 +302,7 @@ public final class EnhanceGui extends YeowoolGui {
                             NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));
                     String protection = config.protectionItemId();
                     if (aid.charm()) {
-                        lore.add(Component.text("✦ 파괴 방지 부적 적용 — 이번 시도는 하락·파괴되지 않습니다.", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));
+                        lore.add(Component.text("✦ 파괴 방지 부적 적용 — 이번 시도는 하락·파괴되지 않습니다. (막았을 때만 1개 소모)", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));
                     } else if (protection != null && !protection.isBlank()) {
                         lore.add(Component.text(EnhanceMaterialResolver.displayName(protection) + " 소지 시 자동으로 보호됩니다.", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
                     }
