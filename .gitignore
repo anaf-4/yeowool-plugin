@@ -20,3 +20,4 @@ webService.md
 # (no public Maven artifact) — copy the matching jar from plugins/ before building.
 yeowool-life/libs/*.jar
 yeowool-raid/libs/*.jar
+yeowool-community/libs/*.jar

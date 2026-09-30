@@ -10,4 +10,7 @@ dependencies {
     compileOnly("net.citizensnpcs:citizens-main:${rootProject.property("citizensVersion")}") {
         isTransitive = false
     }
+    // No public Maven artifact for NuVotifier — copy the lobby's plugins/nuvotifier.jar into libs/
+    // locally before building (see .gitignore).
+    compileOnly(files("libs/nuvotifier.jar"))
 }

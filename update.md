@@ -4,6 +4,22 @@
 
 ## 2026-09-30
 
+### 마인리스트 추천 보상 (yeowool-community, yeowool-core 도움말)
+- 마인리스트에서 여울을 추천하면(NuVotifier, 로비에서 수신) **하루 1번**(서버 날짜 기준) 보상을 줍니다. 같은 날 두 번째 추천은 로그만 남기고 무시.
+  - 기본값: **매 추천** 5,000온 + 별조각 3 / **누적 추천** 10회 별조각 20, 30회 별조각 50, 100회 별조각 150 (누적 보상은 해당 횟수에 도달할 때 1번만).
+  - 온은 지급 장부(접속 중인 서버에서 바로/곧 입금), 별조각은 DB 즉시, 아이템은 인벤토리 또는 우편함 → 다른 서버에 있거나 오프라인이어도 받습니다.
+  - 한 번도 접속한 적 없는 닉네임의 추천은 보관했다가 그 닉네임으로 **처음 접속할 때**(어느 서버든) 지급.
+- 추천이 들어오면 세 서버 모두 공지: "[추천] OO님이 마인리스트에서 여울을 추천했습니다! (/추천)" (20초 이내).
+- `/추천` - 추천 링크(클릭), 오늘 추천 여부, 누적 횟수, 다음 누적 보상. `/추천 순위` - 이번 달 추천 TOP 10.
+- `/추천보상설정` (권한 `yeowool.community.vote.manage`, 기본 OP): 메뉴에서 "매 추천 보상"/"누적 N회 보상"을 골라 아이템 27칸(닫으면 저장), 온·별조각 버튼(모루에 숫자 입력), 누적 보상 삭제 버튼. `누적추가 <횟수>`, `누적삭제 <횟수>`, `테스트 <닉네임>`(실제 추천과 같은 경로, 하루 1번에 포함), `리로드`. 보상은 DB에 저장되어 한 서버에서 바꾸면 세 서버 모두 바로 적용.
+- 설정 `config.yml`의 `vote:` (`enabled`, `url`, `announce`). DB 테이블 `yw_votes`, `yw_vote_milestones_paid`, `yw_vote_rewards`, `yw_vote_reward_items` (자동 생성).
+- **적용 방법**
+  1. community 플러그인을 로비·타운·야생 세 서버 모두 배포 후 재시작. 서버 폴더 삭제 필요 없음.
+  2. 세 서버 `plugins/YeowoolCommunity/config.yml`의 `vote.url`을 마인리스트의 여울 서버 페이지 주소로 변경 후 `/추천보상설정 리로드`.
+  3. 로비의 NuVotifier(`plugins/Votifier/config.yml`, 포트 8192)가 외부에서 접속되도록 방화벽/공유기에서 **TCP 8192** 포트 개방.
+  4. 마인리스트 서버 관리 페이지의 Votifier 설정에 서버 IP, 포트 8192, 공개키(`plugins/Votifier/rsa/public.key` 내용)를 입력하고 테스트 추천.
+  5. 인게임 확인: `/추천보상설정 테스트 <닉네임>` (그 닉네임의 오늘 추천으로 집계됨).
+
 ### 리소스 팩 3종 추가 (서버 설정만, 세 서버 공통)
 - **Warlord Kragan, The Bloodfury** (MythicMobs 보스 + 아레나): `MythicMobs/packs/WarlordKraganTheBloodfury`, 아레나 스키매틱 `WorldEdit/schematics/warlord_kragan_the_bloodfury_arena.schem`, ItemsAdder 보스바 `contents/khan_warlord_boss_bar` (ItemsAdder 옵션에 빠져 있던 보스바 이미지는 Nexo 옵션에서 가져와 넣음). 소환: `/mm mobs spawn warlord_kragan_the_bloodfury`.
 - **Fantasy Metals Bundle** (광석·금속 블록 203종, `bundle_metals`): ItemsAdder 3 형식이라 ItemsAdder 4 `contents/bundle_metals` 구조로 옮겨 설치. 월드 생성(자연 광석 생성)은 없음.
