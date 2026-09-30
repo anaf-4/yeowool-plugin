@@ -14,6 +14,11 @@ import com.yeowool.market.auction.repository.AuctionRepository;
 import com.yeowool.market.citizens.CitizensShopListener;
 import com.yeowool.market.citizens.ShopLocationCommand;
 import com.yeowool.market.citizens.ShopTeleportJoinListener;
+import com.yeowool.market.casino.CasinoCommand;
+import com.yeowool.market.casino.CasinoFurnitureListener;
+import com.yeowool.market.casino.CasinoNpcListener;
+import com.yeowool.market.casino.CasinoRepository;
+import com.yeowool.market.casino.CasinoService;
 import com.yeowool.market.command.AuctionCommand;
 import com.yeowool.market.command.NPCShopCommand;
 import com.yeowool.market.command.ShopCreateCommand;
@@ -71,6 +76,7 @@ public final class YeowoolMarket extends JavaPlugin {
     private MerchantService merchantService;
     private QuestBoardService questBoard;
     private QuestPayoutClaimer payoutClaimer;
+    private CasinoService casino;
 
     @Override
     public void onEnable() {
@@ -274,6 +280,31 @@ public final class YeowoolMarket extends JavaPlugin {
             getLogger().severe("교환소 초기화 실패 — 교환소를 끕니다: " + e.getMessage());
         }
 
+        // 카지노 — 칩은 온으로만 사고 온으로만 파는 DB 잔액. 실패해도 나머지 기능은 그대로.
+        try {
+            CasinoRepository casinoRepository = new CasinoRepository(core.dataSource());
+            casinoRepository.createTables();
+            casino = new CasinoService(this, core, messages, casinoRepository, executor,
+                    CasinoService.Settings.load(getConfig().getConfigurationSection("casino")), casinoRepository.maxAnnouncementId());
+            getServer().getPluginManager().registerEvents(casino, this);
+            var casinoCommand = new CasinoCommand(this, core, messages, casino, executor);
+            bindCommand("카지노", casinoCommand, casinoCommand);
+            bindCommand("카지노관리", casinoCommand, casinoCommand);
+            if (getServer().getPluginManager().isPluginEnabled("ItemsAdder")) {
+                getServer().getPluginManager().registerEvents(new CasinoFurnitureListener(casino), this);
+            } else {
+                getLogger().warning("ItemsAdder가 없어 카지노 게임 가구를 쓸 수 없습니다 (칩 환전만 가능).");
+            }
+            if (getServer().getPluginManager().isPluginEnabled("Citizens")) {
+                getServer().getPluginManager().registerEvents(new CasinoNpcListener(casino), this);
+            }
+            CasinoService casinoService = casino;
+            getServer().getScheduler().runTaskTimer(this, () -> executor.execute(casinoService::pollAnnouncements), 20L * 20, 20L * 20);
+        } catch (Exception e) {
+            casino = null;
+            getLogger().severe("카지노 초기화 실패 — 카지노를 끕니다: " + e.getMessage());
+        }
+
         getLogger().info("YeowoolMarket이 활성화되었습니다.");
     }
 
@@ -333,6 +364,9 @@ public final class YeowoolMarket extends JavaPlugin {
     public void onDisable() {
         if (merchantService != null) {
             merchantService.removeNpc();
+        }
+        if (casino != null) {
+            casino.shutdown(); // queues the settlement of open blackjack hands before the pool stops
         }
         if (executor != null) {
             executor.shutdown();

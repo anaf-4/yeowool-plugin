@@ -125,3 +125,55 @@ wandering-merchant:
     lobby: "로비"
     town: "마을"
     wild: "야생"
+
+# 카지노 — 카지노 장식 가구(ItemsAdder, iavegastables:<이름>_decor)를 우클릭하면 미니게임이 열립니다.
+# 게임은 칩으로만 하고, 칩은 온으로만 사고 온으로만 되팝니다 (캐시로는 절대 못 삽니다).
+# 칩은 DB 잔액이라 세 서버 공통입니다. 세 서버 설정을 똑같이 맞춰주세요. 바꾼 뒤 /카지노관리 리로드.
+casino:
+  # 칩 1개 가격(온). 되팔 때도 같은 값
+  chip-price: 1000
+  # 한 사람이 하루(서버 시간 자정 기준, 세 서버 합산)에 살 수 있는 칩 수. 판매는 한도 없음
+  daily-buy-limit: 500
+  # 한 판 최대 베팅(칩)
+  max-bet: 100
+  # true: /카지노로 어디서나 환전, false: 환전 NPC(/카지노관리 npc로 연결)에서만
+  exchange-anywhere: true
+  # 큰 당첨 세 서버 공지: 배당 min-multiplier배 이상 또는 당첨 칩 min-chips개 이상
+  announce:
+    min-multiplier: 20
+    min-chips: 1000
+  games:
+    # 배당은 "돌려받는 총 칩" 배수입니다 (×2 = 건 칩 포함 2배).
+    slot:
+      enabled: true
+      furniture-id: "iavegastables:classic_decor"
+      # 첫 번째 그림이 딱 2개 나왔을 때 배당
+      two-cherries: 2
+      # 그림 목록 — 첫 번째 그림이 "체리" 역할(2개 배당). weight가 클수록 자주 나옵니다. item은 창에 보일 아이템.
+      # 기본값 환수율 약 95% (그림 3개가 같으면 payout 배당). 바꾸면 환수율도 바뀌니 주의.
+      symbols:
+        - {name: "체리", item: SWEET_BERRIES, weight: 11, payout: 5}
+        - {name: "사과", item: APPLE, weight: 8, payout: 10}
+        - {name: "멜론", item: MELON_SLICE, weight: 6, payout: 15}
+        - {name: "종", item: BELL, weight: 3, payout: 20}
+        - {name: "금괴", item: GOLD_INGOT, weight: 2, payout: 30}
+        - {name: "다이아", item: DIAMOND, weight: 1, payout: 40}
+        - {name: "럭키 7", item: NETHER_STAR, weight: 1, payout: 50}
+    roulette:
+      enabled: true
+      furniture-id: "iavegastables:roulette_decor"
+      # 유럽식 0~36. 숫자 하나 / 빨강·검정·홀·짝·1~18·19~36 / 1·2·3구간. 0이 나오면 숫자 0 베팅 외에는 모두 짐
+      number-payout: 36
+      outside-payout: 2
+      dozen-payout: 3
+    dice:
+      enabled: true
+      furniture-id: "iavegastables:dice_decor"
+      # 주사위 2개 합: 로우(2~6)·하이(8~12), 7. 7이 나오면 로우·하이 모두 짐
+      high-low-payout: 2
+      seven-payout: 4
+    blackjack:
+      enabled: true
+      furniture-id: "iavegastables:blackjack_decor"
+      # 처음 두 장이 21(블랙잭)일 때 배당. 일반 승리 ×2, 무승부 환급, 딜러는 17 이상에서 멈춤
+      blackjack-payout: 2.5
