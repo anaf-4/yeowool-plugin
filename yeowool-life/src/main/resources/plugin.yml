@@ -46,6 +46,8 @@ commands:
     description: 관리진 전용 - 식당 NPC 연결, 단체 주문 시작/종료, 주문 초기화, 명성 설정
   어부주문관리:
     description: 관리진 전용 - 수산시장 NPC 연결, 단체 주문(수산시장 대목) 시작/종료, 주문 초기화, 어부 명성 설정
+  대장간관리:
+    description: 관리진 전용 - 대장간 NPC 연결, 대장간 열기, 판타지 금속 원석/주괴 지급, metals.yml 리로드
 
 permissions:
   yeowool.life.treasure.manage:
@@ -59,4 +61,7 @@ permissions:
     default: op
   yeowool.life.fishing-orders.manage:
     description: 어부 주문 관리 (/어부주문관리)
+    default: op
+  yeowool.life.smithy.manage:
+    description: 대장간 관리 (/대장간관리)
     default: op

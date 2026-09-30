@@ -94,6 +94,7 @@ import com.yeowool.life.job.action.JobFishermanListener;
 import com.yeowool.life.job.action.JobHunterListener;
 import com.yeowool.life.job.action.JobMinerListener;
 import com.yeowool.life.job.action.JobWoodCutterListener;
+import com.yeowool.life.metals.MetalService;
 import com.yeowool.life.mining.MiningListener;
 import com.yeowool.life.mount.MountCatalog;
 import com.yeowool.life.mount.MountCommand;
@@ -449,6 +450,7 @@ public final class YeowoolLife extends JavaPlugin {
         enableSurpriseEvents(core, messages);
         enableCookingOrders(core, messages);
         enableFishingOrders(core, messages, jobManager, fishRarities);
+        enableMetals(core, messages, jobManager, miningListener);
 
         getLogger().info("YeowoolLife가 활성화되었습니다.");
     }
@@ -748,6 +750,19 @@ public final class YeowoolLife extends JavaPlugin {
         getLogger().info("어부 주문이 활성화되었습니다.");
     }
 
+    /** 판타지 금속 대장간 — spec docs/superpowers/specs/2026-09-30-fantasy-metals-design.md (ItemsAdder bundle_metals 팩 필요). */
+    private void enableMetals(YeowoolCoreAPI core, MessageManager messages, JobManager jobManager, MiningListener miningListener) {
+        if (!getServer().getPluginManager().isPluginEnabled("ItemsAdder")) {
+            getLogger().warning("ItemsAdder가 없어 판타지 금속 대장간을 끕니다.");
+            return;
+        }
+        MetalService service = MetalService.start(this, core, messages, jobManager, executor);
+        if (service != null) {
+            miningListener.setMetals(service);
+            getLogger().info("판타지 금속 대장간이 활성화되었습니다 (금속 " + service.metalCount() + "종).");
+        }
+    }
+
     private ConfigurationSection configSection(String path) {
         ConfigurationSection section = getConfig().getConfigurationSection(path);
         return section != null ? section : getConfig().createSection(path);
@@ -772,7 +787,7 @@ public final class YeowoolLife extends JavaPlugin {
             command.setTabCompleter(executorCmd);
         }
         if (getServer().getPluginManager().isPluginEnabled("Citizens")) {
-            getServer().getPluginManager().registerEvents(new OrderNpcListener(service), this);
+            getServer().getPluginManager().registerEvents(new OrderNpcListener(service::isNpc, service::open), this);
         } else {
             getLogger().warning("Citizens가 없어 이 서버에서는 " + npcLabel + " NPC를 쓸 수 없습니다 (단체 주문 일정은 계속 처리).");
         }

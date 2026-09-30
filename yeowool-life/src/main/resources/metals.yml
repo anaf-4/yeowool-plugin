@@ -1,0 +1,87 @@
+# 판타지 금속 대장간 (spec docs/superpowers/specs/2026-09-30-fantasy-metals-design.md)
+# ItemsAdder 팩 bundle_metals — 금속마다 <id>1 금속 블록, 2 광석, 3 심층 광석, 4 주괴, 5 원석 블록, 6 원석, 7 괴.
+# 바꾼 뒤 /대장간관리 리로드 로 바로 적용됩니다.
+enabled: true
+
+# 원석이 나오는 월드 (야생 서버). 다른 서버에는 이 월드가 없으니 드롭이 일어나지 않습니다.
+worlds: [wild_world, wild_world_nether]
+
+drop:
+  # 블록 1개당 원석 드롭 확률(%) — stone-blocks에 있는 블록 / 바닐라 광석(*_ORE, 고대 잔해).
+  stone-chance-percent: 0.4
+  ore-chance-percent: 2.0
+  stone-blocks: [STONE, DEEPSLATE, TUFF, NETHERRACK, BASALT, BLACKSTONE]
+  # 이 y 이하에서 캐면 영웅·전설 가중치에 deep-multiplier를 곱합니다.
+  deep-y: 0
+  deep-multiplier: 2.0
+  # 전설 원석은 세 서버 전체 공지
+  announce-legendary: true
+
+# 등급 — weight: 드롭 등급 가중치, smelt-cost: 주괴 1개 제련 비용(온), xp: 원석 1개당 광부 직업 경험치
+tiers:
+  common: {name: 일반, color: white, weight: 70, smelt-cost: 1000, xp: 5}
+  rare: {name: 희귀, color: aqua, weight: 22, smelt-cost: 3000, xp: 10}
+  epic: {name: 영웅, color: light_purple, weight: 7, smelt-cost: 8000, xp: 20}
+  legendary: {name: 전설, color: gold, weight: 1, smelt-cost: 20000, xp: 50}
+
+smelting:
+  raw-per-ingot: 4
+  # 한 번 누를 때(쉬프트 클릭) 최대 제련 횟수
+  max-batch: 64
+
+# 주괴 ↔ 장식 아이템 교환 — ingots개의 주괴 = 1개 (양방향, 같은 비율)
+conversions:
+  block: {name: 블록, suffix: 1, ingots: 9}
+  raw_block: {name: 원석 블록, suffix: 5, ingots: 9}
+  chunk: {name: 괴, suffix: 7, ingots: 1}
+
+# 강화 보조 재료 제작 — ingots: 등급별 주괴 개수(그 등급 금속이면 아무 종류나), money: 온
+# booster-percent: 강화 촉진제의 성공 확률 가산(%), charm: true면 파괴 방지 부적
+crafting:
+  booster_common: {name: 강화 촉진제 I, booster-percent: 5, money: 0, ingots: {common: 2}}
+  booster_rare: {name: 강화 촉진제 II, booster-percent: 10, money: 0, ingots: {rare: 2}}
+  booster_epic: {name: 강화 촉진제 III, booster-percent: 15, money: 0, ingots: {epic: 2}}
+  booster_legendary: {name: 강화 촉진제 IV, booster-percent: 20, money: 0, ingots: {legendary: 2}}
+  charm: {name: 파괴 방지 부적, charm: true, money: 500000, ingots: {legendary: 3, epic: 5}}
+
+# 금속 28종 — dimensions: 원석이 나오는 차원(overworld / nether). 이름은 ItemsAdder 표시 이름 변환에도 씁니다
+# (docs/superpowers/scripts/apply_metal_names.py).
+metals:
+  ciron: {name: 무쇠, tier: common, dimensions: [overworld]}
+  cgold: {name: 사금, tier: common, dimensions: [overworld]}
+  ocop: {name: 적동, tier: common, dimensions: [overworld, nether]}
+  pcop: {name: 진홍 구리, tier: common, dimensions: [overworld, nether]}
+  lcop: {name: 벚꽃 구리, tier: common, dimensions: [overworld]}
+  bcop: {name: 비취 구리, tier: common, dimensions: [overworld]}
+  silver: {name: 서리 은, tier: common, dimensions: [overworld]}
+  green: {name: 녹옥, tier: common, dimensions: [overworld]}
+  reddish: {name: 산호석, tier: common, dimensions: [overworld, nether]}
+  purple: {name: 연보라 강철, tier: common, dimensions: [overworld]}
+  blue: {name: 푸른 강철, tier: rare, dimensions: [overworld]}
+  lcyan: {name: 빙정석, tier: rare, dimensions: [overworld]}
+  cyan: {name: 심해석, tier: rare, dimensions: [overworld]}
+  bubble: {name: 거품 수정, tier: rare, dimensions: [overworld]}
+  magic: {name: 마력석, tier: rare, dimensions: [overworld]}
+  jag: {name: 녹림석, tier: rare, dimensions: [overworld]}
+  taxis: {name: 이색 합금, tier: rare, dimensions: [overworld]}
+  obsi: {name: 흑요 강철, tier: rare, dimensions: [nether]}
+  dgold: {name: 암금, tier: rare, dimensions: [nether]}
+  crystal: {name: 별빛 수정, tier: epic, dimensions: [overworld]}
+  pink: {name: 요정석, tier: epic, dimensions: [overworld]}
+  spike: {name: 뇌전석, tier: epic, dimensions: [overworld]}
+  tech: {name: 고대 합금, tier: epic, dimensions: [overworld]}
+  matrix: {name: 룬 강철, tier: epic, dimensions: [overworld]}
+  infect: {name: 역병석, tier: epic, dimensions: [nether]}
+  nebula: {name: 성운석, tier: legendary, dimensions: [overworld]}
+  heart: {name: 심장석, tier: legendary, dimensions: [overworld]}
+  dragon: {name: 용혈석, tier: legendary, dimensions: [nether]}
+
+# 팩에 따로 들어 있는 주괴류(게임 내 용도 없음) — ItemsAdder 표시 이름 변환용
+extra-names:
+  aurellium4: 오렐리움 주괴
+  aurellium7: 오렐리움 괴
+  gnether4: 황금 네더 주괴
+  gnether7: 황금 네더 괴
+  nether7: 네더 괴
+  nether_dragon4: 네더 용 주괴
+  nether_dragon7: 네더 용 괴

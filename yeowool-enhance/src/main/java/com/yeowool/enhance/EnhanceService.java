@@ -29,19 +29,38 @@ public final class EnhanceService {
     public enum Result {
         SUCCESS, SUCCESS_TIER_UP, FAIL_SAFE, FAIL_PROTECTED, FAIL_DOWNGRADE, FAIL_DESTROYED,
         NOT_ENHANCEABLE, MAX_LEVEL, NEEDS_TRANSCEND, INSUFFICIENT_FUNDS, INSUFFICIENT_MATERIAL,
-        TRANSCEND_SUCCESS, TRANSCEND_SUCCESS_NEW_MATERIAL, TRANSCEND_FAIL, NOT_AT_GATE, INSUFFICIENT_STONE
+        TRANSCEND_SUCCESS, TRANSCEND_SUCCESS_NEW_MATERIAL, TRANSCEND_FAIL, NOT_AT_GATE, INSUFFICIENT_STONE,
+        /** A risky failure the 파괴 방지 부적 absorbed — level unchanged. */
+        FAIL_CHARMED;
+
+        /** True when an attempt was actually made (cost paid) — the point where a 보조 재료 is used up. */
+        public boolean attempted() {
+            return switch (this) {
+                case SUCCESS, SUCCESS_TIER_UP, FAIL_SAFE, FAIL_PROTECTED, FAIL_DOWNGRADE, FAIL_DESTROYED, FAIL_CHARMED,
+                     TRANSCEND_SUCCESS, TRANSCEND_SUCCESS_NEW_MATERIAL, TRANSCEND_FAIL -> true;
+                default -> false;
+            };
+        }
     }
 
     private final YeowoolCoreAPI core;
     private final EnhanceConfig config;
     private final EnhanceItemData itemData;
     private final EnhanceCostManager costs;
+    private final boolean boosterOnTranscend;
 
-    public EnhanceService(YeowoolCoreAPI core, EnhanceConfig config, EnhanceItemData itemData, EnhanceCostManager costs) {
+    public EnhanceService(YeowoolCoreAPI core, EnhanceConfig config, EnhanceItemData itemData, EnhanceCostManager costs,
+                          boolean boosterOnTranscend) {
         this.core = core;
         this.config = config;
         this.itemData = itemData;
         this.costs = costs;
+        this.boosterOnTranscend = boosterOnTranscend;
+    }
+
+    /** {@code enhance.boosters.allow-transcend}: 강화 촉진제 also raises the transcend rate. */
+    public boolean boosterOnTranscend() {
+        return boosterOnTranscend;
     }
 
     public EnhanceConfig config() {
@@ -73,7 +92,8 @@ public final class EnhanceService {
         return Math.round(costs.costFor(itemData.level(item)).currency() * multiplier);
     }
 
-    public Result attempt(Player player, ItemStack item) {
+    /** {@code aid}: the 보조 재료 칸 item — a booster adds to the rate, a charm turns a risky failure into {@link Result#FAIL_CHARMED}. */
+    public Result attempt(Player player, ItemStack item, EnhanceAid aid) {
         if (!itemData.isEnhanceable(item)) {
             return Result.NOT_ENHANCEABLE;
         }
@@ -99,7 +119,7 @@ public final class EnhanceService {
         }
         EnhanceMaterialResolver.removeAmount(player, cost.materialId(), cost.materialAmount());
 
-        boolean success = ThreadLocalRandom.current().nextDouble(100) < config.successRate(level);
+        boolean success = ThreadLocalRandom.current().nextDouble(100) < EnhanceAid.boostedRate(config.successRate(level), aid.boosterPercent());
         if (success) {
             boolean tierUp = stage == 0 && config.crossesTierAt(level);
             itemData.applyLevel(item, level + 1);
@@ -109,16 +129,15 @@ public final class EnhanceService {
         if (!config.isFailRisky(level)) {
             return Result.FAIL_SAFE;
         }
-        double roll = ThreadLocalRandom.current().nextDouble(100);
-        boolean destroy = roll < config.failDestroyChancePercent();
-        boolean downgrade = !destroy && roll < config.failDestroyChancePercent() + config.failDowngradeChancePercent();
-        if (destroy && stage > 0 && config.transcendProtectFromDestroy()) {
-            destroy = false;
-            downgrade = true;
+        EnhanceAid.Fail fail = EnhanceAid.failOutcome(ThreadLocalRandom.current().nextDouble(100), config.failDestroyChancePercent(),
+                config.failDowngradeChancePercent(), stage > 0 && config.transcendProtectFromDestroy(), aid.charm());
+        if (fail == EnhanceAid.Fail.CHARMED) {
+            return Result.FAIL_CHARMED;
         }
-        if (!destroy && !downgrade) {
+        if (fail == EnhanceAid.Fail.SAFE) {
             return Result.FAIL_SAFE;
         }
+        boolean destroy = fail == EnhanceAid.Fail.DESTROY;
         String protection = config.protectionItemId();
         if (protection != null && !protection.isBlank() && EnhanceMaterialResolver.hasAmount(player, protection, 1)) {
             EnhanceMaterialResolver.removeAmount(player, protection, 1);
@@ -133,7 +152,7 @@ public final class EnhanceService {
     }
 
     /** Transcends the item in the player's main hand (replacing it when the material changes). */
-    public Result transcend(Player player) {
+    public Result transcend(Player player, EnhanceAid aid) {
         ItemStack item = player.getInventory().getItemInMainHand();
         if (!itemData.isEnhanceable(item)) {
             return Result.NOT_ENHANCEABLE;
@@ -157,7 +176,8 @@ public final class EnhanceService {
         }
         EnhanceMaterialResolver.removeAmount(player, target.stoneItemId(), target.stoneAmount());
 
-        if (ThreadLocalRandom.current().nextDouble(100) >= target.successRate()) {
+        int bonus = boosterOnTranscend ? aid.boosterPercent() : 0;
+        if (ThreadLocalRandom.current().nextDouble(100) >= EnhanceAid.boostedRate(target.successRate(), bonus)) {
             return Result.TRANSCEND_FAIL;
         }
         ItemStack result = item;

@@ -62,7 +62,8 @@ public final class YeowoolEnhance extends JavaPlugin {
             getLogger().severe("강화 비용 데이터 로드 실패: " + e.getMessage());
         }
 
-        EnhanceService service = new EnhanceService(core, config, itemData, costManager);
+        EnhanceService service = new EnhanceService(core, config, itemData, costManager,
+                getConfig().getBoolean("enhance.boosters.allow-transcend", true));
 
         int backgroundOffsetPx = getConfig().getInt("enhance.gui-background-offset", -8);
         var command = getCommand("강화");
@@ -100,6 +101,12 @@ public final class YeowoolEnhance extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        // hands 보조 재료 칸 items back before the plugin (and its GUIs) go away — GuiListener fires EnhanceGui.onClose
+        for (var online : Bukkit.getOnlinePlayers()) {
+            if (online.getOpenInventory().getTopInventory().getHolder() instanceof EnhanceGui) {
+                online.closeInventory();
+            }
+        }
         if (executor != null) {
             executor.shutdown();
         }

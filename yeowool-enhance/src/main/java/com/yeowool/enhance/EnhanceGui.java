@@ -32,10 +32,13 @@ public final class EnhanceGui extends YeowoolGui {
     private static final int SLOT_PREVIEW = 13;
     private static final int SLOT_ACTION = 22;
     private static final int SLOT_CLOSE = 31;
+    /** 보조 재료 칸 (강화 촉진제 / 파괴 방지 부적) — a real editable slot; its item goes back to the player on close. */
+    private static final int SLOT_AID = 15;
 
     private final EnhanceService service;
     private final MessageService messages;
     private long lastActionAt;
+    private Player viewer;
 
     public EnhanceGui(EnhanceService service, MessageService messages, int backgroundOffsetPx) {
         super(36, EnhanceBackgroundImages.title(backgroundOffsetPx, "enhance_bg",
@@ -45,13 +48,47 @@ public final class EnhanceGui extends YeowoolGui {
 
         setButton(SLOT_ACTION, GuiButton.of(actionIcon(null), this::handleAction));
         setButton(SLOT_CLOSE, GuiButton.of(EnhanceIcons.closeIcon(), event -> event.getWhoClicked().closeInventory()));
+        setEditableSlot(SLOT_AID);
     }
 
     @Override
     public void open(Player player) {
+        this.viewer = player;
         service.itemData().repair(player.getInventory().getItemInMainHand());
         refresh(player);
         super.open(player);
+    }
+
+    @Override
+    public void onEditableSlotChanged() {
+        if (viewer != null && viewer.isOnline()) {
+            refresh(viewer);
+        }
+    }
+
+    /** Hands the 보조 재료 칸 item back (dropping what doesn't fit) — also runs on quit and on plugin disable. */
+    @Override
+    public void onClose(Player player) {
+        ItemStack aid = getInventory().getItem(SLOT_AID);
+        if (aid == null || aid.getType().isAir()) {
+            return;
+        }
+        getInventory().setItem(SLOT_AID, null);
+        player.getInventory().addItem(aid).values()
+                .forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+    }
+
+    private EnhanceAid aid() {
+        return EnhanceAid.of(getInventory().getItem(SLOT_AID));
+    }
+
+    /** Uses up one 보조 재료 after an attempt that actually happened. */
+    private void consumeAid() {
+        ItemStack stack = getInventory().getItem(SLOT_AID);
+        if (stack != null && !stack.getType().isAir()) {
+            stack.setAmount(stack.getAmount() - 1);
+            getInventory().setItem(SLOT_AID, stack.getAmount() > 0 ? stack : null);
+        }
     }
 
     /** Ignores double-click echoes and clicks within 400ms of the last one, so one intent = one paid attempt. */
@@ -79,7 +116,13 @@ public final class EnhanceGui extends YeowoolGui {
         ItemStack hand = player.getInventory().getItemInMainHand();
         int nextStage = service.itemData().stage(hand) + 1;
         var target = service.config().transcendStage(nextStage);
-        EnhanceService.Result result = service.transcend(player);
+        EnhanceAid aid = aid();
+        EnhanceService.Result result = service.transcend(player, aid);
+        if (result.attempted() && aid.isBooster() && service.boosterOnTranscend()) {
+            consumeAid();
+            messages.send(player, "enhance.booster-used", Placeholder.unparsed("bonus", String.valueOf(aid.boosterPercent())),
+                    Placeholder.unparsed("rate", rate(EnhanceAid.boostedRate(target.map(TranscendStage::successRate).orElse(0.0), aid.boosterPercent()))));
+        }
         switch (result) {
             case TRANSCEND_SUCCESS, TRANSCEND_SUCCESS_NEW_MATERIAL -> {
                 playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE);
@@ -116,8 +159,19 @@ public final class EnhanceGui extends YeowoolGui {
     private void attempt(Player player) {
         ItemStack hand = player.getInventory().getItemInMainHand();
         int level = service.itemData().level(hand); // before the attempt changes it
-        EnhanceService.Result result = service.attempt(player, hand);
+        EnhanceAid aid = aid();
+        EnhanceService.Result result = service.attempt(player, hand, aid);
         EnhanceTier tier = service.config().tierFor(level + 1);
+        if (result.attempted() && aid.isBooster()) {
+            consumeAid();
+            messages.send(player, "enhance.booster-used", Placeholder.unparsed("bonus", String.valueOf(aid.boosterPercent())),
+                    Placeholder.unparsed("rate", rate(EnhanceAid.boostedRate(service.config().successRate(level), aid.boosterPercent()))));
+        } else if (result.attempted() && aid.charm() && service.config().isFailRisky(level)) {
+            consumeAid();
+            if (result != EnhanceService.Result.FAIL_CHARMED) {
+                messages.send(player, "enhance.charm-used");
+            }
+        }
 
         switch (result) {
             case NOT_ENHANCEABLE -> messages.send(player, "enhance.not-enhanceable");
@@ -157,8 +211,19 @@ public final class EnhanceGui extends YeowoolGui {
                 playSound(player,Sound.ENTITY_GENERIC_EXPLODE);
                 messages.send(player, "enhance.fail-destroyed");
             }
+            case FAIL_CHARMED -> {
+                playSound(player, Sound.ITEM_TOTEM_USE);
+                messages.send(player, "enhance.fail-charmed");
+            }
+            default -> {
+            }
         }
         refresh(player);
+    }
+
+    /** "70" / "72.5" */
+    private static String rate(double value) {
+        return value == Math.floor(value) ? String.valueOf((long) value) : String.valueOf(value);
     }
 
     private void playSound(Player player, Sound sound) {
@@ -213,7 +278,9 @@ public final class EnhanceGui extends YeowoolGui {
                                 ? config.transcendStage(stage).map(TranscendStage::color).orElse(NamedTextColor.DARK_PURPLE)
                                 : currentTier.color()))
                         .append(Component.text(")", NamedTextColor.GRAY)).decoration(TextDecoration.ITALIC, false));
-                lore.add(Component.text("성공 확률: " + config.successRate(level) + "%", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
+                EnhanceAid aid = aid();
+                lore.add(Component.text("성공 확률: " + rate(EnhanceAid.boostedRate(config.successRate(level), aid.boosterPercent())) + "%"
+                        + (aid.isBooster() ? " (촉진제 +" + aid.boosterPercent() + "%)" : ""), NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.text("필요 온: " + String.format("%,d", service.enhanceCurrency(hand)), NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.text("필요 " + EnhanceMaterialResolver.displayName(cost.materialId()) + ": " + cost.materialAmount() + "개", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
                 if (config.isFailRisky(level)) {
@@ -221,7 +288,9 @@ public final class EnhanceGui extends YeowoolGui {
                     lore.add(Component.text(noDestroy ? "⚠ 실패 시 하락 위험이 있습니다! (초월 장비는 파괴되지 않음)" : "⚠ 실패 시 하락/파괴 위험이 있습니다!",
                             NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));
                     String protection = config.protectionItemId();
-                    if (protection != null && !protection.isBlank()) {
+                    if (aid.charm()) {
+                        lore.add(Component.text("✦ 파괴 방지 부적 적용 — 이번 시도는 하락·파괴되지 않습니다.", NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, false));
+                    } else if (protection != null && !protection.isBlank()) {
                         lore.add(Component.text(EnhanceMaterialResolver.displayName(protection) + " 소지 시 자동으로 보호됩니다.", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
                     }
                 }
@@ -253,7 +322,12 @@ public final class EnhanceGui extends YeowoolGui {
         } else {
             lore.add(Component.text("성공 시 강화 수치를 유지한 채 " + target.name() + "로 올라갑니다.", NamedTextColor.LIGHT_PURPLE).decoration(TextDecoration.ITALIC, false));
         }
-        lore.add(Component.text("성공 확률: " + target.successRate() + "%", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
+        int bonus = service.boosterOnTranscend() ? aid().boosterPercent() : 0;
+        lore.add(Component.text("성공 확률: " + rate(EnhanceAid.boostedRate(target.successRate(), bonus)) + "%"
+                + (bonus > 0 ? " (촉진제 +" + bonus + "%)" : ""), NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
+        if (aid().charm()) {
+            lore.add(Component.text("파괴 방지 부적은 초월에 쓰이지 않습니다. (초월 실패는 원래 파괴가 없음)", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+        }
         lore.add(Component.text("필요 온: " + String.format("%,d", target.currency()), NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
         lore.add(Component.text("필요 " + EnhanceMaterialResolver.displayName(target.stoneItemId()) + ": " + target.stoneAmount() + "개", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
         lore.add(Component.text("실패해도 장비는 그대로입니다. (초월석·온만 소모)", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
