@@ -155,12 +155,7 @@ public final class SurpriseEventService {
 
     /** Our own boost layer — core keeps it apart from manual /이벤트 multipliers and applies the larger. */
     private void applyBoost(SurpriseEventType type, double multiplier) {
-        switch (type) {
-            case LAND_XP -> core.landStats().setAutoXpBoost(multiplier);
-            case CROP_DROP -> core.landStats().setAutoCropDropBoost(multiplier);
-            case TREASURE_DROP -> LifeBoosts.setTreasureDropMultiplier(multiplier);
-            case JOB_XP -> LifeBoosts.setJobXpMultiplier(multiplier);
-        }
+        LifeBoosts.set(core.landStats(), "surprise", type, multiplier);
         appliedType = type;
         appliedValue = multiplier;
     }
@@ -169,12 +164,7 @@ public final class SurpriseEventService {
         if (appliedType == null) {
             return;
         }
-        switch (appliedType) {
-            case LAND_XP -> core.landStats().setAutoXpBoost(1.0);
-            case CROP_DROP -> core.landStats().setAutoCropDropBoost(1.0);
-            case TREASURE_DROP -> LifeBoosts.setTreasureDropMultiplier(1.0);
-            case JOB_XP -> LifeBoosts.setJobXpMultiplier(1.0);
-        }
+        LifeBoosts.set(core.landStats(), "surprise", appliedType, 1.0);
         appliedType = null;
     }
 

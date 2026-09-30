@@ -45,6 +45,9 @@ import com.yeowool.life.orders.OrderService;
 import com.yeowool.life.pets.MCPetsXpListener;
 import com.yeowool.life.farming.database.FarmingSchemaInitializer;
 import com.yeowool.life.farming.repository.CropRepository;
+import com.yeowool.life.donation.DonationCommand;
+import com.yeowool.life.donation.DonationRepository;
+import com.yeowool.life.donation.DonationService;
 import com.yeowool.life.dex.DexCommand;
 import com.yeowool.life.dex.DexConfigLoader;
 import com.yeowool.life.dex.DexEntry;
@@ -149,6 +152,7 @@ public final class YeowoolLife extends JavaPlugin {
     private LifeCompetitionService lifeCompetition;
     private BagManager bagManager;
     private SurpriseEventService surpriseEvents;
+    private DonationService donation;
 
     @Override
     public void onEnable() {
@@ -449,6 +453,7 @@ public final class YeowoolLife extends JavaPlugin {
         enableSurpriseEvents(core, messages);
         enableCookingOrders(core, messages);
         enableFishingOrders(core, messages, jobManager, fishRarities);
+        enableDonation(core, messages);
 
         getLogger().info("YeowoolLife가 활성화되었습니다.");
     }
@@ -748,6 +753,42 @@ public final class YeowoolLife extends JavaPlugin {
         getLogger().info("어부 주문이 활성화되었습니다.");
     }
 
+    /** 기부 프로젝트 — 세 서버가 함께 채우는 주간 공동 목표 (달성 시 전 서버 버프 + 별조각). */
+    private void enableDonation(YeowoolCoreAPI core, MessageManager messages) {
+        if (!getConfig().getBoolean("donation.enabled", true)) {
+            getLogger().info("donation.enabled가 false라 기부 프로젝트를 끕니다.");
+            return;
+        }
+        DonationRepository repository = new DonationRepository(core.dataSource());
+        long announcedUntil;
+        try {
+            repository.createTables();
+            announcedUntil = repository.maxAnnouncementId();
+        } catch (Exception e) {
+            getLogger().severe("기부 프로젝트 데이터베이스 초기화 실패 — 기부 프로젝트를 끕니다: " + e.getMessage());
+            return;
+        }
+        DonationService service = new DonationService(this, core, messages, repository, executor,
+                DonationService.settings(configSection("donation"), getLogger()), announcedUntil);
+        DonationCommand donationCommand = new DonationCommand(this, messages, service, executor, () -> {
+            reloadConfig();
+            return DonationService.settings(configSection("donation"), getLogger());
+        });
+        for (String name : List.of("기부", "기부관리")) {
+            var command = getCommand(name);
+            if (command != null) {
+                command.setExecutor(donationCommand);
+                command.setTabCompleter(donationCommand);
+            }
+        }
+        getServer().getPluginManager().registerEvents(donationCommand, this);
+        this.donation = service;
+        getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::tick), 20L * 30, 20L * 60);
+        getServer().getScheduler().runTaskTimer(this, () -> executor.execute(service::poll), 20L * 5, 20L * 20);
+        getServer().getScheduler().runTaskTimer(this, service::tickSecond, 20L, 20L);
+        getLogger().info("기부 프로젝트가 활성화되었습니다. 후보 " + service.settings().pool().size() + "개");
+    }
+
     private ConfigurationSection configSection(String path) {
         ConfigurationSection section = getConfig().getConfigurationSection(path);
         return section != null ? section : getConfig().createSection(path);
@@ -891,6 +932,9 @@ public final class YeowoolLife extends JavaPlugin {
         }
         if (surpriseEvents != null) {
             surpriseEvents.shutdown();
+        }
+        if (donation != null) {
+            donation.shutdown();
         }
         if (executor != null) {
             executor.shutdown();

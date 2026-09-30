@@ -1057,3 +1057,55 @@ fishing-orders:
   level-up-commands: {}   # 예: { "명인": ["칭호 지급 {player} 명인"] }
   exclude: [vanilla, stick, shoes, seagrass]   # 주문에 안 나올 CustomFishing id
   overrides: {}           # 예: { yw_tuna: { difficulty: hard, money-per-fish: 9000 } }
+
+# 기부 프로젝트 — 세 서버가 함께 아이템을 기부해 채우는 주간 공동 목표 (/기부, 관리 /기부관리).
+# start-day 00:00(서버 시간)에 새 프로젝트가 열려 duration-days일 뒤(기본 다음 주 같은 요일 00:00) 마감.
+# 다음 프로젝트는 /기부관리 예약으로 정한 것이 우선이고, 없으면 아래 pool에서 무작위(지난번과 다른 것).
+# 품목(item)은 바닐라 재료 이름(WHEAT) 또는 ItemsAdder id(네임스페이스:아이디). 바닐라는 새 아이템과 똑같은 것만 받음(이름·설명·인챈트·내구도 등 X).
+# 기부 점수 = 품목 points × 개수 (순위 기준), 기부 즉시 점수당 money-per-point온 지급(실패해도 헛수고 아님).
+# 모든 품목을 채우면: 전 서버 buff-hours시간 버프(pool의 buff, 없으면 buffs 순서대로 순환 — land_xp/crop_drop/job_xp 2배, treasure_drop 3배),
+#   점수 min-score 이상인 참여자 전원 별조각 participation-stardust, 그중 1·2·3위 rank-stardust 추가(순위 보상도 min-score 이상만),
+#   1위는 top-commands 실행({player}). top-commands는 정산한 서버 한 곳의 콘솔에서만 실행되므로
+#   세 서버에 다 적용되는 명령(예: LuckPerms처럼 DB를 공유하는 권한/칭호)만 쓰세요.
+# 세 서버 설정을 똑같이 맞춰주세요. 바꾼 뒤 /기부관리 리로드.
+donation:
+  enabled: true
+  start-day: MONDAY
+  duration-days: 7
+  buff-hours: 24
+  buffs: [land_xp, crop_drop, job_xp, treasure_drop]
+  money-per-point: 2
+  min-score: 100
+  participation-stardust: 5
+  rank-stardust: [30, 20, 10]
+  top-commands: []   # 예: ["lp user {player} permission settemp yeowool.title.donor true 7d"]
+  pool:
+    - name: 마을 창고 채우기
+      items:
+        - { item: WHEAT, amount: 50000, points: 1 }
+        - { item: IRON_INGOT, amount: 5000, points: 10 }
+        - { item: OAK_LOG, amount: 20000, points: 1 }
+    - name: 광산 보급 작전
+      items:
+        - { item: COAL, amount: 20000, points: 1 }
+        - { item: COPPER_INGOT, amount: 10000, points: 2 }
+        - { item: GOLD_INGOT, amount: 2000, points: 10 }
+        - { item: REDSTONE, amount: 10000, points: 1 }
+    - name: 겨울 식량 비축
+      items:
+        - { item: CARROT, amount: 30000, points: 1 }
+        - { item: POTATO, amount: 30000, points: 1 }
+        - { item: BREAD, amount: 5000, points: 3 }
+        - { item: COOKED_BEEF, amount: 3000, points: 5 }
+    - name: 새 다리 건설
+      items:
+        - { item: COBBLESTONE, amount: 50000, points: 1 }
+        - { item: SPRUCE_LOG, amount: 15000, points: 1 }
+        - { item: STONE_BRICKS, amount: 10000, points: 2 }
+        - { item: IRON_INGOT, amount: 3000, points: 10 }
+    - name: 목장 가꾸기
+      items:
+        - { item: LEATHER, amount: 5000, points: 3 }
+        - { item: WHITE_WOOL, amount: 8000, points: 2 }
+        - { item: EGG, amount: 5000, points: 1 }
+        - { item: SUGAR_CANE, amount: 20000, points: 1 }
