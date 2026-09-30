@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Shared (all three servers) 기부 프로젝트 rows. Every step that must happen once — starting a week's
@@ -45,6 +46,10 @@ public final class DonationRepository {
     public record Announcement(long id, String key, Map<String, String> args) {
     }
 
+    /** The staff reservation; {@code version} changes on every save, so starting it deletes only this exact one. */
+    public record Reservation(Candidate candidate, long version) {
+    }
+
     // active_lock is 1 while ACTIVE and NULL afterwards: its unique key allows only one running project,
     // and the unique starts_at stops the three servers starting the same week twice.
     private static final List<String> DDL = List.of("""
@@ -57,6 +62,7 @@ public final class DonationRepository {
                 buff VARCHAR(16) NOT NULL,
                 buff_ends_at BIGINT NOT NULL DEFAULT 0,
                 announced_pct INT NOT NULL DEFAULT 0,
+                last_donation_at BIGINT NOT NULL DEFAULT 0,
                 settled TINYINT(1) NOT NULL DEFAULT 0,
                 active_lock TINYINT(1) NULL,
                 UNIQUE KEY uk_starts_at (starts_at),
@@ -89,7 +95,8 @@ public final class DonationRepository {
                 item_key VARCHAR(128) NOT NULL,
                 display_item BLOB NULL,
                 target INT NOT NULL,
-                points INT NOT NULL
+                points INT NOT NULL,
+                version BIGINT NOT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """, """
             CREATE TABLE IF NOT EXISTS yw_donation_announcements (
@@ -167,10 +174,11 @@ public final class DonationRepository {
     }
 
     /**
-     * Starts {@code candidate} with its goals in one transaction, and — when it came from the reservation —
-     * clears the reservation in the same one. Empty if a project is running or this start already happened.
+     * Starts {@code candidate} with its goals in one transaction, and — when it came from the reservation
+     * ({@code reservationVersion} non-null) — deletes that reservation in the same one, unless staff saved a
+     * newer one meanwhile. Empty if a project is running or this start already happened.
      */
-    public OptionalInt start(Candidate candidate, SurpriseEventType buff, long startsAt, long endsAt, boolean fromSchedule)
+    public OptionalInt start(Candidate candidate, SurpriseEventType buff, long startsAt, long endsAt, Long reservationVersion)
             throws SQLException {
         return inTransaction(connection -> {
             int id;
@@ -205,9 +213,10 @@ public final class DonationRepository {
                 }
                 ps.executeBatch();
             }
-            if (fromSchedule) {
-                try (Statement statement = connection.createStatement()) {
-                    statement.executeUpdate("DELETE FROM yw_donation_schedule");
+            if (reservationVersion != null) {
+                try (PreparedStatement ps = connection.prepareStatement("DELETE FROM yw_donation_schedule WHERE version = ?")) {
+                    ps.setLong(1, reservationVersion);
+                    ps.executeUpdate();
                 }
             }
             return OptionalInt.of(id);
@@ -245,6 +254,11 @@ public final class DonationRepository {
             try (PreparedStatement ps = connection.prepareStatement(
                     "UPDATE yw_donation_goal SET progress = progress + ? WHERE project_id = ? AND slot = ?")) {
                 bind(ps, added, projectId, slot);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "UPDATE yw_donation_project SET last_donation_at = ? WHERE id = ?")) {
+                bind(ps, now, projectId);
                 ps.executeUpdate();
             }
             try (PreparedStatement ps = connection.prepareStatement(
@@ -288,12 +302,17 @@ public final class DonationRepository {
         }
     }
 
-    /** True only for the one caller that flips this running, fully donated project to DONE (its buff runs until {@code buffEndsAt}). */
-    public boolean markDone(int projectId, long buffEndsAt) throws SQLException {
+    /**
+     * True only for the one caller that flips this running, fully donated project to DONE (its buff runs until
+     * {@code buffEndsAt}). Only if its last donation was at or before {@code lastDonationBefore}, so a sweep can
+     * leave a donation that may still be undone alone ({@link Long#MAX_VALUE} = no such condition).
+     */
+    public boolean markDone(int projectId, long buffEndsAt, long lastDonationBefore) throws SQLException {
         return update("UPDATE yw_donation_project SET status = 'DONE', active_lock = NULL, buff_ends_at = ? "
-                + "WHERE id = ? AND status = 'ACTIVE' AND EXISTS (SELECT 1 FROM yw_donation_goal WHERE project_id = ?) "
+                + "WHERE id = ? AND status = 'ACTIVE' AND last_donation_at <= ? "
+                + "AND EXISTS (SELECT 1 FROM yw_donation_goal WHERE project_id = ?) "
                 + "AND NOT EXISTS (SELECT 1 FROM yw_donation_goal WHERE project_id = ? AND progress < target)",
-                buffEndsAt, projectId, projectId, projectId) == 1;
+                buffEndsAt, projectId, lastDonationBefore, projectId, projectId) == 1;
     }
 
     /** True only for the one caller that flips this running project to FAILED; unless {@code evenIfFull}, a full one is left for {@link #markDone}. */
@@ -362,20 +381,22 @@ public final class DonationRepository {
 
     // ---- reservation (/기부관리 예약) ----
 
-    public Optional<Candidate> schedule() throws SQLException {
+    public Optional<Reservation> schedule() throws SQLException {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(
-                     "SELECT name, buff, item_key, display_item, target, points FROM yw_donation_schedule ORDER BY slot");
+                     "SELECT name, buff, item_key, display_item, target, points, version FROM yw_donation_schedule ORDER BY slot");
              ResultSet rs = ps.executeQuery()) {
             String name = null;
             SurpriseEventType buff = null;
+            long version = 0;
             List<GoalSpec> goals = new ArrayList<>();
             while (rs.next()) {
+                version = rs.getLong(7);
                 name = rs.getString(1);
                 buff = SurpriseEventType.byKey(rs.getString(2)).orElse(null);
                 goals.add(new GoalSpec(rs.getString(3), rs.getBytes(4), rs.getInt(5), rs.getInt(6)));
             }
-            return goals.isEmpty() ? Optional.empty() : Optional.of(new Candidate(name, buff, goals));
+            return goals.isEmpty() ? Optional.empty() : Optional.of(new Reservation(new Candidate(name, buff, goals), version));
         }
     }
 
@@ -389,7 +410,9 @@ public final class DonationRepository {
                 return null;
             }
             try (PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO yw_donation_schedule (slot, name, buff, item_key, display_item, target, points) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                    "INSERT INTO yw_donation_schedule (slot, name, buff, item_key, display_item, target, points, version) "
+                            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
+                long version = ThreadLocalRandom.current().nextLong();
                 for (int slot = 0; slot < candidate.goals().size(); slot++) {
                     GoalSpec goal = candidate.goals().get(slot);
                     ps.setInt(1, slot);
@@ -399,6 +422,7 @@ public final class DonationRepository {
                     ps.setBytes(5, goal.display());
                     ps.setInt(6, goal.target());
                     ps.setInt(7, goal.points());
+                    ps.setLong(8, version);
                     ps.addBatch();
                 }
                 ps.executeBatch();

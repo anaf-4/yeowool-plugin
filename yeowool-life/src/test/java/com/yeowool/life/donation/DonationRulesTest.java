@@ -129,8 +129,8 @@ class DonationRulesTest {
                 new Contribution(UUID.randomUUID(), "fourth", 100),
                 new Contribution(UUID.randomUUID(), "fifth", 99));
         assertEquals(List.of(35L, 25L, 15L, 5L, 0L), DonationRules.rewards(ranked, 100, 5, List.of(30L, 20L, 10L)));
-        // below min-score still keeps a rank bonus
-        assertEquals(List.of(35L, 20L, 10L, 0L, 0L), DonationRules.rewards(ranked, 1000, 5, List.of(30L, 20L, 10L)));
+        // a rank bonus also needs min-score: 2nd and 3rd are below 1000, so they get nothing
+        assertEquals(List.of(35L, 0L, 0L, 0L, 0L), DonationRules.rewards(ranked, 1000, 5, List.of(30L, 20L, 10L)));
     }
 
     @Test

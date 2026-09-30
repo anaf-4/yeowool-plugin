@@ -104,8 +104,9 @@ public final class DonationCommand implements CommandExecutor, TabCompleter, Lis
             messages.send(sender, "general.player-only");
             return;
         }
+        prompts.remove(player.getUniqueId()); // a prompt left from an earlier editor must not write into this one
         async(sender, () -> {
-            Optional<Candidate> existing = service.repository().schedule();
+            Optional<Candidate> existing = service.repository().schedule().map(DonationRepository.Reservation::candidate);
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (player.isOnline()) {
                     new DonationEditGui(messages, this::ask, this::save, existing.orElse(null)).open(player);
@@ -142,8 +143,13 @@ public final class DonationCommand implements CommandExecutor, TabCompleter, Lis
     public void onChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
         Prompt prompt = prompts.remove(player.getUniqueId());
-        if (prompt == null || System.currentTimeMillis() - prompt.createdAt() > PROMPT_TTL_MILLIS) {
-            return; // none, or a forgotten one — let the chat line through
+        if (prompt == null) {
+            return;
+        }
+        if (System.currentTimeMillis() - prompt.createdAt() > PROMPT_TTL_MILLIS) {
+            // a forgotten one — let the chat line through, but say the unsaved draft is gone
+            Bukkit.getScheduler().runTask(plugin, () -> messages.send(player, "donation.admin.prompt-expired"));
+            return;
         }
         event.setCancelled(true);
         String raw = PlainTextComponentSerializer.plainText().serialize(event.message()).trim();

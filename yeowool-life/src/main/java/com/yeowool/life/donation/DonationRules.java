@@ -86,17 +86,14 @@ public final class DonationRules {
 
     /**
      * 별조각 per contributor ({@code ranked}: most points first): {@code participation} for at least
-     * {@code minScore} points, plus {@code rankStardust[i]} for rank {@code i + 1}.
+     * {@code minScore} points, plus {@code rankStardust[i]} for rank {@code i + 1} — also only at {@code minScore} or more.
      */
     public static List<Long> rewards(List<Contribution> ranked, long minScore, long participation, List<Long> rankStardust) {
         List<Long> rewards = new ArrayList<>();
         for (int i = 0; i < ranked.size(); i++) {
             Contribution contribution = ranked.get(i);
-            long reward = contribution.points() > 0 && contribution.points() >= minScore ? participation : 0;
-            if (i < rankStardust.size()) {
-                reward += rankStardust.get(i);
-            }
-            rewards.add(reward);
+            boolean qualifies = contribution.points() > 0 && contribution.points() >= minScore;
+            rewards.add(!qualifies ? 0 : participation + (i < rankStardust.size() ? rankStardust.get(i) : 0));
         }
         return rewards;
     }

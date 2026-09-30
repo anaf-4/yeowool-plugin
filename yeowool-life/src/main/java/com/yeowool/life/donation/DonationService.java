@@ -28,13 +28,14 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.IllegalPluginAccessException;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.SQLException;
 import java.time.DayOfWeek;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -71,6 +72,10 @@ public final class DonationService {
     private static final String BUFF_SOURCE = "donation";
     private static final int STORAGE_SLOTS = 36;
     private static final long BOSS_BAR_MILLIS = 60_000;
+    /** How long after the last donation the minute sweep may complete a full project itself. */
+    private static final long QUIET_MILLIS = 10_000;
+    /** Announcement ids re-read below the cursor, so a row that landed out of id order isn't skipped. */
+    private static final long ANNOUNCE_WINDOW = 50;
 
     private final JavaPlugin plugin;
     private final YeowoolCoreAPI core;
@@ -80,6 +85,15 @@ public final class DonationService {
     private final Random random = new Random();
     private volatile Settings settings;
     private volatile long announcedUntilId;
+    /** Ids at or below this existed before startup and are never broadcast. */
+    private final long announceFloor;
+    /** Recently broadcast ids (bounded); only touched by {@link #poll}, which never runs twice at once. */
+    private final Set<Long> announced = Collections.newSetFromMap(new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Long, Boolean> eldest) {
+            return size() > 1_000;
+        }
+    });
     private final AtomicBoolean ticking = new AtomicBoolean();
     private final AtomicBoolean polling = new AtomicBoolean();
     private volatile boolean warnedEmptyPool;
@@ -101,6 +115,7 @@ public final class DonationService {
         this.executor = executor;
         this.settings = settings;
         this.announcedUntilId = announcedUntilId;
+        this.announceFloor = announcedUntilId;
     }
 
     public Settings settings() {
@@ -124,7 +139,8 @@ public final class DonationService {
 
     /**
      * The goal key an inventory item counts for: an ItemsAdder item's namespaced id, else the Material name
-     * for a plain vanilla item. Null for air and for vanilla items with a custom name or lore (renamed items).
+     * for a plain vanilla item. Null for air and for any vanilla item that differs from a fresh one of its type
+     * (renamed, lore, enchanted, damaged, filled shulker, plugin data...).
      */
     static String keyOf(ItemStack stack) {
         if (stack == null || stack.getType().isAir()) {
@@ -136,11 +152,7 @@ public final class DonationService {
                 return custom.getNamespacedID();
             }
         }
-        ItemMeta meta = stack.getItemMeta();
-        if (meta != null && (meta.hasDisplayName() || meta.hasLore())) {
-            return null;
-        }
-        return stack.getType().name();
+        return stack.isSimilar(new ItemStack(stack.getType())) ? stack.getType().name() : null;
     }
 
     /** A fresh icon for a goal: its stored display item, else built from the key; a barrier if neither works. */
@@ -265,40 +277,51 @@ public final class DonationService {
         gui.showBusy(guiSlot);
         String name = player.getName();
         executor.execute(() -> {
-            Optional<Add> result;
+            if (!plugin.isEnabled()) {
+                return; // shutting down: the items could never be taken, so don't count them
+            }
+            Add add = null;
             try {
                 // clamped to what's left right now — the other servers fill the same goals
-                result = repository.addProgress(project.id(), goal.slot(), goal.itemKey(), uuid, name, amount, System.currentTimeMillis());
+                Optional<Add> result = repository.addProgress(project.id(), goal.slot(), goal.itemKey(), uuid, name, amount,
+                        System.currentTimeMillis());
+                if (result.isEmpty()) {
+                    finish(uuid, "donation.ended");
+                    return;
+                }
+                if (result.get().added() == 0) {
+                    finish(uuid, "donation.goal-full-now");
+                    return;
+                }
+                Add added = result.get();
+                add = added;
+                if (!tryRunMain(() -> guarded(uuid, () -> takeItems(uuid, project, goal, added)))) {
+                    undo(uuid, project, goal, added); // no main thread any more — the items stay with the player
+                }
             } catch (SQLException | RuntimeException e) {
                 plugin.getLogger().log(Level.SEVERE, "기부 처리 실패 (" + uuid + ")", e);
+                if (add != null) {
+                    undo(uuid, project, goal, add);
+                }
                 finish(uuid, "donation.error");
-                return;
             }
-            if (result.isEmpty()) {
-                finish(uuid, "donation.ended");
-                return;
-            }
-            Add add = result.get();
-            if (add.added() == 0) {
-                finish(uuid, "donation.goal-full-now");
-                return;
-            }
-            runMain(() -> guarded(uuid, () -> takeItems(uuid, project, goal, add)),
-                    "기부 " + uuid + " #" + project.id() + " " + goal.itemKey() + " ×" + add.added());
         });
+    }
+
+    /** Worker: takes back a donation's progress and score whose items were never taken. */
+    private void undo(UUID uuid, Project project, Goal goal, Add add) {
+        try {
+            repository.undoProgress(project.id(), goal.slot(), uuid, add.added(), add.points());
+        } catch (SQLException | RuntimeException e) {
+            plugin.getLogger().log(Level.SEVERE, "기부 되돌리기 실패 — 수동 확인 필요: " + uuid + " #" + project.id()
+                    + " 슬롯 " + goal.slot() + " -" + add.added(), e);
+        }
     }
 
     private void takeItems(UUID uuid, Project project, Goal goal, Add add) {
         Player player = Bukkit.getPlayer(uuid);
         if (player == null || !take(player.getInventory(), goal.itemKey(), add.added())) {
-            executor.execute(() -> {
-                try {
-                    repository.undoProgress(project.id(), goal.slot(), uuid, add.added(), add.points());
-                } catch (SQLException | RuntimeException e) {
-                    plugin.getLogger().log(Level.SEVERE, "기부 되돌리기 실패 — 수동 확인 필요: " + uuid + " #" + project.id()
-                            + " 슬롯 " + goal.slot() + " -" + add.added(), e);
-                }
-            });
+            executor.execute(() -> undo(uuid, project, goal, add));
             finishNow(uuid, "donation.items-gone");
             return;
         }
@@ -342,15 +365,20 @@ public final class DonationService {
                     Map.of("project", project.name(), "percent", String.valueOf(milestone.getAsInt())));
         }
         if (DonationRules.allComplete(goals)) {
-            achieve(project.id());
+            achieve(project.id(), Long.MAX_VALUE); // this donation's items are already taken
         }
     }
 
-    /** Worker: flips a full project to DONE (starting its buff) and settles it — both once. */
-    private void achieve(int projectId) throws SQLException {
-        if (repository.markDone(projectId, System.currentTimeMillis() + settings.buffHours() * 3_600_000L)) {
-            settle(projectId);
+    /**
+     * Worker: flips a full project to DONE (starting its buff) and settles it — both once — if its last
+     * donation was at or before {@code lastDonationBefore}. True if this call completed it.
+     */
+    private boolean achieve(int projectId, long lastDonationBefore) throws SQLException {
+        if (!repository.markDone(projectId, System.currentTimeMillis() + settings.buffHours() * 3_600_000L, lastDonationBefore)) {
+            return false;
         }
+        settle(projectId);
+        return true;
     }
 
     // ---- schedule (worker, every minute on every server) ----
@@ -361,9 +389,10 @@ public final class DonationService {
         }
         try {
             long now = System.currentTimeMillis();
-            // ponytail: a donation that just filled the last goal but hasn't confirmed its items can be flipped DONE here and then undone; sub-second window.
+            // a fill whose afterDonation never ran (crash, DB hiccup) is caught here — but only once donations have been
+            // quiet for a while, so progress that may still be undone (items not taken yet) never completes a project
             for (Project project : repository.activeProjects()) {
-                achieve(project.id());
+                achieve(project.id(), now - QUIET_MILLIS);
                 if (project.endsAt() <= now && repository.markFailed(project.id(), false)) {
                     announceFailed(project.id(), project.name());
                 }
@@ -403,9 +432,9 @@ public final class DonationService {
 
     private StartResult startProject(String poolName, long startsAt, long endsAt) throws SQLException {
         Settings s = settings;
-        Optional<Candidate> scheduled = poolName == null ? repository.schedule() : Optional.empty();
+        Optional<DonationRepository.Reservation> scheduled = poolName == null ? repository.schedule() : Optional.empty();
         Optional<Project> latest = repository.latest();
-        Optional<Candidate> candidate = scheduled.isPresent() ? scheduled
+        Optional<Candidate> candidate = scheduled.isPresent() ? scheduled.map(DonationRepository.Reservation::candidate)
                 : poolName != null ? s.pool().stream().filter(c -> c.name().equals(poolName)).findFirst()
                 : DonationRules.pick(random, s.pool(), latest.map(Project::name).orElse(null));
         if (candidate.isEmpty()) {
@@ -418,7 +447,7 @@ public final class DonationService {
         Candidate c = candidate.get();
         SurpriseEventType buff = c.buff() != null ? c.buff()
                 : DonationRules.nextBuff(s.buffOrder(), latest.map(Project::buff).orElse(null));
-        if (repository.start(c, buff, startsAt, endsAt, scheduled.isPresent()).isEmpty()) {
+        if (repository.start(c, buff, startsAt, endsAt, scheduled.map(DonationRepository.Reservation::version).orElse(null)).isEmpty()) {
             return StartResult.ALREADY_ACTIVE;
         }
         StringBuilder items = new StringBuilder();
@@ -431,10 +460,16 @@ public final class DonationService {
         return StartResult.STARTED;
     }
 
-    /** Worker, staff 종료: fails the running project; false if none was running. */
+    /** Worker, staff 종료: a full project is completed instead; otherwise fails it. False if none was running. */
     boolean forceEnd() throws SQLException {
         Optional<Project> project = repository.active();
-        if (project.isEmpty() || !repository.markFailed(project.get().id(), true)) {
+        if (project.isEmpty()) {
+            return false;
+        }
+        if (achieve(project.get().id(), Long.MAX_VALUE)) {
+            return true;
+        }
+        if (!repository.markFailed(project.get().id(), true)) {
             return false;
         }
         announceFailed(project.get().id(), project.get().name());
@@ -485,9 +520,14 @@ public final class DonationService {
             return; // previous poll still running (slow DB) — don't broadcast the same rows twice
         }
         try {
-            List<DonationRepository.Announcement> announcements = repository.announcementsAfter(announcedUntilId);
-            if (!announcements.isEmpty()) {
-                announcedUntilId = announcements.get(announcements.size() - 1).id();
+            // re-read a window below the cursor: an id handed out earlier may become visible after a later one
+            List<DonationRepository.Announcement> announcements = new ArrayList<>();
+            for (DonationRepository.Announcement announcement
+                    : repository.announcementsAfter(Math.max(announceFloor, announcedUntilId - ANNOUNCE_WINDOW))) {
+                if (announced.add(announcement.id())) {
+                    announcements.add(announcement);
+                }
+                announcedUntilId = Math.max(announcedUntilId, announcement.id());
             }
             Project project = repository.active().orElse(null);
             Map<SurpriseEventType, Long> buffs = repository.activeBuffs(System.currentTimeMillis());
@@ -672,6 +712,19 @@ public final class DonationService {
 
     void reply(CommandSender sender, String key, TagResolver... placeholders) {
         runMain(() -> messages.send(sender, key, placeholders), null);
+    }
+
+    /** Schedules on the main thread; false (not scheduled) while the plugin is disabling. */
+    private boolean tryRunMain(Runnable task) {
+        if (!plugin.isEnabled()) {
+            return false;
+        }
+        try {
+            Bukkit.getScheduler().runTask(plugin, task);
+            return true;
+        } catch (IllegalPluginAccessException e) {
+            return false; // disabled between the check and the call
+        }
     }
 
     /** Schedules on the main thread; while the plugin is disabling, logs {@code lostWork} (if given) for manual follow-up instead. */

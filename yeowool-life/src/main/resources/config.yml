@@ -1061,10 +1061,12 @@ fishing-orders:
 # 기부 프로젝트 — 세 서버가 함께 아이템을 기부해 채우는 주간 공동 목표 (/기부, 관리 /기부관리).
 # start-day 00:00(서버 시간)에 새 프로젝트가 열려 duration-days일 뒤(기본 다음 주 같은 요일 00:00) 마감.
 # 다음 프로젝트는 /기부관리 예약으로 정한 것이 우선이고, 없으면 아래 pool에서 무작위(지난번과 다른 것).
-# 품목(item)은 바닐라 재료 이름(WHEAT) 또는 ItemsAdder id(네임스페이스:아이디). 이름·설명이 붙은 바닐라 아이템은 받지 않음.
+# 품목(item)은 바닐라 재료 이름(WHEAT) 또는 ItemsAdder id(네임스페이스:아이디). 바닐라는 새 아이템과 똑같은 것만 받음(이름·설명·인챈트·내구도 등 X).
 # 기부 점수 = 품목 points × 개수 (순위 기준), 기부 즉시 점수당 money-per-point온 지급(실패해도 헛수고 아님).
 # 모든 품목을 채우면: 전 서버 buff-hours시간 버프(pool의 buff, 없으면 buffs 순서대로 순환 — land_xp/crop_drop/job_xp 2배, treasure_drop 3배),
-#   점수 min-score 이상인 참여자 전원 별조각 participation-stardust, 1·2·3위 rank-stardust 추가, 1위는 top-commands 실행({player}).
+#   점수 min-score 이상인 참여자 전원 별조각 participation-stardust, 그중 1·2·3위 rank-stardust 추가(순위 보상도 min-score 이상만),
+#   1위는 top-commands 실행({player}). top-commands는 정산한 서버 한 곳의 콘솔에서만 실행되므로
+#   세 서버에 다 적용되는 명령(예: LuckPerms처럼 DB를 공유하는 권한/칭호)만 쓰세요.
 # 세 서버 설정을 똑같이 맞춰주세요. 바꾼 뒤 /기부관리 리로드.
 donation:
   enabled: true

@@ -171,7 +171,7 @@ final class DonationEditGui extends YeowoolGui {
                 line("내 인벤토리에서 아이템을 집어 칸 클릭: 품목 추가/바꾸기", NamedTextColor.GRAY),
                 line("품목 좌클릭: 목표 수량 입력, 우클릭: 1개당 점수 입력, Q: 삭제", NamedTextColor.GRAY),
                 line("아이템은 복사만 되고 가져가지 않습니다", NamedTextColor.GRAY),
-                line("이름·설명이 붙은 바닐라 아이템은 품목이 될 수 없습니다", NamedTextColor.GRAY))));
+                line("바닐라는 새 아이템 그대로만 가능 (이름·설명·인챈트·내구도 X)", NamedTextColor.GRAY))));
         for (int i = 0; i < MAX_GOALS; i++) {
             if (i < goals.size()) {
                 GoalSpec goal = goals.get(i);
