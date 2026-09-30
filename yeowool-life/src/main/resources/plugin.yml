@@ -50,6 +50,8 @@ commands:
     description: 이번 주 기부 프로젝트(세 서버 공동 목표) 창을 엽니다 - /기부 순위로 기여 순위 확인
   기부관리:
     description: 관리진 전용 - 기부 프로젝트 예약(다음 프로젝트 편집)/시작/종료/리로드
+  대장간관리:
+    description: 관리진 전용 - 대장간 NPC 연결, 대장간 열기, 판타지 금속 원석/주괴 지급, metals.yml 리로드
 
 permissions:
   yeowool.life.treasure.manage:
@@ -66,4 +68,6 @@ permissions:
     default: op
   yeowool.life.donation.manage:
     description: 기부 프로젝트 관리 (/기부관리)
+  yeowool.life.smithy.manage:
+    description: 대장간 관리 (/대장간관리)
     default: op
